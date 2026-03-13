@@ -1,0 +1,17 @@
+{
+  "name": "barryguard-extension",
+  "version": "1.0.0",
+  "description": "Browser extension for BarryGuard - Solana token scam detection",
+  "type": "module",
+  "scripts": {
+    "dev": "tsc --watch",
+    "build": "tsc && node scripts/build.js",
+    "test": "vitest"
+  },
+  "dependencies": {},
+  "devDependencies": {
+    "@types/chrome": "^0.0.268",
+    "typescript": "^5.4.0",
+    "vitest": "^1.3.0"
+  }
+}
