@@ -1,84 +1,73 @@
 <div align="center">
   <img src="logo.jpg" alt="BarryGuard Logo" width="200"/>
-  
-  # 🛡️ BarryGuard
-  
-  **AI-Powered Solana Token Risk Analyzer**
-  
+
+  # BarryGuard
+
+  **Solana Token Risk Analyzer**
+
   [![Chrome Web Store](https://img.shields.io/badge/Chrome%20Web%20Store-Coming%20Soon-orange)](https://chrome.google.com/webstore)
-  
+
   *Protect yourself from rug pulls and scam tokens on Pump.fun*
-
-  [Website](https://barryguard.com)
-
 </div>
 
 ---
 
-## 🚀 What is BarryGuard?
+## What is BarryGuard?
 
-BarryGuard is a browser extension that analyzes Solana tokens in real-time and provides instant risk scores. Think of it as an "ad blocker for scams" — a passive protection layer that runs in the background while you trade memecoins on Pump.fun.
-
-### Why "Barry"?
-
-Barry was the most famous bear in Switzerland. Just like Barry protected his territory, BarryGuard protects your wallet from malicious tokens.
+BarryGuard is a browser extension that analyzes Solana tokens in real-time and provides instant risk scores. Named after Barry, a well-known Solana developer, BarryGuard helps traders avoid rug pulls and malicious tokens on Pump.fun.
 
 ---
 
-## ✨ Features
+## Features
 
-### 🔍 Instant Token Analysis
+### Instant Token Analysis
 - **One-click risk scoring** (0-100) for any Solana token
 - **6 critical security checks:**
-  - ✅ Mint Authority
-  - ✅ Freeze Authority  
-  - ✅ Liquidity Lock
-  - ✅ Top Holder Concentration
-  - ✅ Token Age
-  - ✅ Holder Count
+  - Mint Authority
+  - Freeze Authority
+  - Liquidity Lock
+  - Top Holder Concentration
+  - Token Age
+  - Holder Count
 
-### 🎯 Visual Risk Indicators
+### Visual Risk Indicators
 - **Green Badge** (61-100): Low risk
 - **Yellow Badge** (31-60): Medium risk
 - **Red Badge** (0-30): High risk
 
-### 💳 Flexible Pricing
+### Flexible Pricing
 | Feature | Free | Rescue Pass | Pro |
 |---------|------|-------------|-----|
-| Basic Score | ✅ | ✅ | ✅ |
+| Basic Score | Yes | Yes | Yes |
 | Risk Checks | 3 of 6 | All 6 | All 6 + AI |
 | Rate Limit | 30/hour | 200/hour | 1000/hour |
 
 ---
 
-## 🚀 Installation
+## Installation
 
 ### From Chrome Web Store
-*Coming Soon*
+Coming Soon
 
 ### Manual Installation (Developer)
 
+Clone and build:
 ```bash
-# Clone the repository
 git clone https://github.com/ZivCore/BarryGuard-Extension.git
 cd BarryGuard-Extension
-
-# Install dependencies
 pnpm install
-
-# Build extension
 pnpm wxt build
-
-# Load in Chrome:
-# 1. Open chrome://extensions
-# 2. Enable "Developer mode"
-# 3. Click "Load unpacked"
-# 4. Select the `dist-extension/chrome-mv3/` folder
 ```
+
+Load in Chrome:
+1. Open chrome://extensions
+2. Enable "Developer mode"
+3. Click "Load unpacked"
+4. Select the `dist-extension/chrome-mv3/` folder
 
 ---
 
-## 🛠️ Development
+## Development
 
 ```bash
 # Install dependencies
@@ -96,7 +85,7 @@ pnpm wxt build --zip
 
 ---
 
-## 🔌 API
+## API
 
 The extension communicates with:
 ```
@@ -104,14 +93,14 @@ https://barryguard.com/api
 ```
 
 **Endpoints:**
-- `POST /api/analyze` - Analyze token
-- `GET /api/token/{address}` - Get cached score
-- `POST /api/auth/*` - Authentication
-- `GET /api/user/tier` - Get subscription tier
+- POST /api/analyze - Analyze token
+- GET /api/token/{address} - Get cached score
+- POST /api/auth/* - Authentication
+- GET /api/user/tier - Get subscription tier
 
 ---
 
-## 📁 Project Structure
+## Project Structure
 
 ```
 BarryGuard-Extension/
@@ -127,33 +116,24 @@ BarryGuard-Extension/
 
 ---
 
-## 🔒 Privacy
+## Privacy
 
-- **No Wallet Data** — We never store your private keys
-- **No Tracking** — We don't track your browsing
-- **Open Source** — Full transparency
-
----
-
+- **No Wallet Data** - We never store your private keys
+- **No Tracking** - We don't track your browsing
+- **Open Source** - Full transparency
 
 ---
 
-## 📜 License
+## License
 
 Source-available for transparency only.
 This code is public to allow inspection and security review.
 No permission is granted to use, copy, modify, or redistribute this software.
 
-
-
 ---
 
 <div align="center">
-  
-  **Made with 🐻 in Switzerland**
-  
-  
 
-  [Website](https://barryguard.com)
+[Website](https://barryguard.com)
 
 </div>
