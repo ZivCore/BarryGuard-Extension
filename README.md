@@ -6,7 +6,6 @@
   **AI-Powered Solana Token Risk Analyzer**
   
   [![Chrome Web Store](https://img.shields.io/badge/Chrome%20Web%20Store-Coming%20Soon-orange)](https://chrome.google.com/webstore)
-  [![License](https://img.shields.io/badge/License-MIT-blue.svg)](LICENSE)
   
   *Protect yourself from rug pulls and scam tokens on Pump.fun*
 </div>
@@ -142,6 +141,10 @@ BarryGuard-Extension/
 ---
 
 ## 📜 License
+
+Source-available for transparency only.
+This code is public to allow inspection and security review.
+No permission is granted to use, copy, modify, or redistribute this software.
 
 MIT License — see [LICENSE](LICENSE)
 
