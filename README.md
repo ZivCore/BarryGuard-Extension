@@ -8,6 +8,9 @@
   [![Chrome Web Store](https://img.shields.io/badge/Chrome%20Web%20Store-Coming%20Soon-orange)](https://chrome.google.com/webstore)
   
   *Protect yourself from rug pulls and scam tokens on Pump.fun*
+
+  [Website](https://barryguard.com)
+
 </div>
 
 ---
@@ -150,4 +153,7 @@ No permission is granted to use, copy, modify, or redistribute this software.
   **Made with 🐻 in Switzerland**
   
   
+
+  [Website](https://barryguard.com)
+
 </div>
