@@ -154,6 +154,5 @@ No permission is granted to use, copy, modify, or redistribute this software.
   
   **Made with 🐻 in Switzerland**
   
-  [Website](https://barryguard.com) • [Twitter](https://twitter.com/barryguard)
   
 </div>
