@@ -146,7 +146,7 @@ Source-available for transparency only.
 This code is public to allow inspection and security review.
 No permission is granted to use, copy, modify, or redistribute this software.
 
-MIT License — see [LICENSE](LICENSE)
+
 
 ---
 
