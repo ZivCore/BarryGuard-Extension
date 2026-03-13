@@ -132,11 +132,6 @@ BarryGuard-Extension/
 
 ---
 
-## 🐻 The Barry Story
-
-> *"In the wild west of memecoins, one bear stands guard."*
-
-**Remember:** BarryGuard is a tool, not financial advice. Always DYOR!
 
 ---
 
