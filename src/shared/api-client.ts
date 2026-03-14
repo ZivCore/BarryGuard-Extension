@@ -1,0 +1,98 @@
+// src/shared/api-client.ts
+import type { ApiResponse, AuthToken, TokenScore, UserProfile } from './types';
+
+const BASE_URL = 'https://barryguard.com/api';
+
+export class BarryGuardApiClient {
+  private authToken: AuthToken | null = null;
+
+  setAuthToken(token: AuthToken): void {
+    this.authToken = token;
+  }
+
+  getAuthToken(): AuthToken | null {
+    return this.authToken;
+  }
+
+  clearAuthToken(): void {
+    this.authToken = null;
+  }
+
+  private async request<T>(path: string, options: RequestInit = {}): Promise<ApiResponse<T>> {
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+      ...(options.headers as Record<string, string>),
+    };
+    if (this.authToken) {
+      headers['Authorization'] = `Bearer ${this.authToken.access_token}`;
+    }
+
+    try {
+      const res = await fetch(`${BASE_URL}${path}`, { ...options, headers });
+      if (res.ok) return { success: true, data: await res.json() as T };
+      const err = await res.json().catch(() => ({ message: `HTTP ${res.status}` }));
+      return { success: false, error: (err as { message?: string }).message ?? `HTTP ${res.status}` };
+    } catch (e) {
+      return { success: false, error: e instanceof Error ? e.message : 'Network error' };
+    }
+  }
+
+  analyzeToken(address: string, chain = 'solana'): Promise<ApiResponse<TokenScore>> {
+    return this.request<TokenScore>('/analyze', {
+      method: 'POST',
+      body: JSON.stringify({ address, chain }),
+    });
+  }
+
+  getTokenScore(address: string, chain = 'solana'): Promise<ApiResponse<TokenScore>> {
+    return this.request<TokenScore>(`/token/${address}?chain=${chain}`);
+  }
+
+  getUserTier(): Promise<ApiResponse<UserProfile>> {
+    return this.request<UserProfile>('/user/tier');
+  }
+
+  async login(email: string, password: string): Promise<ApiResponse<{ token: AuthToken; user: UserProfile }>> {
+    const res = await this.request<{ token: AuthToken; user: UserProfile }>('/auth/login', {
+      method: 'POST',
+      body: JSON.stringify({ email, password }),
+    });
+    if (res.success && res.data) this.authToken = res.data.token;
+    return res;
+  }
+
+  async register(email: string, password: string): Promise<ApiResponse<{ token: AuthToken; user: UserProfile }>> {
+    const res = await this.request<{ token: AuthToken; user: UserProfile }>('/auth/register', {
+      method: 'POST',
+      body: JSON.stringify({ email, password }),
+    });
+    if (res.success && res.data) this.authToken = res.data.token;
+    return res;
+  }
+
+  oauthLogin(provider: string): Promise<ApiResponse<{ url: string }>> {
+    return this.request<{ url: string }>(`/auth/oauth/${provider}`, { method: 'POST' });
+  }
+
+  async logout(): Promise<ApiResponse<void>> {
+    const res = await this.request<void>('/auth/logout', { method: 'POST' });
+    this.authToken = null;
+    return res;
+  }
+
+  async validateSession(): Promise<ApiResponse<UserProfile>> {
+    return this.request<UserProfile>('/auth/session', { method: 'POST' });
+  }
+
+  async refreshToken(): Promise<ApiResponse<AuthToken>> {
+    if (!this.authToken?.refresh_token) return { success: false, error: 'No refresh token' };
+    const res = await this.request<AuthToken>('/auth/refresh', {
+      method: 'POST',
+      body: JSON.stringify({ refresh_token: this.authToken.refresh_token }),
+    });
+    if (res.success && res.data) this.authToken = res.data;
+    return res;
+  }
+}
+
+export const apiClient = new BarryGuardApiClient();
