@@ -971,20 +971,31 @@ function sendMessage<T>(message: RuntimeMessage, timeoutMs = 2500): Promise<ApiR
   });
 }
 
-async function loadUserProfile(): Promise<void> {
+async function loadUserProfile(): Promise<boolean> {
   const response = await sendMessage<UserProfile>({ type: 'GET_USER_TIER' });
   if (!response.success || !response.data) {
     state.isLoggedIn = false;
     state.userProfile = null;
     applyPlanBranding();
     renderUsageIndicator();
-    return;
+    return false;
   }
 
   state.isLoggedIn = true;
   state.userProfile = response.data;
   applyPlanBranding();
   renderUsageIndicator();
+  return true;
+}
+
+async function handleAccountOpen(): Promise<void> {
+  if (!state.isLoggedIn) {
+    showScreen('login');
+    return;
+  }
+
+  await loadUserProfile();
+  showScreen(state.isLoggedIn ? 'account' : 'login');
 }
 
 async function loadUsageState(): Promise<void> {
@@ -1224,7 +1235,7 @@ function setupEventListeners(): void {
   });
 
   elements.tokenDetail.accountBtn?.addEventListener('click', () => {
-    showScreen(state.isLoggedIn ? 'account' : 'login');
+    void handleAccountOpen();
   });
 
   elements.tokenDetail.upgradeBtn?.addEventListener('click', () => {

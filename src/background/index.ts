@@ -543,24 +543,46 @@ export function initializeBackground(): void {
             respond(await openPopupForToken(message.payload as SelectedToken));
             break;
           case 'GET_USER_TIER': {
-            const profile = await getStoredProfile();
-            if (profile?.capabilities && typeof profile.listRequestLimit === 'number') {
-              await syncHourlyUsageState(profile);
-              respond({ success: true, data: normalizeProfile(profile) });
+            const storedToken = await getStoredToken();
+            if (storedToken) {
+              api.setAuthToken(storedToken);
+              const result = await loadProfileFromApi();
+              if (result.success && result.data) {
+                const normalizedProfile = normalizeProfile(result.data);
+                await chrome.storage.local.set({ [PROFILE_KEY]: normalizedProfile });
+                await syncHourlyUsageState(normalizedProfile);
+                await updateActionIcon(normalizedProfile);
+                respond({ success: true, data: normalizedProfile });
+                break;
+              }
+
+              const storedProfile = await getStoredProfile();
+              if (storedProfile && !result.statusCode) {
+                const normalizedStoredProfile = normalizeProfile(storedProfile);
+                await syncHourlyUsageState(normalizedStoredProfile);
+                await updateActionIcon(normalizedStoredProfile);
+                respond({ success: true, data: normalizedStoredProfile });
+                break;
+              }
+
+              await chrome.storage.local.remove([AUTH_KEY, PROFILE_KEY, HOURLY_USAGE_KEY]);
+              api.clearAuthToken();
+              await syncHourlyUsageState(null);
+              await updateActionIcon(null);
+              respond(mapApiFailure(result));
               break;
             }
 
-            const result = await api.getUserTier();
-            if (result.success && result.data) {
-              const normalizedProfile = normalizeProfile(result.data);
-              await chrome.storage.local.set({ [PROFILE_KEY]: normalizedProfile });
+            const profile = await getStoredProfile();
+            if (profile?.capabilities && typeof profile.listRequestLimit === 'number') {
+              const normalizedProfile = normalizeProfile(profile);
               await syncHourlyUsageState(normalizedProfile);
               await updateActionIcon(normalizedProfile);
               respond({ success: true, data: normalizedProfile });
               break;
             }
 
-            respond(mapApiFailure(result));
+            respond({ success: false, error: 'No active session.' });
             break;
           }
           case 'LOGIN': {
