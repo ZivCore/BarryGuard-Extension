@@ -204,18 +204,6 @@ export function initializeContentScript(): void {
     scanAll();
   }
 
-  const originalPushState = history.pushState.bind(history);
-  history.pushState = ((...args: Parameters<History['pushState']>) => {
-    originalPushState(...args);
-    handleUrlChange();
-  }) as History['pushState'];
-
-  const originalReplaceState = history.replaceState.bind(history);
-  history.replaceState = ((...args: Parameters<History['replaceState']>) => {
-    originalReplaceState(...args);
-    handleUrlChange();
-  }) as History['replaceState'];
-
   platform.observeDOMChanges(scanAll);
   withSafeRuntime(() => {
     chrome.storage.onChanged.addListener((changes, areaName) => {
