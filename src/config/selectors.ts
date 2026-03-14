@@ -8,6 +8,7 @@ export interface PlatformSelectors {
   insertionPointSelectors: string[];
   nameSelectors: string[];
   symbolSelectors: string[];
+  imageSelectors: string[];
 }
 
 export const PLATFORM_SELECTORS: Record<string, PlatformSelectors> = {
@@ -40,6 +41,11 @@ export const PLATFORM_SELECTORS: Record<string, PlatformSelectors> = {
       '[class*="ticker"]',
       'span',
       'p',
+    ],
+    imageSelectors: [
+      'img[src*="coin-image"]',
+      'img[alt*="logo"]',
+      'img',
     ],
   },
 };

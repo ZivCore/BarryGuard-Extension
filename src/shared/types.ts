@@ -6,6 +6,7 @@ export type TierLevel = 'free' | 'rescue_pass' | 'pro';
 export interface TokenMetadata {
   name?: string;
   symbol?: string;
+  imageUrl?: string;
 }
 
 export interface CheckResult {

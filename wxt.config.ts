@@ -18,7 +18,7 @@ export default defineConfig({
       '128': 'icons/icon128.png',
     },
     content_security_policy: {
-      extension_pages: "script-src 'self'; object-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self'; connect-src https://barryguard.com https://www.barryguard.com",
+      extension_pages: "script-src 'self'; object-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://images.pump.fun https://pump.mypinata.cloud; connect-src https://pump.fun https://barryguard.com https://www.barryguard.com",
     },
   },
   zip: {

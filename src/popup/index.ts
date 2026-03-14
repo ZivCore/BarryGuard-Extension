@@ -1,4 +1,4 @@
-import type { ApiResponse, CheckResult, SelectedToken, TierLevel, TokenScore, UserProfile } from '../shared/types';
+import type { ApiResponse, CheckResult, SelectedToken, TierLevel, TokenMetadata, TokenScore, UserProfile } from '../shared/types';
 import {
   getAccountUrl,
   getForgotPasswordUrl,
@@ -62,6 +62,7 @@ const elements = {
     manual: document.getElementById('manual-entry-screen'),
   },
   tokenDetail: {
+    tokenLogo: document.getElementById('token-logo') as HTMLImageElement | null,
     tokenName: document.getElementById('token-name'),
     tokenSymbol: document.getElementById('token-symbol'),
     tokenAddress: document.getElementById('token-address'),
@@ -228,6 +229,10 @@ function setTierBadgeClass(tier: TierLevel): void {
 }
 
 function renderEmptyState(): void {
+  if (elements.tokenDetail.tokenLogo) {
+    elements.tokenDetail.tokenLogo.src = '/icons/icon48.png';
+    elements.tokenDetail.tokenLogo.alt = 'BarryGuard token placeholder';
+  }
   elements.tokenDetail.tokenName!.textContent = 'No Token Selected';
   elements.tokenDetail.tokenSymbol!.textContent = '';
   elements.tokenDetail.tokenAddress!.textContent = 'Browse pump.fun or enter a token address';
@@ -307,8 +312,15 @@ function renderChecks(score: TokenScore): void {
 function renderTokenDetail(score: TokenScore): void {
   const risk = getRiskLevel(score.score);
   const userTier = state.userProfile?.tier ?? 'free';
-  const tokenName = state.selectedToken?.metadata?.name ?? score.token?.name ?? 'Unknown Token';
-  const tokenSymbol = state.selectedToken?.metadata?.symbol ?? score.token?.symbol ?? '';
+  const tokenMetadata = state.selectedToken?.metadata ?? score.token;
+  const tokenName = tokenMetadata?.name ?? 'Unknown Token';
+  const tokenSymbol = tokenMetadata?.symbol ?? '';
+  const tokenLogo = tokenMetadata?.imageUrl;
+
+  if (elements.tokenDetail.tokenLogo) {
+    elements.tokenDetail.tokenLogo.src = tokenLogo || '/icons/icon48.png';
+    elements.tokenDetail.tokenLogo.alt = tokenName;
+  }
 
   elements.tokenDetail.tokenName!.textContent = tokenName;
   elements.tokenDetail.tokenSymbol!.textContent = tokenSymbol;
@@ -569,10 +581,19 @@ async function handleAnalyze(): Promise<void> {
       return;
     }
 
+    const metadataResponse = await sendMessage<TokenMetadata>({
+      type: 'GET_TOKEN_METADATA',
+      payload: address,
+    }, 5000);
+    const metadata = {
+      ...response.data.token,
+      ...(metadataResponse.success ? metadataResponse.data : {}),
+    };
+
     state.selectedToken = {
       address,
       score: response.data,
-      metadata: response.data.token,
+      metadata,
     };
     await chrome.storage.local.set({ selectedToken: state.selectedToken });
     renderTokenDetail(response.data);

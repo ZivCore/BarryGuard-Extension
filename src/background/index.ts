@@ -1,6 +1,6 @@
 import { BarryGuardApiClient } from '../shared/api-client';
 import { TokenCache } from '../shared/cache';
-import type { AuthToken, SelectedToken, UserProfile, TierLevel } from '../shared/types';
+import type { AuthToken, SelectedToken, TokenMetadata, UserProfile, TierLevel } from '../shared/types';
 
 const api = new BarryGuardApiClient();
 const cache = new TokenCache();
@@ -51,6 +51,46 @@ async function initialize(): Promise<void> {
   console.log('[BarryGuard] Background worker initialized');
 }
 
+function decodeHtml(text: string): string {
+  return text
+    .replace(/&amp;/g, '&')
+    .replace(/&quot;/g, '"')
+    .replace(/&#39;/g, "'")
+    .replace(/&lt;/g, '<')
+    .replace(/&gt;/g, '>');
+}
+
+async function getPumpFunMetadata(address: string): Promise<{ success: boolean; data?: TokenMetadata; error?: string }> {
+  try {
+    const response = await fetch(`https://pump.fun/coin/${address}`);
+    if (!response.ok) {
+      return { success: false, error: `Pump.fun metadata request failed with HTTP ${response.status}` };
+    }
+
+    const html = await response.text();
+    const name = html.match(/<h1[^>]*>([^<]{1,120})<\/h1>/i)?.[1];
+    const symbol = html.match(/<title>([A-Z0-9_]{2,20})\s+\$[^<]+<\/title>/i)?.[1];
+    const imageUrl = html.match(new RegExp(`https://images\\.pump\\.fun/coin-image/${address}[^"'\\s<]+`, 'i'))?.[0];
+
+    const metadata: TokenMetadata = {
+      name: name ? decodeHtml(name.trim()) : undefined,
+      symbol: symbol?.trim(),
+      imageUrl,
+    };
+
+    if (!metadata.name && !metadata.symbol && !metadata.imageUrl) {
+      return { success: false, error: 'No token metadata found on pump.fun.' };
+    }
+
+    return { success: true, data: metadata };
+  } catch (error) {
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : 'Pump.fun metadata lookup failed.',
+    };
+  }
+}
+
 async function getTokenScore(address: string) {
   const profile = await getStoredProfile();
   const tier: TierLevel = profile?.tier ?? 'free';
@@ -99,6 +139,9 @@ export function initializeBackground(): void {
             break;
           case 'ANALYZE_TOKEN':
             respond(await getTokenScore(message.payload));
+            break;
+          case 'GET_TOKEN_METADATA':
+            respond(await getPumpFunMetadata(message.payload));
             break;
           case 'OPEN_POPUP_FOR_TOKEN':
             respond(await openPopupForToken(message.payload as SelectedToken));
