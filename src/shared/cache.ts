@@ -58,10 +58,9 @@ export class TokenCache {
   }
 
   private evictExpired(): void {
-    const maxTtl = Math.max(...Object.values(TTL_MS));
     const now = Date.now();
     for (const [key, entry] of this.cache.entries()) {
-      if (now - entry.timestamp > maxTtl) this.cache.delete(key);
+      if (now - entry.timestamp > TTL_MS[entry.tier]) this.cache.delete(key);
     }
   }
 
@@ -84,5 +83,3 @@ export class TokenCache {
     return { size: this.cache.size, maxSize: MAX_ENTRIES };
   }
 }
-
-export const tokenCache = new TokenCache();
