@@ -65,11 +65,11 @@ describe('normalizeProfile', () => {
 
   it('sets tokenListAnalysis capability to false for free tier', () => {
     const result = normalizeProfile({ tier: 'free', email: 'a@b.com' });
-    expect(result.capabilities.tokenListAnalysis).toBe(false);
+    expect(result.capabilities?.tokenListAnalysis).toBe(false);
   });
 
   it('sets tokenListAnalysis capability to true for paid tier', () => {
     const result = normalizeProfile({ tier: 'rescue_pass', email: 'a@b.com' });
-    expect(result.capabilities.tokenListAnalysis).toBe(true);
+    expect(result.capabilities?.tokenListAnalysis).toBe(true);
   });
 });
