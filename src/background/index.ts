@@ -1,6 +1,6 @@
 import { BarryGuardApiClient } from '../shared/api-client';
 import { TokenCache } from '../shared/cache';
-import type { AuthToken, UserProfile, TierLevel } from '../shared/types';
+import type { AuthToken, TokenScore, UserProfile, TierLevel } from '../shared/types';
 
 const api = new BarryGuardApiClient();
 const cache = new TokenCache();
@@ -14,37 +14,40 @@ const callTimestamps: number[] = [];
 
 async function waitForRateLimit(): Promise<void> {
   const now = Date.now();
-  const recent = callTimestamps.filter(t => now - t < RATE_WINDOW_MS);
+  const recent = callTimestamps.filter((timestamp) => now - timestamp < RATE_WINDOW_MS);
   if (recent.length >= MAX_CALLS_PER_SECOND) {
-    await new Promise(r => setTimeout(r, 100));
+    await new Promise((resolve) => setTimeout(resolve, 100));
     return waitForRateLimit();
   }
+
   callTimestamps.push(Date.now());
 }
 
 async function getStoredToken(): Promise<AuthToken | null> {
-  const s = await chrome.storage.local.get(AUTH_KEY);
-  return s[AUTH_KEY] ?? null;
+  const stored = await chrome.storage.local.get(AUTH_KEY);
+  return stored[AUTH_KEY] ?? null;
 }
 
 async function getStoredProfile(): Promise<UserProfile | null> {
-  const s = await chrome.storage.local.get(PROFILE_KEY);
-  return s[PROFILE_KEY] ?? null;
+  const stored = await chrome.storage.local.get(PROFILE_KEY);
+  return stored[PROFILE_KEY] ?? null;
 }
 
 async function initialize(): Promise<void> {
   await cache.init();
+
   const token = await getStoredToken();
   if (token) {
     api.setAuthToken(token);
-    const res = await api.validateSession();
-    if (res.success && res.data) {
-      await chrome.storage.local.set({ [PROFILE_KEY]: res.data });
+    const session = await api.validateSession();
+    if (session.success && session.data) {
+      await chrome.storage.local.set({ [PROFILE_KEY]: session.data });
     } else {
       await chrome.storage.local.remove([AUTH_KEY, PROFILE_KEY]);
       api.clearAuthToken();
     }
   }
+
   console.log('[BarryGuard] Background worker initialized');
 }
 
@@ -53,14 +56,16 @@ async function getTokenScore(address: string) {
   const tier: TierLevel = (profile?.tier as TierLevel) ?? 'free';
 
   const cached = await cache.get(address, tier);
-  if (cached) return { success: true, data: { ...cached, cached: true } };
+  if (cached) {
+    return { success: true, data: { ...cached, cached: true } };
+  }
 
   await waitForRateLimit();
 
-  const cached2 = await api.getTokenScore(address);
-  if (cached2.success && cached2.data) {
-    await cache.set(address, cached2.data, tier);
-    return { success: true, data: { ...cached2.data, cached: true } };
+  const existing = await api.getTokenScore(address);
+  if (existing.success && existing.data) {
+    await cache.set(address, existing.data, tier);
+    return { success: true, data: { ...existing.data, cached: true } };
   }
 
   const fresh = await api.analyzeToken(address);
@@ -72,52 +77,86 @@ async function getTokenScore(address: string) {
   return fresh;
 }
 
-chrome.runtime.onMessage.addListener((msg, _sender, respond) => {
+async function openPopupForToken(selectedToken: { address: string; score: TokenScore }) {
+  await chrome.storage.local.set({ selectedToken });
+
+  try {
+    await chrome.action.openPopup();
+  } catch {
+    await chrome.tabs.create({ url: chrome.runtime.getURL('popup.html') });
+  }
+
+  return { success: true };
+}
+
+chrome.runtime.onMessage.addListener((message, _sender, respond) => {
   (async () => {
     try {
-      switch (msg.type) {
-        case 'GET_TOKEN_SCORE':   respond(await getTokenScore(msg.payload)); break;
-        case 'ANALYZE_TOKEN':     respond(await getTokenScore(msg.payload)); break;
+      switch (message.type) {
+        case 'GET_TOKEN_SCORE':
+          respond(await getTokenScore(message.payload));
+          break;
+        case 'ANALYZE_TOKEN':
+          respond(await getTokenScore(message.payload));
+          break;
+        case 'OPEN_POPUP_FOR_TOKEN':
+          respond(await openPopupForToken(message.payload));
+          break;
         case 'GET_USER_TIER': {
           const profile = await getStoredProfile();
-          if (profile) { respond({ success: true, data: profile }); break; }
-          const res = await api.getUserTier();
-          if (res.success && res.data) await chrome.storage.local.set({ [PROFILE_KEY]: res.data });
-          respond(res);
+          if (profile) {
+            respond({ success: true, data: profile });
+            break;
+          }
+
+          const result = await api.getUserTier();
+          if (result.success && result.data) {
+            await chrome.storage.local.set({ [PROFILE_KEY]: result.data });
+          }
+          respond(result);
           break;
         }
         case 'LOGIN': {
-          const res = await api.login(msg.payload.email, msg.payload.password);
-          if (res.success && res.data) {
-            await chrome.storage.local.set({ [AUTH_KEY]: res.data.token, [PROFILE_KEY]: res.data.user });
+          const result = await api.login(message.payload.email, message.payload.password);
+          if (result.success && result.data) {
+            await chrome.storage.local.set({
+              [AUTH_KEY]: result.data.token,
+              [PROFILE_KEY]: result.data.user,
+            });
           }
-          respond(res.success ? { success: true, data: res.data?.user } : res);
+          respond(result.success ? { success: true, data: result.data?.user } : result);
           break;
         }
         case 'REGISTER': {
-          const res = await api.register(msg.payload.email, msg.payload.password);
-          if (res.success && res.data) {
-            await chrome.storage.local.set({ [AUTH_KEY]: res.data.token, [PROFILE_KEY]: res.data.user });
+          const result = await api.register(message.payload.email, message.payload.password);
+          if (result.success && result.data) {
+            await chrome.storage.local.set({
+              [AUTH_KEY]: result.data.token,
+              [PROFILE_KEY]: result.data.user,
+            });
           }
-          respond(res.success ? { success: true, data: res.data?.user } : res);
+          respond(result.success ? { success: true, data: result.data?.user } : result);
           break;
         }
-        case 'OAUTH_LOGIN': {
-          respond(await api.oauthLogin(msg.payload));
+        case 'OAUTH_LOGIN':
+          respond(await api.oauthLogin(message.payload));
           break;
-        }
-        case 'LOGOUT': {
+        case 'LOGOUT':
           await api.logout();
           await chrome.storage.local.remove([AUTH_KEY, PROFILE_KEY]);
           respond({ success: true });
           break;
-        }
-        default: respond({ success: false, error: 'Unknown message type' });
+        default:
+          respond({ success: false, error: 'Unknown message type' });
       }
-    } catch (e) {
-      respond({ success: false, error: e instanceof Error ? e.message : 'Unknown error' });
+    } catch (error) {
+      respond({
+        success: false,
+        error: error instanceof Error ? error.message : 'Unknown error',
+      });
     }
   })();
+
   return true;
 });
 
