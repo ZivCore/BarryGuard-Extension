@@ -93,7 +93,7 @@ export class PumpFunPlatform implements IPlatform {
     badge.style.backgroundColor = colors.bg;
     badge.style.color = colors.text;
     badge.style.border = `1px solid ${colors.border}`;
-    badge.innerHTML = this.getBadgeMarkup(String(score.score), !isDetailPage);
+    this.setBadgeContent(badge, String(score.score), !isDetailPage);
     badge.title = `BarryGuard Score: ${score.score}/100 - Click for details`;
     badge.onclick = (event) => {
       event.preventDefault();
@@ -121,7 +121,7 @@ export class PumpFunPlatform implements IPlatform {
     badge.style.backgroundColor = '#f3f4f6';
     badge.style.color = '#6b7280';
     badge.style.border = '1px solid #e5e7eb';
-    badge.innerHTML = this.getBadgeMarkup('...', !isDetailPage);
+    this.setBadgeContent(badge, '...', !isDetailPage);
     badge.title = 'BarryGuard: Loading...';
     badge.onclick = null;
 
@@ -136,7 +136,7 @@ export class PumpFunPlatform implements IPlatform {
       return;
     }
 
-    badge.innerHTML = this.getBadgeMarkup('?', !this.isCurrentTokenPage(address));
+    this.setBadgeContent(badge, '?', !this.isCurrentTokenPage(address));
     badge.title = 'BarryGuard: Score unavailable';
     badge.style.backgroundColor = '#f3f4f6';
     badge.style.color = '#9ca3af';
@@ -379,7 +379,7 @@ export class PumpFunPlatform implements IPlatform {
     return map[risk] ?? map.high;
   }
 
-  private getBadgeMarkup(value: string, compact = false): string {
+  private setBadgeContent(badge: HTMLDivElement, value: string, compact = false): void {
     const label = compact ? 'BG' : 'BarryGuard';
     const labelStyle = compact
       ? 'font-size:9px;font-weight:800;letter-spacing:0.03em;text-transform:uppercase;line-height:1;'
@@ -388,9 +388,14 @@ export class PumpFunPlatform implements IPlatform {
       ? 'font-size:11px;font-weight:800;line-height:1;'
       : 'font-size:12px;font-weight:800;line-height:1;';
 
-    return [
-      `<span style="${labelStyle}">${label}</span>`,
-      `<span style="${valueStyle}">${value}</span>`,
-    ].join('');
+    const labelNode = document.createElement('span');
+    labelNode.style.cssText = labelStyle;
+    labelNode.textContent = label;
+
+    const valueNode = document.createElement('span');
+    valueNode.style.cssText = valueStyle;
+    valueNode.textContent = value;
+
+    badge.replaceChildren(labelNode, valueNode);
   }
 }

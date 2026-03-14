@@ -1,6 +1,8 @@
 import { BarryGuardApiClient } from '../shared/api-client';
 import { TokenCache } from '../shared/cache';
 import { extractPumpFunEmbeddedMetadata } from '../shared/pumpfun-metadata';
+import { sanitizeCustomerPortalUrl } from '../shared/runtime-config';
+import { extractTokenScores, sanitizeTokenScore } from '../shared/token-score';
 import type {
   ApiResponse,
   HourlyUsageState,
@@ -23,6 +25,7 @@ const HOURLY_USAGE_KEY = 'hourly_usage_state';
 const ANONYMOUS_HOURLY_LIMIT = 10;
 const FREE_HOURLY_LIMIT = 100;
 const FREE_COOLDOWN_SECONDS = 10;
+const ANONYMOUS_COOLDOWN_SECONDS = FREE_COOLDOWN_SECONDS;
 const DEFAULT_LIST_REQUEST_LIMIT: Record<TierLevel, number> = {
   free: 0,
   rescue_pass: 500,
@@ -149,6 +152,68 @@ async function getStoredProfile(): Promise<UserProfile | null> {
   return stored[PROFILE_KEY] ?? null;
 }
 
+async function persistProfileState(profile: UserProfile): Promise<void> {
+  await chrome.storage.local.set({ [PROFILE_KEY]: profile });
+  await syncHourlyUsageState(profile);
+  await updateActionIcon(profile);
+}
+
+async function applyProfileState(profile: UserProfile | null): Promise<void> {
+  await syncHourlyUsageState(profile);
+  await updateActionIcon(profile);
+}
+
+async function getStoredNormalizedProfile(): Promise<UserProfile | null> {
+  const storedProfile = await getStoredProfile();
+  return storedProfile ? normalizeProfile(storedProfile) : null;
+}
+
+async function clearSessionState(): Promise<void> {
+  await chrome.storage.local.remove([AUTH_KEY, PROFILE_KEY, HOURLY_USAGE_KEY]);
+  api.clearAuthToken();
+  await applyProfileState(null);
+}
+
+function isUnauthorizedResponse<T>(response: ApiResponse<T>): boolean {
+  return response.statusCode === 401;
+}
+
+async function fetchFreshProfile(): Promise<{
+  response: ApiResponse<UserProfile>;
+  refreshedToken?: AuthToken;
+  shouldClearSession: boolean;
+}> {
+  const result = await loadProfileFromApi();
+  if (result.success && result.data) {
+    return { response: result, shouldClearSession: false };
+  }
+
+  if (!isUnauthorizedResponse(result)) {
+    return { response: result, shouldClearSession: false };
+  }
+
+  const refreshResult = await api.refreshToken();
+  if (!refreshResult.success || !refreshResult.data) {
+    return {
+      response: {
+        success: false,
+        error: refreshResult.error,
+        statusCode: refreshResult.statusCode,
+        errorType: refreshResult.errorType,
+        retryAfterSeconds: refreshResult.retryAfterSeconds,
+      },
+      shouldClearSession: isUnauthorizedResponse(refreshResult),
+    };
+  }
+
+  const retryProfile = await loadProfileFromApi();
+  return {
+    response: retryProfile,
+    refreshedToken: refreshResult.data,
+    shouldClearSession: isUnauthorizedResponse(retryProfile),
+  };
+}
+
 let _initPromise: Promise<void> | null = null;
 
 function runInitializeOnce(): void {
@@ -164,38 +229,22 @@ async function initialize(): Promise<void> {
   const token = await getStoredToken();
   if (token) {
     api.setAuthToken(token);
-    const profileResult = await loadProfileFromApi();
-    if (profileResult.success && profileResult.data) {
-      await chrome.storage.local.set({ [PROFILE_KEY]: profileResult.data });
-      await syncHourlyUsageState(profileResult.data);
-      await updateActionIcon(profileResult.data);
-    } else if (profileResult.statusCode === 401 || !profileResult.statusCode) {
-      // Try token refresh before giving up
-      const refreshResult = await api.refreshToken();
-      if (refreshResult.success && refreshResult.data) {
-        await chrome.storage.local.set({ [AUTH_KEY]: refreshResult.data });
-        const retryProfile = await loadProfileFromApi();
-        if (retryProfile.success && retryProfile.data) {
-          await chrome.storage.local.set({ [PROFILE_KEY]: retryProfile.data });
-          await syncHourlyUsageState(retryProfile.data);
-          await updateActionIcon(retryProfile.data);
-          return;
-        }
-      }
+    const profileResult = await fetchFreshProfile();
+    if (profileResult.refreshedToken) {
+      await chrome.storage.local.set({ [AUTH_KEY]: profileResult.refreshedToken });
+    }
+
+    if (profileResult.response.success && profileResult.response.data) {
+      await persistProfileState(profileResult.response.data);
+    } else if (profileResult.shouldClearSession) {
+      await clearSessionState();
       // Refresh failed — clear session
-      await chrome.storage.local.remove([AUTH_KEY, PROFILE_KEY, HOURLY_USAGE_KEY]);
-      api.clearAuthToken();
-      await syncHourlyUsageState(null);
-      await updateActionIcon(null);
     } else {
-      await chrome.storage.local.remove([AUTH_KEY, PROFILE_KEY, HOURLY_USAGE_KEY]);
-      api.clearAuthToken();
-      await syncHourlyUsageState(null);
-      await updateActionIcon(null);
+      const storedProfile = await getStoredNormalizedProfile();
+      await applyProfileState(storedProfile);
     }
   } else {
-    await syncHourlyUsageState(null);
-    await updateActionIcon(null);
+    await applyProfileState(null);
   }
 
   console.log('[BarryGuard] Background worker initialized');
@@ -257,7 +306,7 @@ function normalizeProfile(profile: UserProfile | JsonRecord): UserProfile {
     stripeCustomerId,
     subscriptionStatus,
     currentPeriodEnd,
-    customerPortalUrl,
+    customerPortalUrl: customerPortalUrl ? sanitizeCustomerPortalUrl(customerPortalUrl) ?? undefined : undefined,
   };
 }
 
@@ -342,7 +391,11 @@ async function setSingleAnalysisState(state: SingleAnalysisState): Promise<void>
 }
 
 function getCooldownSeconds(profile: UserProfile | null): number {
-  return profile?.singleTokenCooldownSeconds ?? (profile?.tier === 'free' ? FREE_COOLDOWN_SECONDS : 0);
+  if (!profile) {
+    return ANONYMOUS_COOLDOWN_SECONDS;
+  }
+
+  return profile.singleTokenCooldownSeconds ?? (profile.tier === 'free' ? FREE_COOLDOWN_SECONDS : 0);
 }
 
 function getHourlyLimit(profile: UserProfile | null): number {
@@ -400,10 +453,6 @@ async function syncHourlyUsageState(profile: UserProfile | null): Promise<Hourly
 }
 
 async function markUsageExhausted(profile: UserProfile | null): Promise<void> {
-  if (!profile) {
-    return;
-  }
-
   const state = await syncHourlyUsageState(profile);
   if (!state) {
     return;
@@ -417,7 +466,7 @@ async function markUsageExhausted(profile: UserProfile | null): Promise<void> {
 }
 
 async function incrementHourlyUsage(profile: UserProfile | null, amount: number): Promise<void> {
-  if (!profile || amount <= 0) {
+  if (amount <= 0) {
     return;
   }
 
@@ -505,31 +554,6 @@ async function maybeEnforceHourlyLimit(
   };
 }
 
-function extractListScores(payload: unknown): TokenScore[] {
-  if (Array.isArray(payload)) {
-    return payload.filter((item): item is TokenScore =>
-      typeof item === 'object' && item !== null && typeof (item as TokenScore).address === 'string' && typeof (item as TokenScore).score === 'number');
-  }
-
-  if (!payload || typeof payload !== 'object') {
-    return [];
-  }
-
-  const record = payload as Record<string, unknown>;
-  const candidates = [record.results, record.scores, record.tokens, record.data];
-  for (const candidate of candidates) {
-    const scores = extractListScores(candidate);
-    if (scores.length > 0) {
-      return scores;
-    }
-  }
-
-  const keyedScores = Object.values(record).filter((item): item is TokenScore =>
-    typeof item === 'object' && item !== null && typeof (item as TokenScore).address === 'string' && typeof (item as TokenScore).score === 'number');
-
-  return keyedScores;
-}
-
 const SOLANA_ADDRESS_RE = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
 
 function isValidSolanaAddress(value: unknown): value is string {
@@ -558,8 +582,11 @@ async function getTokenScore(address: string) {
 
     const existing = await api.getTokenScore(address);
     if (existing.success && existing.data) {
-      await cache.set(address, existing.data, tier);
-      return { success: true, data: { ...existing.data, cached: true } };
+      const normalizedExisting = sanitizeTokenScore(existing.data, { expectedAddress: address });
+      if (normalizedExisting) {
+        await cache.set(address, normalizedExisting, tier);
+        return { success: true, data: { ...normalizedExisting, cached: true } };
+      }
     }
 
     const cooldown = await maybeEnforceSingleCooldown(normalizedProfile);
@@ -574,12 +601,21 @@ async function getTokenScore(address: string) {
 
     const fresh = await api.analyzeToken(address);
     if (fresh.success && fresh.data) {
+      const normalizedFresh = sanitizeTokenScore(fresh.data, { expectedAddress: address });
+      if (!normalizedFresh) {
+        return {
+          success: false,
+          error: 'BarryGuard API returned malformed token score data.',
+          errorType: 'server',
+        };
+      }
+
       if (tier === 'free') {
         await setSingleAnalysisState({ lastAnalyzeAt: Date.now() });
       }
       await incrementHourlyUsage(normalizedProfile, 1);
-      await cache.set(address, fresh.data, tier);
-      return { success: true, data: { ...fresh.data, cached: false } };
+      await cache.set(address, normalizedFresh, tier);
+      return { success: true, data: { ...normalizedFresh, cached: false } };
     }
 
     if (fresh.statusCode === 429) {
@@ -643,7 +679,7 @@ async function analyzeTokenList(addresses: string[]): Promise<ApiResponse<TokenL
     return mapApiFailure(response) as ApiResponse<TokenListAnalysisData>;
   }
 
-  const networkScores = extractListScores(response.data);
+  const networkScores = extractTokenScores(response.data, { allowedAddresses: missingAddresses });
   await incrementHourlyUsage(normalizedProfile, networkScores.length);
   for (const score of networkScores) {
     await cache.set(score.address, score, tier);
@@ -681,7 +717,14 @@ async function openPopupForToken(selectedToken: SelectedToken) {
 }
 
 // Exported for unit testing only — do not import these in production code
-export { inferTier as _inferTierForTest, normalizeProfile as _normalizeProfileForTest };
+export {
+  inferTier as _inferTierForTest,
+  normalizeProfile as _normalizeProfileForTest,
+  getCooldownSeconds as _getCooldownSecondsForTest,
+  syncHourlyUsageState as _syncHourlyUsageStateForTest,
+  incrementHourlyUsage as _incrementHourlyUsageForTest,
+  isUnauthorizedResponse as _isUnauthorizedResponseForTest,
+};
 
 export function initializeBackground(): void {
   chrome.runtime.onMessage.addListener((message, sender, respond) => {
@@ -722,30 +765,33 @@ export function initializeBackground(): void {
             const storedToken = await getStoredToken();
             if (storedToken) {
               api.setAuthToken(storedToken);
-              const result = await loadProfileFromApi();
-              if (result.success && result.data) {
-                const normalizedProfile = result.data; // already normalized by loadProfileFromApi
-                await chrome.storage.local.set({ [PROFILE_KEY]: normalizedProfile });
-                await syncHourlyUsageState(normalizedProfile);
-                await updateActionIcon(normalizedProfile);
+              const result = await fetchFreshProfile();
+              if (result.refreshedToken) {
+                await chrome.storage.local.set({ [AUTH_KEY]: result.refreshedToken });
+              }
+
+              if (result.response.success && result.response.data) {
+                const normalizedProfile = result.response.data;
+                await persistProfileState(normalizedProfile);
                 respond({ success: true, data: normalizedProfile });
                 break;
               }
 
-              const storedProfile = await getStoredProfile();
-              if (storedProfile && !result.statusCode) {
+              const storedProfile = result.shouldClearSession ? null : await getStoredNormalizedProfile();
+              if (storedProfile) {
                 const normalizedStoredProfile = normalizeProfile(storedProfile);
-                await syncHourlyUsageState(normalizedStoredProfile);
-                await updateActionIcon(normalizedStoredProfile);
+                await applyProfileState(normalizedStoredProfile);
                 respond({ success: true, data: normalizedStoredProfile });
                 break;
               }
 
-              await chrome.storage.local.remove([AUTH_KEY, PROFILE_KEY, HOURLY_USAGE_KEY]);
-              api.clearAuthToken();
-              await syncHourlyUsageState(null);
-              await updateActionIcon(null);
-              respond(mapApiFailure(result));
+              if (result.shouldClearSession) {
+                await clearSessionState();
+              } else {
+                await applyProfileState(null);
+              }
+
+              respond(mapApiFailure(result.response));
               break;
             }
 

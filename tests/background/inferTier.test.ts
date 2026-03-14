@@ -72,4 +72,13 @@ describe('normalizeProfile', () => {
     const result = normalizeProfile({ tier: 'rescue_pass', email: 'a@b.com' });
     expect(result.capabilities?.tokenListAnalysis).toBe(true);
   });
+
+  it('drops untrusted customer portal URLs from normalized profiles', () => {
+    const result = normalizeProfile({
+      tier: 'pro',
+      email: 'a@b.com',
+      customerPortalUrl: 'https://evil.example/portal',
+    });
+    expect(result.customerPortalUrl).toBeUndefined();
+  });
 });

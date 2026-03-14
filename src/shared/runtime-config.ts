@@ -1,16 +1,51 @@
 const DEFAULT_API_URL = 'https://www.barryguard.com/api';
 const DEFAULT_APP_URL = 'https://www.barryguard.com';
+const LOCALHOST_HOSTS = new Set(['localhost', '127.0.0.1']);
+const CUSTOMER_PORTAL_HOSTS = new Set(['billing.stripe.com']);
+const EXPLORER_HOSTS = new Set(['solscan.io']);
+
+function isLocalDevHost(hostname: string): boolean {
+  return LOCALHOST_HOSTS.has(hostname);
+}
+
+function parseTrustedUrl(url: string, allowLocalHttp = false): URL {
+  const parsed = new URL(url);
+  if (parsed.protocol === 'https:') {
+    return parsed;
+  }
+
+  if (allowLocalHttp && parsed.protocol === 'http:' && isLocalDevHost(parsed.hostname)) {
+    return parsed;
+  }
+
+  throw new Error(`[BarryGuard] URL must use HTTPS${allowLocalHttp ? ' or localhost HTTP' : ''}. Received: "${url}"`);
+}
+
+function tryParseTrustedUrl(url: string, allowLocalHttp = false): URL | null {
+  try {
+    return parseTrustedUrl(url, allowLocalHttp);
+  } catch {
+    return null;
+  }
+}
+
+function normalizeTrustedUrl(url: string, allowLocalHttp = false): string {
+  const parsed = parseTrustedUrl(url, allowLocalHttp);
+  parsed.hash = '';
+  const normalized = parsed.toString().replace(/\/+$/, '');
+  return normalized;
+}
+
+function matchesOrigin(url: URL, origin: string): boolean {
+  return url.origin === origin;
+}
 
 function normalizeApiUrl(url: string): string {
-  const cleaned = url.replace(/\/+$/, '');
-  if (!cleaned.startsWith('https://')) {
-    throw new Error(`[BarryGuard] API URL must use HTTPS. Received: "${cleaned}"`);
-  }
-  return cleaned;
+  return normalizeTrustedUrl(url);
 }
 
 function normalizeAppUrl(url: string): string {
-  return url.replace(/\/+$/, '');
+  return normalizeTrustedUrl(url, true);
 }
 
 function getEnvValue(key: string): string | undefined {
@@ -61,4 +96,45 @@ export function getForgotPasswordUrl(): string {
 
 export function getOAuthUrl(provider: 'google' | 'github'): string {
   return `${getAppBaseUrl()}/auth/${provider}?extension=true`;
+}
+
+export function sanitizeExternalNavigationUrl(url: string): string | null {
+  const parsed = tryParseTrustedUrl(url, true);
+  if (!parsed) {
+    return null;
+  }
+
+  return parsed.toString();
+}
+
+export function sanitizeAppNavigationUrl(url: string): string | null {
+  const parsed = tryParseTrustedUrl(url, true);
+  if (!parsed) {
+    return null;
+  }
+
+  return matchesOrigin(parsed, new URL(getAppBaseUrl()).origin) ? parsed.toString() : null;
+}
+
+export function sanitizeCustomerPortalUrl(url: string): string | null {
+  const parsed = tryParseTrustedUrl(url, true);
+  if (!parsed) {
+    return null;
+  }
+
+  const appOrigin = new URL(getAppBaseUrl()).origin;
+  if (matchesOrigin(parsed, appOrigin) || CUSTOMER_PORTAL_HOSTS.has(parsed.hostname)) {
+    return parsed.toString();
+  }
+
+  return null;
+}
+
+export function sanitizeExplorerUrl(url: string): string | null {
+  const parsed = tryParseTrustedUrl(url);
+  if (!parsed) {
+    return null;
+  }
+
+  return EXPLORER_HOSTS.has(parsed.hostname) ? parsed.toString() : null;
 }

@@ -13,6 +13,10 @@ import {
   getForgotPasswordUrl,
   getOAuthUrl,
   getPricingUrl,
+  sanitizeAppNavigationUrl,
+  sanitizeCustomerPortalUrl,
+  sanitizeExplorerUrl,
+  sanitizeExternalNavigationUrl,
 } from '../shared/runtime-config';
 
 type ScreenName = 'loading' | 'token-detail' | 'login' | 'register' | 'account' | 'manual';
@@ -229,13 +233,20 @@ function applyPlanBranding(): void {
   }
 }
 
-function openExternal(url: string): void {
-  if (chrome.tabs?.create) {
-    chrome.tabs.create({ url });
-    return;
+function openExternal(url: string): boolean {
+  const safeUrl = sanitizeExternalNavigationUrl(url);
+  if (!safeUrl) {
+    console.warn('[BarryGuard] Blocked unsafe external URL:', url);
+    return false;
   }
 
-  window.open(url, '_blank', 'noopener,noreferrer');
+  if (chrome.tabs?.create) {
+    chrome.tabs.create({ url: safeUrl });
+    return true;
+  }
+
+  window.open(safeUrl, '_blank', 'noopener,noreferrer');
+  return true;
 }
 
 async function copyTextToClipboard(text: string): Promise<boolean> {
@@ -307,13 +318,17 @@ async function handleTokenAddressCopy(): Promise<void> {
 }
 
 function handleUpgradeFlow(): void {
+  const trustedPortalUrl = state.userProfile?.customerPortalUrl
+    ? sanitizeCustomerPortalUrl(state.userProfile.customerPortalUrl)
+    : null;
+
   if (state.userProfile?.tier === 'pro') {
-    openExternal(state.userProfile.customerPortalUrl ?? getAccountUrl());
+    openExternal(trustedPortalUrl ?? getAccountUrl());
     return;
   }
 
-  if (state.userProfile?.tier === 'rescue_pass' && state.userProfile.customerPortalUrl) {
-    openExternal(state.userProfile.customerPortalUrl);
+  if (state.userProfile?.tier === 'rescue_pass' && trustedPortalUrl) {
+    openExternal(trustedPortalUrl);
     return;
   }
 
@@ -1241,8 +1256,11 @@ async function handleOAuth(provider: 'google' | 'github'): Promise<void> {
     payload: provider,
   });
 
-  if (response.success && response.data?.url) {
-    openExternal(response.data.url);
+  const trustedOAuthUrl = response.success && response.data?.url
+    ? sanitizeAppNavigationUrl(response.data.url)
+    : null;
+  if (trustedOAuthUrl) {
+    openExternal(trustedOAuthUrl);
     window.close();
     return;
   }
@@ -1306,7 +1324,10 @@ function setupEventListeners(): void {
     event.preventDefault();
     const address = (event.currentTarget as HTMLAnchorElement).dataset.address;
     if (address) {
-      openExternal(`https://solscan.io/token/${address}`);
+      const explorerUrl = sanitizeExplorerUrl(`https://solscan.io/token/${address}`);
+      if (explorerUrl) {
+        openExternal(explorerUrl);
+      }
     }
   });
 
@@ -1344,8 +1365,11 @@ function setupEventListeners(): void {
 
   elements.account.backBtn?.addEventListener('click', () => showScreen('token-detail'));
   elements.account.manageBtn?.addEventListener('click', () => {
-    if (state.userProfile?.customerPortalUrl) {
-      openExternal(state.userProfile.customerPortalUrl);
+    const trustedPortalUrl = state.userProfile?.customerPortalUrl
+      ? sanitizeCustomerPortalUrl(state.userProfile.customerPortalUrl)
+      : null;
+    if (trustedPortalUrl) {
+      openExternal(trustedPortalUrl);
       return;
     }
 
