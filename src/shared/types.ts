@@ -49,6 +49,9 @@ export interface UserProfile {
   listRequestLimit?: number;
   singleTokenCooldownSeconds?: number;
   singleTokenHourlyLimit?: number;
+  hourlyAnalysesUsed?: number;
+  hourlyAnalysesRemaining?: number;
+  hourlyAnalysesLimit?: number;
   stripeCustomerId?: string;
   subscriptionStatus?: string;
   currentPeriodEnd?: string;

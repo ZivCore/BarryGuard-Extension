@@ -20,12 +20,14 @@ const cache = new TokenCache();
 
 const AUTH_KEY = 'auth_token';
 const PROFILE_KEY = 'user_profile';
+const PROFILE_SYNC_AT_KEY = 'profile_synced_at';
 const SINGLE_ANALYSIS_KEY = 'single_analysis_state';
 const HOURLY_USAGE_KEY = 'hourly_usage_state';
 const ANONYMOUS_HOURLY_LIMIT = 10;
 const FREE_HOURLY_LIMIT = 100;
 const FREE_COOLDOWN_SECONDS = 10;
 const ANONYMOUS_COOLDOWN_SECONDS = FREE_COOLDOWN_SECONDS;
+const PROFILE_REFRESH_MAX_AGE_MS = 60 * 1000;
 const DEFAULT_LIST_REQUEST_LIMIT: Record<TierLevel, number> = {
   free: 0,
   rescue_pass: 500,
@@ -75,6 +77,23 @@ function pickString(record: JsonRecord, keys: string[]): string | undefined {
   return undefined;
 }
 
+function pickNumber(record: JsonRecord, keys: string[]): number | undefined {
+  for (const key of keys) {
+    const value = record[key];
+    if (typeof value === 'number' && Number.isFinite(value)) {
+      return value;
+    }
+    if (typeof value === 'string' && value.trim()) {
+      const parsed = Number(value);
+      if (Number.isFinite(parsed)) {
+        return parsed;
+      }
+    }
+  }
+
+  return undefined;
+}
+
 function normalizeTierValue(value: unknown): TierLevel | null {
   if (typeof value !== 'string') {
     return null;
@@ -96,7 +115,7 @@ function normalizeTierValue(value: unknown): TierLevel | null {
   return null;
 }
 
-function inferTier(record: JsonRecord, _depth = 0): TierLevel {
+function inferTier(record: JsonRecord, _depth = 0, allowGenericStatus = false): TierLevel {
   if (_depth > 3) return 'free';
   const directTier = normalizeTierValue(
     pickString(record, ['tier', 'plan', 'planTier', 'plan_tier', 'subscriptionTier', 'subscription_tier']),
@@ -105,11 +124,30 @@ function inferTier(record: JsonRecord, _depth = 0): TierLevel {
     return directTier;
   }
 
+  if (record.isPro === true || record.is_pro === true) {
+    return 'pro';
+  }
+
+  if (
+    record.isPaid === true
+    || record.is_paid === true
+    || record.hasSubscription === true
+    || record.has_subscription === true
+    || record.subscriptionActive === true
+    || record.subscription_active === true
+    || record.hasActiveSubscription === true
+    || record.has_active_subscription === true
+  ) {
+    return 'rescue_pass';
+  }
+
   const nestedSources = [
     asRecord(record.data),
     asRecord(record.user),
     asRecord(record.profile),
-    asRecord(record.subscription),
+    asRecord(record.membership),
+    asRecord(record.billing),
+    asRecord(record.entitlements),
   ].filter((value): value is JsonRecord => Boolean(value));
 
   for (const source of nestedSources) {
@@ -119,7 +157,28 @@ function inferTier(record: JsonRecord, _depth = 0): TierLevel {
     }
   }
 
-  const priceHint = pickString(record, ['priceId', 'price_id', 'stripePriceId', 'stripe_price_id', 'product', 'productName']);
+  const nestedSubscription = asRecord(record.subscription);
+  if (nestedSubscription) {
+    const nestedSubscriptionTier = inferTier(nestedSubscription, _depth + 1, true);
+    if (nestedSubscriptionTier !== 'free') {
+      return nestedSubscriptionTier;
+    }
+  }
+
+  const priceHint = pickString(record, [
+    'priceId',
+    'price_id',
+    'stripePriceId',
+    'stripe_price_id',
+    'product',
+    'productName',
+    'product_name',
+    'priceName',
+    'price_name',
+    'planName',
+    'plan_name',
+    'name',
+  ]);
   if (priceHint) {
     const normalizedPriceHint = priceHint.toLowerCase();
     if (normalizedPriceHint.includes('pro')) {
@@ -131,7 +190,12 @@ function inferTier(record: JsonRecord, _depth = 0): TierLevel {
   }
 
   // Only check explicit subscription status fields — 'status' is too generic and can be spoofed
-  const status = pickString(record, ['subscriptionStatus', 'subscription_status']);
+  const status = pickString(
+    record,
+    allowGenericStatus
+      ? ['subscriptionStatus', 'subscription_status', 'status']
+      : ['subscriptionStatus', 'subscription_status'],
+  );
   if (status) {
     const normalizedStatus = status.toLowerCase();
     if (['active', 'trialing'].includes(normalizedStatus)) {
@@ -153,7 +217,10 @@ async function getStoredProfile(): Promise<UserProfile | null> {
 }
 
 async function persistProfileState(profile: UserProfile): Promise<void> {
-  await chrome.storage.local.set({ [PROFILE_KEY]: profile });
+  await chrome.storage.local.set({
+    [PROFILE_KEY]: profile,
+    [PROFILE_SYNC_AT_KEY]: Date.now(),
+  });
   await syncHourlyUsageState(profile);
   await updateActionIcon(profile);
 }
@@ -169,7 +236,7 @@ async function getStoredNormalizedProfile(): Promise<UserProfile | null> {
 }
 
 async function clearSessionState(): Promise<void> {
-  await chrome.storage.local.remove([AUTH_KEY, PROFILE_KEY, HOURLY_USAGE_KEY]);
+  await chrome.storage.local.remove([AUTH_KEY, PROFILE_KEY, PROFILE_SYNC_AT_KEY, HOURLY_USAGE_KEY]);
   api.clearAuthToken();
   await applyProfileState(null);
 }
@@ -214,6 +281,70 @@ async function fetchFreshProfile(): Promise<{
   };
 }
 
+async function getProfileSyncedAt(): Promise<number | null> {
+  const stored = await chrome.storage.local.get(PROFILE_SYNC_AT_KEY);
+  const value = stored[PROFILE_SYNC_AT_KEY];
+  return typeof value === 'number' && Number.isFinite(value) ? value : null;
+}
+
+async function refreshProfileStateIfNeeded(force = false): Promise<UserProfile | null> {
+  const storedProfile = await getStoredNormalizedProfile();
+  const syncedAt = await getProfileSyncedAt();
+  const isFresh = !force && syncedAt !== null && Date.now() - syncedAt <= PROFILE_REFRESH_MAX_AGE_MS;
+  if (storedProfile && isFresh) {
+    return storedProfile;
+  }
+
+  const storedToken = await getStoredToken();
+  if (!storedToken) {
+    const sessionProfile = await loadProfileFromApi();
+    if (sessionProfile.success && sessionProfile.data) {
+      await persistProfileState(sessionProfile.data);
+      return sessionProfile.data;
+    }
+
+    if (isUnauthorizedResponse(sessionProfile)) {
+      await chrome.storage.local.remove([PROFILE_KEY, PROFILE_SYNC_AT_KEY, HOURLY_USAGE_KEY]);
+      await applyProfileState(null);
+      return null;
+    }
+
+    if (storedProfile) {
+      await chrome.storage.local.set({ [PROFILE_SYNC_AT_KEY]: Date.now() });
+      await applyProfileState(storedProfile);
+      return storedProfile;
+    }
+
+    await applyProfileState(null);
+    return null;
+  }
+
+  api.setAuthToken(storedToken);
+  const result = await fetchFreshProfile();
+  if (result.refreshedToken) {
+    await chrome.storage.local.set({ [AUTH_KEY]: result.refreshedToken });
+  }
+
+  if (result.response.success && result.response.data) {
+    await persistProfileState(result.response.data);
+    return result.response.data;
+  }
+
+  if (result.shouldClearSession) {
+    await clearSessionState();
+    return null;
+  }
+
+  if (storedProfile) {
+    await chrome.storage.local.set({ [PROFILE_SYNC_AT_KEY]: Date.now() });
+    await applyProfileState(storedProfile);
+    return storedProfile;
+  }
+
+  await applyProfileState(null);
+  return null;
+}
+
 let _initPromise: Promise<void> | null = null;
 
 function runInitializeOnce(): void {
@@ -225,17 +356,20 @@ function runInitializeOnce(): void {
 
 async function initialize(): Promise<void> {
   await cache.init();
+  await refreshProfileStateIfNeeded(true);
+  console.log('[BarryGuard] Background worker initialized');
+  return;
 
   const token = await getStoredToken();
   if (token) {
-    api.setAuthToken(token);
+    api.setAuthToken(token as AuthToken);
     const profileResult = await fetchFreshProfile();
     if (profileResult.refreshedToken) {
       await chrome.storage.local.set({ [AUTH_KEY]: profileResult.refreshedToken });
     }
 
     if (profileResult.response.success && profileResult.response.data) {
-      await persistProfileState(profileResult.response.data);
+      await persistProfileState(profileResult.response.data as UserProfile);
     } else if (profileResult.shouldClearSession) {
       await clearSessionState();
       // Refresh failed — clear session
@@ -286,6 +420,27 @@ function normalizeProfile(profile: UserProfile | JsonRecord): UserProfile {
     pickString(merged, ['currentPeriodEnd', 'current_period_end']) ?? typedProfile.currentPeriodEnd;
   const customerPortalUrl =
     pickString(merged, ['customerPortalUrl', 'customer_portal_url']) ?? typedProfile.customerPortalUrl;
+  const hourlyAnalysesUsed =
+    pickNumber(merged, ['hourlyAnalysesUsed', 'hourly_analyses_used', 'analysesThisHour', 'analyses_this_hour'])
+    ?? typedProfile.hourlyAnalysesUsed;
+  const hourlyAnalysesRemaining =
+    pickNumber(merged, [
+      'hourlyAnalysesRemaining',
+      'hourly_analyses_remaining',
+      'remainingAnalysesThisHour',
+      'remaining_analyses_this_hour',
+      'analysesRemaining',
+      'analyses_remaining',
+    ]) ?? typedProfile.hourlyAnalysesRemaining;
+  const hourlyAnalysesLimit =
+    pickNumber(merged, [
+      'hourlyAnalysesLimit',
+      'hourly_analyses_limit',
+      'maxAnalysesPerHour',
+      'max_analyses_per_hour',
+      'hourlyLimit',
+      'hourly_limit',
+    ]) ?? typedProfile.hourlyAnalysesLimit;
   const email = pickString(merged, ['email']) ?? typedProfile.email ?? '';
   const id = pickString(merged, ['id']) ?? typedProfile.id ?? email;
 
@@ -303,11 +458,28 @@ function normalizeProfile(profile: UserProfile | JsonRecord): UserProfile {
       typedProfile.singleTokenCooldownSeconds ?? (tier === 'free' ? FREE_COOLDOWN_SECONDS : 0),
     singleTokenHourlyLimit:
       typedProfile.singleTokenHourlyLimit ?? (tier === 'free' ? FREE_HOURLY_LIMIT : DEFAULT_LIST_REQUEST_LIMIT[tier]),
+    hourlyAnalysesUsed,
+    hourlyAnalysesRemaining,
+    hourlyAnalysesLimit,
     stripeCustomerId,
     subscriptionStatus,
     currentPeriodEnd,
     customerPortalUrl: customerPortalUrl ? sanitizeCustomerPortalUrl(customerPortalUrl) ?? undefined : undefined,
   };
+}
+
+function mergeProfileWithFallback(
+  profile: UserProfile | JsonRecord,
+  fallbackProfile: UserProfile | null,
+): UserProfile {
+  if (!fallbackProfile) {
+    return normalizeProfile(profile);
+  }
+
+  return normalizeProfile({
+    ...fallbackProfile,
+    ...profile,
+  });
 }
 
 async function loadProfileFromApi(): Promise<ApiResponse<UserProfile>> {
@@ -318,18 +490,19 @@ async function loadProfileFromApi(): Promise<ApiResponse<UserProfile>> {
 
   const tierResult = await api.getUserTier();
   if (!tierResult.success || !tierResult.data) {
+    const storedProfile = await getStoredNormalizedProfile();
     return {
       success: true,
-      data: normalizeProfile(session.data),
+      data: mergeProfileWithFallback(session.data, storedProfile),
     };
   }
 
   return {
     success: true,
-    data: normalizeProfile({
+    data: mergeProfileWithFallback({
       ...session.data,
       ...tierResult.data,
-    }),
+    }, null),
   };
 }
 
@@ -420,66 +593,17 @@ async function setHourlyUsageState(state: HourlyUsageState): Promise<void> {
 }
 
 async function syncHourlyUsageState(profile: UserProfile | null): Promise<HourlyUsageState | null> {
-  const tier = profile?.tier ?? 'free';
-  const audience: HourlyUsageState['audience'] = profile ? 'authenticated' : 'anonymous';
-  const limit = getHourlyLimit(profile);
-  const bucketKey = getUsageBucketKey(tier, audience);
-  const existing = await getStoredHourlyUsageState();
-
-  if (
-    existing &&
-    existing.bucketKey === bucketKey &&
-    existing.tier === tier &&
-    existing.audience === audience &&
-    existing.limit === limit
-  ) {
-    return existing;
-  }
-
-  const nextState: HourlyUsageState = {
-    bucketKey,
-    tier,
-    audience,
-    used:
-      existing && existing.bucketKey === bucketKey
-        ? Math.min(existing.used, limit)
-        : 0,
-    limit,
-    updatedAt: Date.now(),
-  };
-
-  await setHourlyUsageState(nextState);
-  return nextState;
+  void profile;
+  return null;
 }
 
 async function markUsageExhausted(profile: UserProfile | null): Promise<void> {
-  const state = await syncHourlyUsageState(profile);
-  if (!state) {
-    return;
-  }
-
-  await setHourlyUsageState({
-    ...state,
-    used: state.limit,
-    updatedAt: Date.now(),
-  });
+  void profile;
 }
 
 async function incrementHourlyUsage(profile: UserProfile | null, amount: number): Promise<void> {
-  if (amount <= 0) {
-    return;
-  }
-
-  const state = await syncHourlyUsageState(profile);
-  if (!state) {
-    return;
-  }
-
-  await setHourlyUsageState({
-    ...state,
-    used: Math.min(state.limit, state.used + amount),
-    updatedAt: Date.now(),
-  });
+  void profile;
+  void amount;
 }
 
 function mapApiFailure<T>(response: ApiResponse<T>): ApiResponse<T> {
@@ -536,22 +660,9 @@ async function maybeEnforceHourlyLimit(
   profile: UserProfile | null,
   requestedUnits = 1,
 ): Promise<ApiResponse<never> | null> {
-  const normalizedUnits = Math.max(1, requestedUnits);
-  const state = await syncHourlyUsageState(profile);
-  if (!state || state.limit <= 0) {
-    return null;
-  }
-
-  if (state.used + normalizedUnits <= state.limit) {
-    return null;
-  }
-
-  return {
-    success: false,
-    error: `Hourly limit reached. You used ${state.used}/${state.limit} analyses this hour.`,
-    statusCode: 429,
-    errorType: 'rate_limit',
-  };
+  void profile;
+  void requestedUnits;
+  return null;
 }
 
 const SOLANA_ADDRESS_RE = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
@@ -571,8 +682,7 @@ async function getTokenScore(address: string) {
   }
   _inFlightAddresses.add(address);
   try {
-    const profile = await getStoredProfile();
-    const normalizedProfile = profile ? normalizeProfile(profile) : null;
+    const normalizedProfile = await refreshProfileStateIfNeeded();
     const tier: TierLevel = normalizedProfile?.tier ?? 'free';
 
     const cached = await cache.get(address, tier);
@@ -634,8 +744,7 @@ async function analyzeTokenList(addresses: string[]): Promise<ApiResponse<TokenL
     return { success: true, data: { scores: [], cachedAddresses: [] } };
   }
 
-  const profile = await getStoredProfile();
-  const normalizedProfile = profile ? normalizeProfile(profile) : null;
+  const normalizedProfile = await refreshProfileStateIfNeeded();
   const tier = normalizedProfile?.tier ?? 'free';
 
   if (!normalizedProfile?.capabilities?.tokenListAnalysis) {
@@ -720,10 +829,12 @@ async function openPopupForToken(selectedToken: SelectedToken) {
 export {
   inferTier as _inferTierForTest,
   normalizeProfile as _normalizeProfileForTest,
+  mergeProfileWithFallback as _mergeProfileWithFallbackForTest,
   getCooldownSeconds as _getCooldownSecondsForTest,
   syncHourlyUsageState as _syncHourlyUsageStateForTest,
   incrementHourlyUsage as _incrementHourlyUsageForTest,
   isUnauthorizedResponse as _isUnauthorizedResponseForTest,
+  refreshProfileStateIfNeeded as _refreshProfileStateIfNeededForTest,
 };
 
 export function initializeBackground(): void {
@@ -762,61 +873,19 @@ export function initializeBackground(): void {
             break;
           }
           case 'GET_USER_TIER': {
-            const storedToken = await getStoredToken();
-            if (storedToken) {
-              api.setAuthToken(storedToken);
-              const result = await fetchFreshProfile();
-              if (result.refreshedToken) {
-                await chrome.storage.local.set({ [AUTH_KEY]: result.refreshedToken });
-              }
-
-              if (result.response.success && result.response.data) {
-                const normalizedProfile = result.response.data;
-                await persistProfileState(normalizedProfile);
-                respond({ success: true, data: normalizedProfile });
-                break;
-              }
-
-              const storedProfile = result.shouldClearSession ? null : await getStoredNormalizedProfile();
-              if (storedProfile) {
-                const normalizedStoredProfile = normalizeProfile(storedProfile);
-                await applyProfileState(normalizedStoredProfile);
-                respond({ success: true, data: normalizedStoredProfile });
-                break;
-              }
-
-              if (result.shouldClearSession) {
-                await clearSessionState();
-              } else {
-                await applyProfileState(null);
-              }
-
-              respond(mapApiFailure(result.response));
-              break;
-            }
-
-            const profile = await getStoredProfile();
-            if (profile?.capabilities && typeof profile.listRequestLimit === 'number') {
-              const normalizedProfile = normalizeProfile(profile);
-              await syncHourlyUsageState(normalizedProfile);
-              await updateActionIcon(normalizedProfile);
-              respond({ success: true, data: normalizedProfile });
-              break;
-            }
-
-            respond({ success: false, error: 'No active session.' });
+            const profile = await refreshProfileStateIfNeeded(true);
+            respond(profile ? { success: true, data: profile } : { success: false, error: 'No active session.' });
             break;
           }
           case 'LOGIN': {
             const result = await api.login(message.payload.email, message.payload.password);
             if (result.success && result.data) {
-              const normalizedUser = normalizeProfile(result.data.user);
-              await chrome.storage.local.set({
-                [AUTH_KEY]: result.data.token,
-                [PROFILE_KEY]: normalizedUser,
+              const normalizedUser = normalizeProfile({
+                ...(asRecord(result.data) ?? {}),
+                ...(asRecord(result.data.user) ?? {}),
               });
-              await syncHourlyUsageState(normalizedUser);
-              await updateActionIcon(normalizedUser);
+              await chrome.storage.local.set({ [AUTH_KEY]: result.data.token });
+              await persistProfileState(normalizedUser);
               respond({ success: true, data: normalizedUser });
               break;
             }
@@ -826,25 +895,38 @@ export function initializeBackground(): void {
           case 'REGISTER': {
             const result = await api.register(message.payload.email, message.payload.password);
             if (result.success && result.data) {
-              const normalizedUser = normalizeProfile(result.data.user);
-              await chrome.storage.local.set({
-                [AUTH_KEY]: result.data.token,
-                [PROFILE_KEY]: normalizedUser,
+              const normalizedUser = normalizeProfile({
+                ...(asRecord(result.data) ?? {}),
+                ...(asRecord(result.data.user) ?? {}),
               });
-              await syncHourlyUsageState(normalizedUser);
-              await updateActionIcon(normalizedUser);
+              await chrome.storage.local.set({ [AUTH_KEY]: result.data.token });
+              await persistProfileState(normalizedUser);
               respond({ success: true, data: normalizedUser });
               break;
             }
             respond(result.success ? { success: true, data: result.data?.user } : mapApiFailure(result));
             break;
           }
+          case 'SEND_MAGIC_LINK': {
+            const email = typeof message.payload?.email === 'string' ? message.payload.email.trim() : '';
+            if (!email) {
+              respond({ success: false, error: 'Email is required.' });
+              break;
+            }
+
+            respond(await api.sendMagicLink(email));
+            break;
+          }
           case 'OAUTH_LOGIN':
-            respond(await api.oauthLogin(message.payload));
+            if (message.payload !== 'google') {
+              respond({ success: false, error: 'Unsupported OAuth provider.' });
+              break;
+            }
+            respond(await api.oauthLogin('google'));
             break;
           case 'LOGOUT':
             await api.logout();
-            await chrome.storage.local.remove([AUTH_KEY, PROFILE_KEY, HOURLY_USAGE_KEY]);
+            await chrome.storage.local.remove([AUTH_KEY, PROFILE_KEY, PROFILE_SYNC_AT_KEY, HOURLY_USAGE_KEY]);
             await syncHourlyUsageState(null);
             await updateActionIcon(null);
             respond({ success: true });

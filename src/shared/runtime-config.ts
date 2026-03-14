@@ -3,6 +3,7 @@ const DEFAULT_APP_URL = 'https://www.barryguard.com';
 const LOCALHOST_HOSTS = new Set(['localhost', '127.0.0.1']);
 const CUSTOMER_PORTAL_HOSTS = new Set(['billing.stripe.com']);
 const EXPLORER_HOSTS = new Set(['solscan.io']);
+const OAUTH_HOSTS = new Set(['accounts.google.com']);
 
 function isLocalDevHost(hostname: string): boolean {
   return LOCALHOST_HOSTS.has(hostname);
@@ -94,8 +95,12 @@ export function getForgotPasswordUrl(): string {
   return configuredUrl ? normalizeAppUrl(configuredUrl) : `${getAppBaseUrl()}/forgot-password`;
 }
 
-export function getOAuthUrl(provider: 'google' | 'github'): string {
-  return `${getAppBaseUrl()}/auth/${provider}?extension=true`;
+export function getLoginUrl(): string {
+  const configuredUrl = getEnvValue('BARRYGUARD_LOGIN_URL')
+    || getEnvValue('WXT_BARRYGUARD_LOGIN_URL')
+    || getEnvValue('VITE_BARRYGUARD_LOGIN_URL');
+
+  return configuredUrl ? normalizeAppUrl(configuredUrl) : `${getAppBaseUrl()}/login`;
 }
 
 export function sanitizeExternalNavigationUrl(url: string): string | null {
@@ -128,6 +133,39 @@ export function sanitizeCustomerPortalUrl(url: string): string | null {
   }
 
   return null;
+}
+
+export function sanitizeOAuthNavigationUrl(url: string): string | null {
+  const parsed = tryParseTrustedUrl(url, true);
+  if (!parsed) {
+    return null;
+  }
+
+  const appOrigin = new URL(getAppBaseUrl()).origin;
+  if (matchesOrigin(parsed, appOrigin) || OAUTH_HOSTS.has(parsed.hostname) || parsed.hostname.endsWith('.supabase.co')) {
+    return parsed.toString();
+  }
+
+  return null;
+}
+
+export function normalizeOAuthNavigationUrl(url: string, provider: 'google'): string | null {
+  const trusted = sanitizeOAuthNavigationUrl(url);
+  if (!trusted) {
+    return null;
+  }
+
+  const parsed = new URL(trusted);
+  const appOrigin = new URL(getAppBaseUrl()).origin;
+  if (parsed.origin !== appOrigin) {
+    return parsed.toString();
+  }
+
+  if (parsed.pathname === `/auth/${provider}` || parsed.pathname === `/api/auth/${provider}`) {
+    return null;
+  }
+
+  return parsed.toString();
 }
 
 export function sanitizeExplorerUrl(url: string): string | null {

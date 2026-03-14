@@ -11,12 +11,14 @@ import type {
 import {
   getAccountUrl,
   getForgotPasswordUrl,
-  getOAuthUrl,
+  getLoginUrl,
+  normalizeOAuthNavigationUrl,
   getPricingUrl,
   sanitizeAppNavigationUrl,
   sanitizeCustomerPortalUrl,
   sanitizeExplorerUrl,
   sanitizeExternalNavigationUrl,
+  sanitizeOAuthNavigationUrl,
 } from '../shared/runtime-config';
 
 type ScreenName = 'loading' | 'token-detail' | 'login' | 'register' | 'account' | 'manual';
@@ -162,8 +164,9 @@ const elements = {
     email: document.getElementById('email') as HTMLInputElement | null,
     password: document.getElementById('password') as HTMLInputElement | null,
     loginBtn: document.getElementById('login-btn') as HTMLButtonElement | null,
+    magicLinkBtn: document.getElementById('magic-link-btn') as HTMLButtonElement | null,
+    message: document.getElementById('login-message'),
     googleBtn: document.getElementById('google-login-btn'),
-    githubBtn: document.getElementById('github-login-btn'),
     backBtn: document.getElementById('login-back-btn'),
     forgotPassword: document.getElementById('forgot-password-link'),
     registerLink: document.getElementById('register-link'),
@@ -173,6 +176,8 @@ const elements = {
     password: document.getElementById('register-password') as HTMLInputElement | null,
     passwordConfirm: document.getElementById('register-password-confirm') as HTMLInputElement | null,
     registerBtn: document.getElementById('register-btn') as HTMLButtonElement | null,
+    magicLinkBtn: document.getElementById('register-magic-link-btn') as HTMLButtonElement | null,
+    message: document.getElementById('register-message'),
     googleBtn: document.getElementById('register-google-btn'),
     backBtn: document.getElementById('register-back-btn'),
     toLoginLink: document.getElementById('to-login-link'),
@@ -385,6 +390,21 @@ function setRegisterError(message: string | null): void {
   elements.register.error.classList.remove('hidden');
 }
 
+function setStatusMessage(element: HTMLElement | null | undefined, message: string | null): void {
+  if (!element) {
+    return;
+  }
+
+  if (!message) {
+    element.classList.add('hidden');
+    element.textContent = '';
+    return;
+  }
+
+  element.textContent = message;
+  element.classList.remove('hidden');
+}
+
 function getTierRank(tier: TierLevel): number {
   const rank: Record<TierLevel, number> = {
     free: 0,
@@ -543,29 +563,33 @@ function getCurrentUsageBucketKey(tier: TierLevel, audience: 'anonymous' | 'auth
 }
 
 function getUsageSummary(): { limit: number; used: number; remaining: number; ratio: number } | null {
-  const tier = state.userProfile?.tier ?? state.usageState?.tier ?? 'free';
-  const audience: 'anonymous' | 'authenticated' = state.userProfile ? 'authenticated' : 'anonymous';
-  const usageState = state.usageState;
-  const limit = state.userProfile?.singleTokenHourlyLimit ?? usageState?.limit ?? 0;
-  if (limit <= 0) {
-    return null;
+  const backendLimit = state.userProfile?.hourlyAnalysesLimit;
+  const backendUsed = state.userProfile?.hourlyAnalysesUsed;
+  const backendRemaining = state.userProfile?.hourlyAnalysesRemaining;
+  if (
+    typeof backendLimit === 'number'
+    && Number.isFinite(backendLimit)
+    && backendLimit > 0
+    && (
+      (typeof backendUsed === 'number' && Number.isFinite(backendUsed))
+      || (typeof backendRemaining === 'number' && Number.isFinite(backendRemaining))
+    )
+  ) {
+    const used = typeof backendUsed === 'number' && Number.isFinite(backendUsed)
+      ? Math.max(0, Math.min(backendUsed, backendLimit))
+      : Math.max(0, backendLimit - Math.max(0, backendRemaining ?? 0));
+    const remaining = typeof backendRemaining === 'number' && Number.isFinite(backendRemaining)
+      ? Math.max(0, Math.min(backendRemaining, backendLimit))
+      : Math.max(0, backendLimit - used);
+
+    return {
+      limit: backendLimit,
+      used,
+      remaining,
+      ratio: used / backendLimit,
+    };
   }
-
-  const activeBucketKey = getCurrentUsageBucketKey(tier, audience);
-  const used =
-    usageState &&
-    usageState.bucketKey === activeBucketKey &&
-    usageState.tier === tier &&
-    usageState.audience === audience
-      ? Math.min(usageState.used, limit)
-      : 0;
-
-  return {
-    limit,
-    used,
-    remaining: Math.max(0, limit - used),
-    ratio: used / limit,
-  };
+  return null;
 }
 
 function hasExhaustedUsage(): boolean {
@@ -1087,6 +1111,7 @@ async function refreshSelectedTokenScore(): Promise<void> {
 async function handleLogin(): Promise<void> {
   const email = elements.login.email?.value.trim() ?? '';
   const password = elements.login.password?.value ?? '';
+  setStatusMessage(elements.login.message, null);
 
   if (!email || !password) {
     window.alert('Please enter email and password.');
@@ -1121,6 +1146,48 @@ async function handleLogin(): Promise<void> {
   } finally {
     elements.login.loginBtn.disabled = false;
     elements.login.loginBtn.textContent = 'Login';
+  }
+}
+
+async function handleMagicLink(source: 'login' | 'register'): Promise<void> {
+  const email = source === 'login'
+    ? elements.login.email?.value.trim() ?? ''
+    : elements.register.email?.value.trim() ?? '';
+  const button = source === 'login' ? elements.login.magicLinkBtn : elements.register.magicLinkBtn;
+  const messageElement = source === 'login' ? elements.login.message : elements.register.message;
+
+  setStatusMessage(messageElement, null);
+  if (source === 'register') {
+    setRegisterError(null);
+  }
+
+  if (!email) {
+    setStatusMessage(messageElement, 'Enter your email first.');
+    return;
+  }
+
+  if (!button) {
+    return;
+  }
+
+  button.disabled = true;
+  button.textContent = 'Sending...';
+
+  try {
+    const response = await sendMessage<{ message?: string }>({
+      type: 'SEND_MAGIC_LINK',
+      payload: { email },
+    });
+
+    if (!response.success) {
+      setStatusMessage(messageElement, response.error ?? 'Magic link could not be sent.');
+      return;
+    }
+
+    setStatusMessage(messageElement, response.data?.message ?? 'Magic link sent. Check your email.');
+  } finally {
+    button.disabled = false;
+    button.textContent = 'Send Magic Link';
   }
 }
 
@@ -1250,14 +1317,14 @@ async function handleAnalyze(): Promise<void> {
   }
 }
 
-async function handleOAuth(provider: 'google' | 'github'): Promise<void> {
+async function handleOAuth(): Promise<void> {
   const response = await sendMessage<{ url: string }>({
     type: 'OAUTH_LOGIN',
-    payload: provider,
+    payload: 'google',
   });
 
   const trustedOAuthUrl = response.success && response.data?.url
-    ? sanitizeAppNavigationUrl(response.data.url)
+    ? normalizeOAuthNavigationUrl(response.data.url, 'google')
     : null;
   if (trustedOAuthUrl) {
     openExternal(trustedOAuthUrl);
@@ -1265,8 +1332,15 @@ async function handleOAuth(provider: 'google' | 'github'): Promise<void> {
     return;
   }
 
-  openExternal(getOAuthUrl(provider));
-  window.close();
+  const loginUrl = getLoginUrl();
+  const fallbackUrl = sanitizeAppNavigationUrl(loginUrl);
+  if (fallbackUrl) {
+    openExternal(fallbackUrl);
+    window.close();
+    return;
+  }
+
+  window.alert(response.error ?? 'Google login is currently unavailable.');
 }
 
 function setupEventListeners(): void {
@@ -1335,11 +1409,11 @@ function setupEventListeners(): void {
   elements.login.loginBtn?.addEventListener('click', () => {
     void handleLogin();
   });
-  elements.login.googleBtn?.addEventListener('click', () => {
-    void handleOAuth('google');
+  elements.login.magicLinkBtn?.addEventListener('click', () => {
+    void handleMagicLink('login');
   });
-  elements.login.githubBtn?.addEventListener('click', () => {
-    void handleOAuth('github');
+  elements.login.googleBtn?.addEventListener('click', () => {
+    void handleOAuth();
   });
   elements.login.forgotPassword?.addEventListener('click', (event) => {
     event.preventDefault();
@@ -1348,6 +1422,7 @@ function setupEventListeners(): void {
   elements.login.registerLink?.addEventListener('click', (event) => {
     event.preventDefault();
     setRegisterError(null);
+    setStatusMessage(elements.register.message, null);
     showScreen('register');
   });
 
@@ -1359,8 +1434,11 @@ function setupEventListeners(): void {
   elements.register.registerBtn?.addEventListener('click', () => {
     void handleRegister();
   });
+  elements.register.magicLinkBtn?.addEventListener('click', () => {
+    void handleMagicLink('register');
+  });
   elements.register.googleBtn?.addEventListener('click', () => {
-    void handleOAuth('google');
+    void handleOAuth();
   });
 
   elements.account.backBtn?.addEventListener('click', () => showScreen('token-detail'));

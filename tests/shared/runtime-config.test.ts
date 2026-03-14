@@ -3,12 +3,14 @@ import {
   getAccountUrl,
   getAppBaseUrl,
   getForgotPasswordUrl,
-  getOAuthUrl,
+  getLoginUrl,
+  normalizeOAuthNavigationUrl,
   getPricingUrl,
   sanitizeAppNavigationUrl,
   sanitizeCustomerPortalUrl,
   sanitizeExplorerUrl,
   sanitizeExternalNavigationUrl,
+  sanitizeOAuthNavigationUrl,
 } from '../../src/shared/runtime-config';
 
 describe('runtime-config navigation hardening', () => {
@@ -17,13 +19,30 @@ describe('runtime-config navigation hardening', () => {
     expect(getPricingUrl()).toBe('https://www.barryguard.com/pricing');
     expect(getAccountUrl()).toBe('https://www.barryguard.com/dashboard/account');
     expect(getForgotPasswordUrl()).toBe('https://www.barryguard.com/forgot-password');
-    expect(getOAuthUrl('google')).toBe('https://www.barryguard.com/auth/google?extension=true');
+    expect(getLoginUrl()).toBe('https://www.barryguard.com/login');
   });
 
   it('accepts only same-origin app navigation URLs', () => {
-    expect(sanitizeAppNavigationUrl('https://www.barryguard.com/auth/google?extension=true'))
-      .toBe('https://www.barryguard.com/auth/google?extension=true');
+    expect(sanitizeAppNavigationUrl('https://www.barryguard.com/dashboard/account'))
+      .toBe('https://www.barryguard.com/dashboard/account');
     expect(sanitizeAppNavigationUrl('https://evil.example/auth/google')).toBeNull();
+  });
+
+  it('allows trusted OAuth navigation URLs from app, Google, and Supabase', () => {
+    expect(sanitizeOAuthNavigationUrl('https://www.barryguard.com/login'))
+      .toBe('https://www.barryguard.com/login');
+    expect(sanitizeOAuthNavigationUrl('https://accounts.google.com/o/oauth2/v2/auth'))
+      .toBe('https://accounts.google.com/o/oauth2/v2/auth');
+    expect(sanitizeOAuthNavigationUrl('https://project-ref.supabase.co/auth/v1/authorize?provider=google'))
+      .toBe('https://project-ref.supabase.co/auth/v1/authorize?provider=google');
+    expect(sanitizeOAuthNavigationUrl('https://evil.example/oauth')).toBeNull();
+  });
+
+  it('rejects legacy app oauth routes that are known to be invalid', () => {
+    expect(normalizeOAuthNavigationUrl('https://www.barryguard.com/auth/google?extension=true', 'google'))
+      .toBeNull();
+    expect(normalizeOAuthNavigationUrl('https://www.barryguard.com/api/auth/google', 'google'))
+      .toBeNull();
   });
 
   it('limits customer portal URLs to trusted hosts', () => {
