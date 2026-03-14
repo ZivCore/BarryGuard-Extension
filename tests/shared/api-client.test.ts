@@ -75,4 +75,31 @@ describe('BarryGuardApiClient', () => {
     await client.logout();
     expect(client.getAuthToken()).toBeNull();
   });
+
+  describe('refreshToken', () => {
+    it('returns error if no refresh_token is stored', async () => {
+      client.setAuthToken({ access_token: 'old' }); // no refresh_token
+      const res = await client.refreshToken();
+      expect(res.success).toBe(false);
+      expect(res.error).toBe('No refresh token');
+      expect(mockFetch).not.toHaveBeenCalled();
+    });
+
+    it('updates authToken on successful refresh', async () => {
+      client.setAuthToken({ access_token: 'old', refresh_token: 'ref123' });
+      mockOk({ access_token: 'new_access', refresh_token: 'new_refresh' });
+      const res = await client.refreshToken();
+      expect(res.success).toBe(true);
+      expect(client.getAuthToken()?.access_token).toBe('new_access');
+    });
+
+    it('leaves existing token intact when refresh fails', async () => {
+      client.setAuthToken({ access_token: 'old', refresh_token: 'ref123' });
+      mockError(401);
+      const res = await client.refreshToken();
+      expect(res.success).toBe(false);
+      // Token should remain unchanged after failed refresh
+      expect(client.getAuthToken()?.access_token).toBe('old');
+    });
+  });
 });
