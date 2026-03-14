@@ -8,9 +8,10 @@
     "build": "tsc && node scripts/build.js",
     "test": "vitest"
   },
-  "dependencies": {},
   "devDependencies": {
     "@types/chrome": "^0.0.268",
+    "@vitest/coverage-v8": "^1.6.1",
+    "jsdom": "^28.1.0",
     "typescript": "^5.4.0",
     "vitest": "^1.3.0"
   }
