@@ -112,5 +112,3 @@ export class BarryGuardApiClient {
     return res;
   }
 }
-
-export const apiClient = new BarryGuardApiClient();
