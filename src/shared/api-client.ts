@@ -28,7 +28,11 @@ export class BarryGuardApiClient {
     }
 
     try {
-      const res = await fetch(`${baseUrl}${path}`, { ...options, headers });
+      const res = await fetch(`${baseUrl}${path}`, {
+        ...options,
+        credentials: 'include',
+        headers,
+      });
       if (res.ok) {
         return { success: true, data: await res.json() as T, statusCode: res.status };
       }
@@ -86,6 +90,13 @@ export class BarryGuardApiClient {
     });
     if (res.success && res.data) this.authToken = res.data.token;
     return res;
+  }
+
+  sendMagicLink(email: string): Promise<ApiResponse<{ message?: string }>> {
+    return this.request<{ message?: string }>('/auth/magic-link', {
+      method: 'POST',
+      body: JSON.stringify({ email }),
+    });
   }
 
   oauthLogin(provider: string): Promise<ApiResponse<{ url: string }>> {

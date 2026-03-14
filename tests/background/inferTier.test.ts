@@ -19,7 +19,11 @@ vi.stubGlobal('chrome', {
   },
 });
 
-const { _inferTierForTest: inferTier, _normalizeProfileForTest: normalizeProfile } =
+const {
+  _inferTierForTest: inferTier,
+  _normalizeProfileForTest: normalizeProfile,
+  _mergeProfileWithFallbackForTest: mergeProfileWithFallback,
+} =
   await import('../../src/background/index');
 
 describe('inferTier', () => {
@@ -45,6 +49,34 @@ describe('inferTier', () => {
   it('upgrades to rescue_pass based on subscriptionStatus:active', () => {
     expect(inferTier({ subscriptionStatus: 'active' })).toBe('rescue_pass');
     expect(inferTier({ subscription_status: 'trialing' })).toBe('rescue_pass');
+  });
+
+  it('upgrades to rescue_pass when nested subscription.status is active', () => {
+    expect(inferTier({
+      email: 'paid@barryguard.com',
+      subscription: {
+        status: 'active',
+      },
+    })).toBe('rescue_pass');
+  });
+
+  it('detects paid tier from nested subscription plan names', () => {
+    expect(inferTier({
+      subscription: {
+        product_name: 'BarryGuard Rescue Pass',
+      },
+    })).toBe('rescue_pass');
+    expect(inferTier({
+      subscription: {
+        plan_name: 'BarryGuard Pro',
+      },
+    })).toBe('pro');
+  });
+
+  it('detects paid tier from boolean subscription flags', () => {
+    expect(inferTier({ hasSubscription: true })).toBe('rescue_pass');
+    expect(inferTier({ subscriptionActive: true })).toBe('rescue_pass');
+    expect(inferTier({ isPro: true })).toBe('pro');
   });
 
   it('reads tier from nested user object', () => {
@@ -80,5 +112,40 @@ describe('normalizeProfile', () => {
       customerPortalUrl: 'https://evil.example/portal',
     });
     expect(result.customerPortalUrl).toBeUndefined();
+  });
+
+  it('preserves the stored paid tier when session data omits tier fields', () => {
+    const result = mergeProfileWithFallback(
+      { id: 'user_1', email: 'paid@barryguard.com' },
+      normalizeProfile({
+        id: 'user_1',
+        email: 'paid@barryguard.com',
+        tier: 'pro',
+        capabilities: {
+          singleTokenAnalysis: true,
+          tokenListAnalysis: true,
+        },
+        listRequestLimit: 2000,
+        singleTokenHourlyLimit: 2000,
+      }),
+    );
+
+    expect(result.tier).toBe('pro');
+    expect(result.capabilities?.tokenListAnalysis).toBe(true);
+    expect(result.listRequestLimit).toBe(2000);
+  });
+
+  it('reads hourly usage values from backend profile fields', () => {
+    const result = normalizeProfile({
+      email: 'paid@barryguard.com',
+      tier: 'pro',
+      analyses_this_hour: 7,
+      remaining_analyses_this_hour: 993,
+      max_analyses_per_hour: 1000,
+    });
+
+    expect(result.hourlyAnalysesUsed).toBe(7);
+    expect(result.hourlyAnalysesRemaining).toBe(993);
+    expect(result.hourlyAnalysesLimit).toBe(1000);
   });
 });

@@ -75,6 +75,49 @@ describe('sanitizeTokenScore', () => {
       checks: {},
     })).toBeNull();
   });
+
+  it('keeps valid checks even when label and description are missing', () => {
+    expect(sanitizeTokenScore({
+      address: '7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU',
+      chain: 'solana',
+      score: 84,
+      risk: 'low',
+      checks: {
+        mintAuthority: {
+          status: 'danger',
+          value: true,
+          tier: 'free',
+        },
+        freezeAuthority: {
+          status: 'success',
+          value: false,
+          tier: 'free',
+        },
+      },
+    })).toEqual({
+      address: '7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU',
+      chain: 'solana',
+      score: 84,
+      risk: 'low',
+      cached: false,
+      checks: {
+        mintAuthority: {
+          status: 'danger',
+          value: true,
+          label: '',
+          description: '',
+          tier: 'free',
+        },
+        freezeAuthority: {
+          status: 'success',
+          value: false,
+          label: '',
+          description: '',
+          tier: 'free',
+        },
+      },
+    });
+  });
 });
 
 describe('extractTokenScores', () => {
@@ -140,5 +183,227 @@ describe('extractTokenScores', () => {
         checks: {},
       },
     ]);
+  });
+
+  it('normalizes check key aliases to the canonical popup keys', () => {
+    expect(sanitizeTokenScore({
+      address: '7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU',
+      chain: 'solana',
+      score: 84,
+      risk: 'low',
+      checks: {
+        mint_authority: {
+          status: 'danger',
+          value: true,
+          tier: 'free',
+        },
+        freeze_authority: {
+          status: 'success',
+          value: false,
+          tier: 'free',
+        },
+        liquidity_lock: {
+          status: 'warning',
+          value: false,
+          tier: 'free',
+        },
+      },
+    })?.checks).toEqual({
+      mintAuthority: {
+        status: 'danger',
+        value: true,
+        label: '',
+        description: '',
+        tier: 'free',
+      },
+      freezeAuthority: {
+        status: 'success',
+        value: false,
+        label: '',
+        description: '',
+        tier: 'free',
+      },
+      liquidityLocked: {
+        status: 'warning',
+        value: false,
+        label: '',
+        description: '',
+        tier: 'free',
+      },
+    });
+  });
+
+  it('uses known fallback tiers when the backend omits tier on canonical free checks', () => {
+    expect(sanitizeTokenScore({
+      address: '7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU',
+      chain: 'solana',
+      score: 84,
+      risk: 'low',
+      checks: {
+        mintAuthority: {
+          status: 'danger',
+          value: true,
+        },
+        freezeAuthority: {
+          status: 'success',
+          value: false,
+        },
+      },
+    })?.checks).toEqual({
+      mintAuthority: {
+        status: 'danger',
+        value: true,
+        label: '',
+        description: '',
+        tier: 'free',
+      },
+      freezeAuthority: {
+        status: 'success',
+        value: false,
+        label: '',
+        description: '',
+        tier: 'free',
+      },
+    });
+  });
+
+  it('infers authority statuses when the backend omits status but keeps boolean values', () => {
+    expect(sanitizeTokenScore({
+      address: '7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU',
+      chain: 'solana',
+      score: 84,
+      risk: 'low',
+      checks: {
+        mintAuthority: {
+          value: true,
+        },
+        freezeAuthority: {
+          value: false,
+        },
+      },
+    })?.checks).toEqual({
+      mintAuthority: {
+        status: 'danger',
+        value: true,
+        label: '',
+        description: '',
+        tier: 'free',
+      },
+      freezeAuthority: {
+        status: 'success',
+        value: false,
+        label: '',
+        description: '',
+        tier: 'free',
+      },
+    });
+  });
+
+  it('extracts canonical free checks from top-level legacy fields when checks are missing them', () => {
+    expect(sanitizeTokenScore({
+      address: '7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU',
+      chain: 'solana',
+      score: 84,
+      risk: 'low',
+      mint_authority: {
+        value: true,
+      },
+      freeze_authority: {
+        value: false,
+      },
+      checks: {
+        liquidity_lock: {
+          status: 'warning',
+          value: false,
+          tier: 'free',
+        },
+      },
+    })?.checks).toEqual({
+      mintAuthority: {
+        status: 'danger',
+        value: true,
+        label: '',
+        description: '',
+        tier: 'free',
+      },
+      freezeAuthority: {
+        status: 'success',
+        value: false,
+        label: '',
+        description: '',
+        tier: 'free',
+      },
+      liquidityLocked: {
+        status: 'warning',
+        value: false,
+        label: '',
+        description: '',
+        tier: 'free',
+      },
+    });
+  });
+
+  it('accepts primitive legacy authority fields outside checks', () => {
+    expect(sanitizeTokenScore({
+      address: '7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU',
+      chain: 'solana',
+      score: 84,
+      risk: 'low',
+      mintAuthority: true,
+      freezeAuthority: false,
+      liquidityLocked: false,
+      checks: {},
+    })?.checks).toEqual({
+      mintAuthority: {
+        status: 'danger',
+        value: true,
+        label: '',
+        description: '',
+        tier: 'free',
+      },
+      freezeAuthority: {
+        status: 'success',
+        value: false,
+        label: '',
+        description: '',
+        tier: 'free',
+      },
+      liquidityLocked: {
+        status: 'danger',
+        value: false,
+        label: '',
+        description: '',
+        tier: 'free',
+      },
+    });
+  });
+
+  it('accepts legacy riskFactors containers when checks are empty', () => {
+    expect(sanitizeTokenScore({
+      address: '7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU',
+      chain: 'solana',
+      score: 84,
+      risk: 'low',
+      checks: {},
+      riskFactors: {
+        mint_authority: true,
+        freeze_authority: false,
+      },
+    })?.checks).toEqual({
+      mintAuthority: {
+        status: 'danger',
+        value: true,
+        label: '',
+        description: '',
+        tier: 'free',
+      },
+      freezeAuthority: {
+        status: 'success',
+        value: false,
+        label: '',
+        description: '',
+        tier: 'free',
+      },
+    });
   });
 });
