@@ -754,14 +754,26 @@ function renderChecks(score: TokenScore): void {
     item.className = `check-item${locked ? ' locked' : ''}`;
 
     if (locked) {
-      item.innerHTML = `
-        <div class="check-icon locked-icon">LOCK</div>
-        <div class="check-content">
-          <div class="check-label">${label}</div>
-          <div class="check-description">${description}</div>
-          <div class="check-locked">Not analyzed on Free plan. Upgrade to ${formatTier(requiredTier)}.</div>
-        </div>
-      `;
+      const icon = document.createElement('div');
+      icon.className = 'check-icon locked-icon';
+      icon.textContent = 'LOCK';
+
+      const labelEl = document.createElement('div');
+      labelEl.className = 'check-label';
+      labelEl.textContent = label;
+
+      const descEl = document.createElement('div');
+      descEl.className = 'check-description';
+      descEl.textContent = description;
+
+      const lockedEl = document.createElement('div');
+      lockedEl.className = 'check-locked';
+      lockedEl.textContent = `Not analyzed on Free plan. Upgrade to ${formatTier(requiredTier)}.`;
+
+      const content = document.createElement('div');
+      content.className = 'check-content';
+      content.append(labelEl, descEl, lockedEl);
+      item.append(icon, content);
     } else {
       const displayStatus = getDisplayCheckStatus(checkKey, check!);
       const statusClass =
@@ -777,13 +789,22 @@ function renderChecks(score: TokenScore): void {
             ? '!'
             : 'X';
 
-      item.innerHTML = `
-        <div class="check-icon ${statusClass}">${statusLabel}</div>
-        <div class="check-content">
-          <div class="check-label">${label}</div>
-          <div class="check-description">${description}</div>
-        </div>
-      `;
+      const icon = document.createElement('div');
+      icon.className = `check-icon ${statusClass}`;
+      icon.textContent = statusLabel;
+
+      const labelEl = document.createElement('div');
+      labelEl.className = 'check-label';
+      labelEl.textContent = label;
+
+      const descEl = document.createElement('div');
+      descEl.className = 'check-description';
+      descEl.textContent = description;
+
+      const content = document.createElement('div');
+      content.className = 'check-content';
+      content.append(labelEl, descEl);
+      item.append(icon, content);
     }
 
     list.appendChild(item);
