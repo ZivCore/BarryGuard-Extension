@@ -82,7 +82,10 @@ describe('PumpFunPlatform', () => {
   it('requests the popup to open when a badge is clicked', () => {
     document.body.innerHTML = `
       <a href="/coin/7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU">
-        <span>Token A</span>
+        <div class="card">
+          <span class="name">Token A</span>
+          <span class="symbol">$TKNA</span>
+        </div>
       </a>
     `;
 
@@ -103,6 +106,10 @@ describe('PumpFunPlatform', () => {
         type: 'OPEN_POPUP_FOR_TOKEN',
         payload: expect.objectContaining({
           address: '7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU',
+          metadata: expect.objectContaining({
+            name: 'Token A',
+            symbol: '$TKNA',
+          }),
         }),
       }),
     );

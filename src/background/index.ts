@@ -1,6 +1,6 @@
 import { BarryGuardApiClient } from '../shared/api-client';
 import { TokenCache } from '../shared/cache';
-import type { AuthToken, TokenScore, UserProfile, TierLevel } from '../shared/types';
+import type { AuthToken, SelectedToken, UserProfile, TierLevel } from '../shared/types';
 
 const api = new BarryGuardApiClient();
 const cache = new TokenCache();
@@ -53,7 +53,7 @@ async function initialize(): Promise<void> {
 
 async function getTokenScore(address: string) {
   const profile = await getStoredProfile();
-  const tier: TierLevel = (profile?.tier as TierLevel) ?? 'free';
+  const tier: TierLevel = profile?.tier ?? 'free';
 
   const cached = await cache.get(address, tier);
   if (cached) {
@@ -77,7 +77,7 @@ async function getTokenScore(address: string) {
   return fresh;
 }
 
-async function openPopupForToken(selectedToken: { address: string; score: TokenScore }) {
+async function openPopupForToken(selectedToken: SelectedToken) {
   await chrome.storage.local.set({ selectedToken });
 
   try {
@@ -89,77 +89,83 @@ async function openPopupForToken(selectedToken: { address: string; score: TokenS
   return { success: true };
 }
 
-chrome.runtime.onMessage.addListener((message, _sender, respond) => {
-  (async () => {
-    try {
-      switch (message.type) {
-        case 'GET_TOKEN_SCORE':
-          respond(await getTokenScore(message.payload));
-          break;
-        case 'ANALYZE_TOKEN':
-          respond(await getTokenScore(message.payload));
-          break;
-        case 'OPEN_POPUP_FOR_TOKEN':
-          respond(await openPopupForToken(message.payload));
-          break;
-        case 'GET_USER_TIER': {
-          const profile = await getStoredProfile();
-          if (profile) {
-            respond({ success: true, data: profile });
+export function initializeBackground(): void {
+  chrome.runtime.onMessage.addListener((message, _sender, respond) => {
+    (async () => {
+      try {
+        switch (message.type) {
+          case 'GET_TOKEN_SCORE':
+            respond(await getTokenScore(message.payload));
+            break;
+          case 'ANALYZE_TOKEN':
+            respond(await getTokenScore(message.payload));
+            break;
+          case 'OPEN_POPUP_FOR_TOKEN':
+            respond(await openPopupForToken(message.payload as SelectedToken));
+            break;
+          case 'GET_USER_TIER': {
+            const profile = await getStoredProfile();
+            if (profile) {
+              respond({ success: true, data: profile });
+              break;
+            }
+
+            const result = await api.getUserTier();
+            if (result.success && result.data) {
+              await chrome.storage.local.set({ [PROFILE_KEY]: result.data });
+            }
+            respond(result);
             break;
           }
-
-          const result = await api.getUserTier();
-          if (result.success && result.data) {
-            await chrome.storage.local.set({ [PROFILE_KEY]: result.data });
+          case 'LOGIN': {
+            const result = await api.login(message.payload.email, message.payload.password);
+            if (result.success && result.data) {
+              await chrome.storage.local.set({
+                [AUTH_KEY]: result.data.token,
+                [PROFILE_KEY]: result.data.user,
+              });
+            }
+            respond(result.success ? { success: true, data: result.data?.user } : result);
+            break;
           }
-          respond(result);
-          break;
-        }
-        case 'LOGIN': {
-          const result = await api.login(message.payload.email, message.payload.password);
-          if (result.success && result.data) {
-            await chrome.storage.local.set({
-              [AUTH_KEY]: result.data.token,
-              [PROFILE_KEY]: result.data.user,
-            });
+          case 'REGISTER': {
+            const result = await api.register(message.payload.email, message.payload.password);
+            if (result.success && result.data) {
+              await chrome.storage.local.set({
+                [AUTH_KEY]: result.data.token,
+                [PROFILE_KEY]: result.data.user,
+              });
+            }
+            respond(result.success ? { success: true, data: result.data?.user } : result);
+            break;
           }
-          respond(result.success ? { success: true, data: result.data?.user } : result);
-          break;
+          case 'OAUTH_LOGIN':
+            respond(await api.oauthLogin(message.payload));
+            break;
+          case 'LOGOUT':
+            await api.logout();
+            await chrome.storage.local.remove([AUTH_KEY, PROFILE_KEY]);
+            respond({ success: true });
+            break;
+          default:
+            respond({ success: false, error: 'Unknown message type' });
         }
-        case 'REGISTER': {
-          const result = await api.register(message.payload.email, message.payload.password);
-          if (result.success && result.data) {
-            await chrome.storage.local.set({
-              [AUTH_KEY]: result.data.token,
-              [PROFILE_KEY]: result.data.user,
-            });
-          }
-          respond(result.success ? { success: true, data: result.data?.user } : result);
-          break;
-        }
-        case 'OAUTH_LOGIN':
-          respond(await api.oauthLogin(message.payload));
-          break;
-        case 'LOGOUT':
-          await api.logout();
-          await chrome.storage.local.remove([AUTH_KEY, PROFILE_KEY]);
-          respond({ success: true });
-          break;
-        default:
-          respond({ success: false, error: 'Unknown message type' });
+      } catch (error) {
+        respond({
+          success: false,
+          error: error instanceof Error ? error.message : 'Unknown error',
+        });
       }
-    } catch (error) {
-      respond({
-        success: false,
-        error: error instanceof Error ? error.message : 'Unknown error',
-      });
-    }
-  })();
+    })();
 
-  return true;
-});
+    return true;
+  });
 
-chrome.runtime.onInstalled.addListener(initialize);
-chrome.runtime.onStartup.addListener(initialize);
-initialize();
+  chrome.runtime.onInstalled.addListener(() => {
+    void initialize();
+  });
+  chrome.runtime.onStartup.addListener(() => {
+    void initialize();
+  });
+  void initialize();
+}

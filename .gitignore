@@ -1,4 +1,14 @@
 /docs
 node_modules/
-dist/
 package-lock.json
+dist/
+.output/
+.wxt/
+.playwright/
+playwright-report/
+test-results/
+.claude/
+.env
+.env.local
+.env.*.local
+coverage/

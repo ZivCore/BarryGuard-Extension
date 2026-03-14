@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="manifest.default_icon" content='{"16":"icons/icon16.png","32":"icons/icon32.png","48":"icons/icon48.png"}'>
+  <meta name="manifest.browser_style" content="false">
+  <title>BarryGuard</title>
+  <link rel="stylesheet" href="../styles/popup.css">
+</head>
+<body>
+  <div id="app">
+    <img src="/icons/icon128.png" alt="BarryGuard Logo" style="width: 80px; height: 80px; display: block; margin: 12px auto; object-fit: contain;">
+
+    <div id="loading" class="screen">
+      <div class="loader"></div>
+    </div>
+
+    <div id="token-detail-screen" class="screen hidden">
+      <div class="header">
+        <h1>Token Analysis</h1>
+        <button id="manual-entry-btn" class="icon-btn" title="Manual Entry">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="11" cy="11" r="8"></circle>
+            <path d="m21 21-4.35-4.35"></path>
+          </svg>
+        </button>
+      </div>
+
+      <div id="token-info">
+        <div class="token-header">
+          <div class="token-name" id="token-name">Loading...</div>
+          <div class="token-symbol" id="token-symbol"></div>
+        </div>
+        <div class="token-address" id="token-address"></div>
+      </div>
+
+      <div id="score-container">
+        <div class="score-circle" id="score-circle">
+          <div class="score-value" id="score-value">--</div>
+          <div class="score-label">SCORE</div>
+        </div>
+        <div class="risk-label" id="risk-label">ANALYZING...</div>
+      </div>
+
+      <div id="checks-container">
+        <h2>Risk Factors</h2>
+        <div id="checks-list"></div>
+      </div>
+
+      <div id="upgrade-banner" class="upgrade-banner hidden">
+        <div class="upgrade-text">
+          <strong>Upgrade to Rescue Pass</strong>
+          <p>Unlock all 6 risk checks</p>
+        </div>
+        <button id="upgrade-btn" class="btn-primary">Upgrade</button>
+      </div>
+
+      <div class="footer">
+        <a href="#" id="view-explorer" class="link-btn">View on Solscan</a>
+        <button id="account-btn" class="btn-secondary">Account</button>
+      </div>
+    </div>
+
+    <div id="login-screen" class="screen hidden">
+      <div class="header">
+        <button id="login-back-btn" class="back-btn">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M19 12H5M12 19l-7-7 7-7"></path>
+          </svg>
+        </button>
+        <h1>Login</h1>
+        <div style="width: 20px;"></div>
+      </div>
+
+      <div class="login-container">
+        <div class="form-group">
+          <label for="email">Email</label>
+          <input type="email" id="email" placeholder="your@email.com">
+        </div>
+
+        <div class="form-group">
+          <label for="password">Password</label>
+          <input type="password" id="password" placeholder="Password">
+        </div>
+
+        <button id="login-btn" class="btn-primary btn-full">Login</button>
+
+        <div class="divider">
+          <span>or continue with</span>
+        </div>
+
+        <button id="google-login-btn" class="btn-social">Continue with Google</button>
+        <button id="github-login-btn" class="btn-social">Continue with GitHub</button>
+
+        <div class="login-footer">
+          <a href="#" id="forgot-password-link">Forgot password?</a>
+          <a href="#" id="register-link" style="margin-top: 8px;">No account? Register</a>
+        </div>
+      </div>
+    </div>
+
+    <div id="register-screen" class="screen hidden">
+      <div class="header">
+        <button id="register-back-btn" class="back-btn">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M19 12H5M12 19l-7-7 7-7"></path>
+          </svg>
+        </button>
+        <h1>Register</h1>
+        <div style="width: 20px;"></div>
+      </div>
+
+      <div class="login-container">
+        <div class="form-group">
+          <label for="register-email">Email</label>
+          <input type="email" id="register-email" placeholder="your@email.com">
+        </div>
+
+        <div class="form-group">
+          <label for="register-password">Password</label>
+          <input type="password" id="register-password" placeholder="Password">
+        </div>
+
+        <div class="form-group">
+          <label for="register-password-confirm">Confirm Password</label>
+          <input type="password" id="register-password-confirm" placeholder="Repeat password">
+        </div>
+
+        <button id="register-btn" class="btn-primary btn-full">Create Account</button>
+        <div id="register-error" class="error-message hidden"></div>
+
+        <div class="divider">
+          <span>or continue with</span>
+        </div>
+
+        <button id="register-google-btn" class="btn-social">Continue with Google</button>
+
+        <div class="login-footer">
+          <a href="#" id="to-login-link">Already have an account? Login</a>
+        </div>
+      </div>
+    </div>
+
+    <div id="account-screen" class="screen hidden">
+      <div class="header">
+        <button id="account-back-btn" class="back-btn">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M19 12H5M12 19l-7-7 7-7"></path>
+          </svg>
+        </button>
+        <h1>Account</h1>
+        <div style="width: 20px;"></div>
+      </div>
+
+      <div class="account-container">
+        <div class="account-info">
+          <div class="account-email" id="account-email">Loading...</div>
+          <div class="tier-badge free" id="tier-badge">
+            <span class="tier-icon">BG</span>
+            <span class="tier-name" id="tier-name">Free Tier</span>
+          </div>
+        </div>
+
+        <div class="subscription-info" id="subscription-info">
+          <div class="sub-label">Current Period End</div>
+          <div class="sub-value" id="period-end">--</div>
+        </div>
+
+        <div class="account-actions">
+          <button id="manage-subscription-btn" class="btn-primary btn-full">Manage Subscription</button>
+          <button id="logout-btn" class="btn-secondary btn-full">Logout</button>
+        </div>
+      </div>
+    </div>
+
+    <div id="manual-entry-screen" class="screen hidden">
+      <div class="header">
+        <button id="manual-back-btn" class="back-btn">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M19 12H5M12 19l-7-7 7-7"></path>
+          </svg>
+        </button>
+        <h1>Manual Entry</h1>
+        <div style="width: 20px;"></div>
+      </div>
+
+      <div class="manual-container">
+        <div class="form-group">
+          <label for="token-address-input">Token Address</label>
+          <input type="text" id="token-address-input" placeholder="Enter Solana token address...">
+        </div>
+
+        <button id="analyze-btn" class="btn-primary btn-full">Analyze Token</button>
+        <div id="manual-error" class="error-message hidden"></div>
+      </div>
+    </div>
+
+    <div class="disclaimer">
+      <p>BarryGuard provides risk indicators based on on-chain data. This is not financial advice. A low risk score does not mean a token is safe. Only invest what you can afford to lose. DYOR.</p>
+    </div>
+  </div>
+
+  <script type="module" src="../popup/index.ts"></script>
+</body>
+</html>

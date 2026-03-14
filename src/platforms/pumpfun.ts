@@ -1,5 +1,5 @@
 import type { IPlatform } from './platform.interface';
-import type { TokenScore } from '../shared/types';
+import type { SelectedToken, TokenMetadata, TokenScore } from '../shared/types';
 import { PLATFORM_SELECTORS } from '../config/selectors';
 
 const SELECTORS = PLATFORM_SELECTORS.pumpfun;
@@ -44,9 +44,16 @@ export class PumpFunPlatform implements IPlatform {
     badge.onclick = (event) => {
       event.preventDefault();
       event.stopPropagation();
+
+      const selectedToken: SelectedToken = {
+        address,
+        score,
+        metadata: this.extractTokenMetadata(link),
+      };
+
       chrome.runtime.sendMessage({
         type: 'OPEN_POPUP_FOR_TOKEN',
-        payload: { address, score },
+        payload: selectedToken,
       });
     };
 
@@ -108,10 +115,6 @@ export class PumpFunPlatform implements IPlatform {
     observer.observe(document.body, { childList: true, subtree: true });
   }
 
-  removeBadges(): void {
-    document.querySelectorAll('[data-barryguard-badge]').forEach((badge) => badge.remove());
-  }
-
   private getLink(address: string): HTMLAnchorElement | null {
     return document.querySelector(`a[href="/coin/${address}"]`);
   }
@@ -143,15 +146,83 @@ export class PumpFunPlatform implements IPlatform {
   }
 
   private insertBadge(link: HTMLAnchorElement, badge: HTMLDivElement): void {
-    const container = (link.querySelector(SELECTORS.cardContainer) ?? link)
-      .querySelector(SELECTORS.insertionPoint);
-
-    if (container) {
-      container.insertAdjacentElement('afterend', badge);
+    const cardRoot = this.findCardRoot(link);
+    const insertionPoint = this.findInsertionPoint(cardRoot ?? link);
+    if (insertionPoint) {
+      insertionPoint.insertAdjacentElement('afterend', badge);
       return;
     }
 
     link.appendChild(badge);
+  }
+
+  private findCardRoot(link: HTMLAnchorElement): Element | null {
+    for (const selector of SELECTORS.cardContainerSelectors) {
+      const cardRoot = link.closest(selector) ?? link.querySelector(selector);
+      if (cardRoot) {
+        return cardRoot;
+      }
+    }
+
+    return link;
+  }
+
+  private findInsertionPoint(root: Element): Element | null {
+    for (const selector of SELECTORS.insertionPointSelectors) {
+      const candidate = root.querySelector(selector);
+      if (candidate) {
+        return candidate;
+      }
+    }
+
+    return null;
+  }
+
+  private extractTokenMetadata(link: HTMLAnchorElement): TokenMetadata {
+    const cardRoot = this.findCardRoot(link) ?? link;
+    const name = this.findText(cardRoot, SELECTORS.nameSelectors, (value) => value.length > 2 && value.length < 64);
+    const symbol = this.findText(
+      cardRoot,
+      SELECTORS.symbolSelectors,
+      (value) => /^\$?[A-Z0-9_]{2,12}$/.test(value) && value !== name,
+    );
+
+    return {
+      name: name ?? this.inferNameFromText(cardRoot.textContent ?? ''),
+      symbol: symbol ?? this.inferSymbolFromText(cardRoot.textContent ?? ''),
+    };
+  }
+
+  private findText(root: Element, selectors: string[], isValid: (value: string) => boolean): string | undefined {
+    for (const selector of selectors) {
+      const matches = Array.from(root.querySelectorAll(selector));
+      for (const match of matches) {
+        const value = match.textContent?.trim();
+        if (value && isValid(value)) {
+          return value;
+        }
+      }
+    }
+
+    return undefined;
+  }
+
+  private inferNameFromText(text: string): string | undefined {
+    const parts = text
+      .split(/\s+/)
+      .map((part) => part.trim())
+      .filter((part) => part.length > 2 && part.length < 32);
+
+    return parts.find((part) => !/^\$?[A-Z0-9_]{2,12}$/.test(part));
+  }
+
+  private inferSymbolFromText(text: string): string | undefined {
+    const parts = text
+      .split(/\s+/)
+      .map((part) => part.trim())
+      .filter(Boolean);
+
+    return parts.find((part) => /^\$?[A-Z0-9_]{2,12}$/.test(part));
   }
 
   private getColors(risk: string): { bg: string; text: string; border: string } {

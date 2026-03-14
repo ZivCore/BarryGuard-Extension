@@ -1,9 +1,9 @@
 <div align="center">
-  <img src="logo.jpg" alt="BarryGuard Logo" width="700"/>
+  <img src="logo.jpg" alt="BarryGuard Logo" width="700" />
 
   # BarryGuard
 
-  **Solana Token Risk Analyzer — Browser Extension**
+  **Solana Token Risk Analyzer - Browser Extension**
 
   [![Chrome Web Store](https://img.shields.io/badge/Chrome%20Web%20Store-Coming%20Soon-orange)](https://chrome.google.com/webstore)
   [![License](https://img.shields.io/badge/License-Source%20Available-blue)](#license)
@@ -15,51 +15,56 @@
 
 ## Overview
 
-BarryGuard is a Chrome/Brave extension that analyzes Solana tokens in real-time and overlays risk scores directly on [Pump.fun](https://pump.fun). It checks on-chain data for common scam indicators and displays a color-coded score badge on every token card — without slowing down your browsing.
+BarryGuard is a Chrome/Brave extension that analyzes Solana tokens in real time and overlays risk scores directly on [Pump.fun](https://pump.fun).
 
-The extension is a thin client: it contains no scoring logic and makes no direct blockchain calls. All analysis is performed by the [BarryGuard backend](https://barryguard.com).
+The extension is a thin client:
+- no scoring logic runs in the browser
+- no direct blockchain calls are made from the extension
+- analysis is fetched from the [BarryGuard backend](https://barryguard.com)
 
 ---
 
 ## Features
 
 ### Color-Coded Risk Badges
-Scores appear directly on token cards on Pump.fun:
-- **Green badge** (61–100): Low risk
-- **Yellow badge** (31–60): Medium risk
-- **Red badge** (0–30): High risk
 
-### 6 On-Chain Security Checks
-| Check | Description |
-|-------|-------------|
-| Mint Authority | Can the creator print more tokens? |
-| Freeze Authority | Can the creator freeze wallets? |
-| Liquidity Lock | Is liquidity locked or burned? |
-| Top Holder Concentration | What % does the largest wallet hold? |
-| Token Age | How long has this token existed? |
-| Holder Count | How many unique holders? |
+Scores appear directly on Pump.fun token cards:
+- Green badge (`61-100`): low risk
+- Yellow badge (`31-60`): medium risk
+- Red badge (`0-30`): high risk
+
+### Security Checks
+
+The UI is designed to surface these checks when available from the API:
+- Mint authority
+- Freeze authority
+- Liquidity lock
+- Top holder concentration
+- Token age
+- Holder count
 
 ### Tier-Based Access
-| Feature | Free | Rescue Pass | Pro |
-|---------|------|-------------|-----|
-| Risk score badge | ✓ | ✓ | ✓ |
-| Visible checks | 3 of 6 | All 6 | All 6 |
-| Analyses per hour | 30 | 200 | 1,000 |
-| Local cache TTL | 5 min | 2 min | 2 min |
+
+The extension supports tier-based responses from the backend:
+- Free
+- Rescue Pass
+- Pro
 
 ### Manual Token Lookup
-Enter any Solana token address directly in the popup to analyze tokens outside of Pump.fun.
+
+The popup can analyze any Solana token address directly, even outside Pump.fun.
 
 ---
 
 ## Installation
 
 ### From Chrome Web Store
-*Coming soon.*
 
-### Manual Installation (Developer Mode)
+Coming soon.
 
-**Prerequisites:** Node.js, pnpm
+### Manual Installation
+
+Prerequisites: Node.js and pnpm
 
 ```bash
 git clone https://github.com/Rokk001/BarryGuard-Extension.git
@@ -70,78 +75,91 @@ pnpm build
 
 Load the extension in Chrome:
 1. Open `chrome://extensions`
-2. Enable **Developer mode** (top right toggle)
+2. Enable **Developer mode**
 3. Click **Load unpacked**
-4. Select the root `BarryGuard-Extension/` folder
+4. Select `.output/chrome-mv3`
 
 ---
 
 ## Development
 
 ```bash
-# Install dependencies
-pnpm install
-
-# Watch mode (TypeScript)
+# Start WXT dev mode
 pnpm dev
 
-# Production build
+# Build extension and zip package
 pnpm build
 
-# Run tests
+# Build unpacked extension only
+pnpm build:extension
+
+# Type-check
+pnpm typecheck
+
+# Unit tests
 pnpm test
+
+# Browser smoke test
+pnpm test:e2e
 ```
 
 ---
 
 ## Project Structure
 
-```
+```text
 BarryGuard-Extension/
-├── src/
-│   ├── background/        # Service worker (API client, cache, auth)
-│   ├── content/           # Content script (token detection, badge rendering)
-│   ├── platforms/         # Platform adapters (Pump.fun, extensible)
-│   │   ├── platform.interface.ts
-│   │   └── pumpfun.ts
-│   └── shared/            # Types, cache, API client
-├── background.js          # Built service worker
-├── content-scripts/       # Built content script
-├── popup.html             # Extension popup
-├── manifest.json          # Manifest V3
-└── package.json
+|- src/
+|  |- background/        # Service worker logic
+|  |- content/           # Content script bootstrap
+|  |- entrypoints/       # WXT entrypoints
+|  |- platforms/         # Platform adapters
+|  |- popup/             # Popup logic
+|  |- shared/            # Types, cache, API client
+|  `- styles/            # Popup styles
+|- public/icons/         # Static extension icons
+|- .output/              # Generated build output
+|- wxt.config.ts         # WXT configuration
+`- package.json
 ```
 
 ---
 
 ## API
 
-The extension communicates exclusively with:
-```
+The extension communicates only with the BarryGuard API.
+
+Default base URL:
+
+```text
 https://barryguard.com/api
 ```
 
-No secrets or API keys are stored in this repository. The extension uses only the public API URL.
+You can override it locally with:
 
-**Endpoints used:**
-- `POST /api/analyze` — Analyze a token (cache miss)
-- `GET /api/token/{address}` — Fetch cached score
-- `POST /api/auth/session` — Validate session
-- `GET /api/user/tier` — Get subscription tier
+```text
+WXT_BARRYGUARD_API_URL=https://barryguard.com/api
+```
+
+Recommended local setup:
+- copy `.env.example` to `.env.local`
+- set `BARRYGUARD_API_URL` and optional app URLs there
+
+No secrets or API keys are stored in this repository.
 
 ---
 
 ## Privacy
 
-- **No wallet data** — Private keys are never requested or stored
-- **No browsing tracking** — Only token addresses on pump.fun are processed
-- **Open source** — Full transparency through public source code
+- No wallet data: private keys are never requested or stored
+- No browsing tracking: only token addresses on Pump.fun are processed
+- Public source: the repository is kept inspectable for security review
 
 ---
 
 ## Disclaimer
 
-> BarryGuard provides risk indicators based on on-chain data. This is not financial advice. A low risk score does not mean a token is safe. Only invest what you can afford to lose. DYOR.
+BarryGuard provides risk indicators based on on-chain data. This is not financial advice. A low risk score does not mean a token is safe. Only invest what you can afford to lose.
 
 ---
 
