@@ -680,6 +680,9 @@ async function openPopupForToken(selectedToken: SelectedToken) {
   return { success: true };
 }
 
+// Exported for unit testing only — do not import these in production code
+export { inferTier as _inferTierForTest, normalizeProfile as _normalizeProfileForTest };
+
 export function initializeBackground(): void {
   chrome.runtime.onMessage.addListener((message, sender, respond) => {
     // Only accept messages from this extension's own pages (popup, content scripts, background)
