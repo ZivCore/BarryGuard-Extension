@@ -1,29 +1,59 @@
-/**
- * Content Script for Pump.fun
- * Detects tokens and renders score badges
- */
-
+// src/content/index.ts
 import { PumpFunPlatform } from '../platforms/pumpfun';
+import type { IPlatform } from '../platforms/platform.interface';
+import type { TokenScore } from '../shared/types';
 
-const platform = new PumpFunPlatform();
+type SupportedPlatform = 'pumpfun';
 
-// Initial scan
-function scanTokens() {
-  const addresses = platform.extractTokenAddresses();
-  console.log(`[BarryGuard] Found ${addresses.length} tokens`);
+const PLATFORMS: Record<SupportedPlatform, IPlatform> = {
+  pumpfun: new PumpFunPlatform(),
+};
 
-  // TODO: Send to background for analysis
-  // TODO: Render badges when results arrive
+const PLATFORM_HOSTS: Record<SupportedPlatform, string[]> = {
+  pumpfun: ['pump.fun'],
+};
+
+function detectPlatform(): IPlatform | null {
+  const host = window.location.hostname;
+  for (const [key, patterns] of Object.entries(PLATFORM_HOSTS) as [SupportedPlatform, string[]][]) {
+    if (patterns.some(p => host.includes(p))) return PLATFORMS[key];
+  }
+  return null;
 }
 
-// Observe DOM changes
-platform.observeDOMChanges(scanTokens);
-
-// Run initial scan when DOM is ready
-if (document.readyState === 'loading') {
-  document.addEventListener('DOMContentLoaded', scanTokens);
+const platform = detectPlatform();
+if (!platform) {
+  console.log('[BarryGuard] No supported platform detected');
 } else {
-  scanTokens();
-}
+  console.log(`[BarryGuard] Platform: ${platform.name}`);
 
-console.log('[BarryGuard] Content script loaded on Pump.fun');
+  const pending = new Set<string>();
+
+  async function fetchAndRender(address: string): Promise<void> {
+    if (pending.has(address)) return;
+    pending.add(address);
+
+    (platform as PumpFunPlatform).renderLoadingBadge(address);
+
+    chrome.runtime.sendMessage({ type: 'GET_TOKEN_SCORE', payload: address }, (res) => {
+      pending.delete(address);
+      if (res?.success && res.data) {
+        platform!.renderScoreBadge(address, res.data as TokenScore);
+      } else {
+        (platform as PumpFunPlatform).renderErrorBadge(address);
+      }
+    });
+  }
+
+  function scanAll(): void {
+    platform!.extractTokenAddresses().forEach(fetchAndRender);
+  }
+
+  platform.observeDOMChanges(scanAll);
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', scanAll);
+  } else {
+    scanAll();
+  }
+}
