@@ -93,7 +93,8 @@ function normalizeTierValue(value: unknown): TierLevel | null {
   return null;
 }
 
-function inferTier(record: JsonRecord): TierLevel {
+function inferTier(record: JsonRecord, _depth = 0): TierLevel {
+  if (_depth > 3) return 'free';
   const directTier = normalizeTierValue(
     pickString(record, ['tier', 'plan', 'planTier', 'plan_tier', 'subscriptionTier', 'subscription_tier']),
   );
@@ -109,7 +110,7 @@ function inferTier(record: JsonRecord): TierLevel {
   ].filter((value): value is JsonRecord => Boolean(value));
 
   for (const source of nestedSources) {
-    const nestedTier = inferTier(source);
+    const nestedTier = inferTier(source, _depth + 1);
     if (nestedTier !== 'free') {
       return nestedTier;
     }
@@ -126,7 +127,8 @@ function inferTier(record: JsonRecord): TierLevel {
     }
   }
 
-  const status = pickString(record, ['subscriptionStatus', 'subscription_status', 'status']);
+  // Only check explicit subscription status fields — 'status' is too generic and can be spoofed
+  const status = pickString(record, ['subscriptionStatus', 'subscription_status']);
   if (status) {
     const normalizedStatus = status.toLowerCase();
     if (['active', 'trialing'].includes(normalizedStatus)) {
@@ -147,6 +149,15 @@ async function getStoredProfile(): Promise<UserProfile | null> {
   return stored[PROFILE_KEY] ?? null;
 }
 
+let _initPromise: Promise<void> | null = null;
+
+function runInitializeOnce(): void {
+  if (_initPromise) return;
+  _initPromise = initialize().finally(() => {
+    _initPromise = null;
+  });
+}
+
 async function initialize(): Promise<void> {
   await cache.init();
 
@@ -158,6 +169,24 @@ async function initialize(): Promise<void> {
       await chrome.storage.local.set({ [PROFILE_KEY]: profileResult.data });
       await syncHourlyUsageState(profileResult.data);
       await updateActionIcon(profileResult.data);
+    } else if (profileResult.statusCode === 401 || !profileResult.statusCode) {
+      // Try token refresh before giving up
+      const refreshResult = await api.refreshToken();
+      if (refreshResult.success && refreshResult.data) {
+        await chrome.storage.local.set({ [AUTH_KEY]: refreshResult.data });
+        const retryProfile = await loadProfileFromApi();
+        if (retryProfile.success && retryProfile.data) {
+          await chrome.storage.local.set({ [PROFILE_KEY]: retryProfile.data });
+          await syncHourlyUsageState(retryProfile.data);
+          await updateActionIcon(retryProfile.data);
+          return;
+        }
+      }
+      // Refresh failed — clear session
+      await chrome.storage.local.remove([AUTH_KEY, PROFILE_KEY, HOURLY_USAGE_KEY]);
+      api.clearAuthToken();
+      await syncHourlyUsageState(null);
+      await updateActionIcon(null);
     } else {
       await chrome.storage.local.remove([AUTH_KEY, PROFILE_KEY, HOURLY_USAGE_KEY]);
       api.clearAuthToken();
@@ -359,10 +388,7 @@ async function syncHourlyUsageState(profile: UserProfile | null): Promise<Hourly
     tier,
     audience,
     used:
-      existing &&
-      existing.bucketKey === bucketKey &&
-      existing.tier === tier &&
-      existing.audience === audience
+      existing && existing.bucketKey === bucketKey
         ? Math.min(existing.used, limit)
         : 0,
     limit,
@@ -504,47 +530,66 @@ function extractListScores(payload: unknown): TokenScore[] {
   return keyedScores;
 }
 
+const SOLANA_ADDRESS_RE = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
+
+function isValidSolanaAddress(value: unknown): value is string {
+  return typeof value === 'string' && SOLANA_ADDRESS_RE.test(value);
+}
+
+const _inFlightAddresses = new Set<string>();
+
 async function getTokenScore(address: string) {
-  const profile = await getStoredProfile();
-  const normalizedProfile = profile ? normalizeProfile(profile) : null;
-  const tier: TierLevel = normalizedProfile?.tier ?? 'free';
-
-  const cached = await cache.get(address, tier);
-  if (cached) {
-    return { success: true, data: { ...cached, cached: true } };
+  if (_inFlightAddresses.has(address)) {
+    return { success: false, error: 'Analysis already in progress for this token.', errorType: 'busy' as const };
   }
-
-  const existing = await api.getTokenScore(address);
-  if (existing.success && existing.data) {
-    await cache.set(address, existing.data, tier);
-    return { success: true, data: { ...existing.data, cached: true } };
+  if (!isValidSolanaAddress(address)) {
+    return { success: false, error: 'Invalid token address format.', errorType: 'validation' as const };
   }
+  _inFlightAddresses.add(address);
+  try {
+    const profile = await getStoredProfile();
+    const normalizedProfile = profile ? normalizeProfile(profile) : null;
+    const tier: TierLevel = normalizedProfile?.tier ?? 'free';
 
-  const cooldown = await maybeEnforceSingleCooldown(normalizedProfile);
-  if (cooldown) {
-    return cooldown;
-  }
-
-  const hourlyLimit = await maybeEnforceHourlyLimit(normalizedProfile);
-  if (hourlyLimit) {
-    return hourlyLimit;
-  }
-
-  const fresh = await api.analyzeToken(address);
-  if (fresh.success && fresh.data) {
-    if (tier === 'free') {
-      await setSingleAnalysisState({ lastAnalyzeAt: Date.now() });
+    const cached = await cache.get(address, tier);
+    if (cached) {
+      return { success: true, data: { ...cached, cached: true } };
     }
-    await incrementHourlyUsage(normalizedProfile, 1);
-    await cache.set(address, fresh.data, tier);
-    return { success: true, data: { ...fresh.data, cached: false } };
-  }
 
-  if (fresh.statusCode === 429) {
-    await markUsageExhausted(normalizedProfile);
-  }
+    const existing = await api.getTokenScore(address);
+    if (existing.success && existing.data) {
+      await cache.set(address, existing.data, tier);
+      return { success: true, data: { ...existing.data, cached: true } };
+    }
 
-  return mapApiFailure(fresh);
+    const cooldown = await maybeEnforceSingleCooldown(normalizedProfile);
+    if (cooldown) {
+      return cooldown;
+    }
+
+    const hourlyLimit = await maybeEnforceHourlyLimit(normalizedProfile);
+    if (hourlyLimit) {
+      return hourlyLimit;
+    }
+
+    const fresh = await api.analyzeToken(address);
+    if (fresh.success && fresh.data) {
+      if (tier === 'free') {
+        await setSingleAnalysisState({ lastAnalyzeAt: Date.now() });
+      }
+      await incrementHourlyUsage(normalizedProfile, 1);
+      await cache.set(address, fresh.data, tier);
+      return { success: true, data: { ...fresh.data, cached: false } };
+    }
+
+    if (fresh.statusCode === 429) {
+      await markUsageExhausted(normalizedProfile);
+    }
+
+    return mapApiFailure(fresh);
+  } finally {
+    _inFlightAddresses.delete(address);
+  }
 }
 
 async function analyzeTokenList(addresses: string[]): Promise<ApiResponse<TokenListAnalysisData>> {
@@ -599,7 +644,7 @@ async function analyzeTokenList(addresses: string[]): Promise<ApiResponse<TokenL
   }
 
   const networkScores = extractListScores(response.data);
-  await incrementHourlyUsage(normalizedProfile, missingAddresses.length);
+  await incrementHourlyUsage(normalizedProfile, networkScores.length);
   for (const score of networkScores) {
     await cache.set(score.address, score, tier);
     scores.push({ ...score, cached: false });
@@ -636,7 +681,12 @@ async function openPopupForToken(selectedToken: SelectedToken) {
 }
 
 export function initializeBackground(): void {
-  chrome.runtime.onMessage.addListener((message, _sender, respond) => {
+  chrome.runtime.onMessage.addListener((message, sender, respond) => {
+    // Only accept messages from this extension's own pages (popup, content scripts, background)
+    if (sender.id !== chrome.runtime.id) {
+      respond({ success: false, error: 'Unauthorized sender' });
+      return false;
+    }
     (async () => {
       try {
         switch (message.type) {
@@ -650,18 +700,28 @@ export function initializeBackground(): void {
             respond(await analyzeTokenList((message.payload?.addresses as string[] | undefined) ?? []));
             break;
           case 'GET_TOKEN_METADATA':
+            if (!isValidSolanaAddress(message.payload)) {
+              respond({ success: false, error: 'Invalid token address format.' });
+              break;
+            }
             respond(await getPumpFunMetadata(message.payload));
             break;
-          case 'OPEN_POPUP_FOR_TOKEN':
-            respond(await openPopupForToken(message.payload as SelectedToken));
+          case 'OPEN_POPUP_FOR_TOKEN': {
+            const token = message.payload as SelectedToken;
+            if (!isValidSolanaAddress(token?.address)) {
+              respond({ success: false, error: 'Invalid token address format.' });
+              break;
+            }
+            respond(await openPopupForToken(token));
             break;
+          }
           case 'GET_USER_TIER': {
             const storedToken = await getStoredToken();
             if (storedToken) {
               api.setAuthToken(storedToken);
               const result = await loadProfileFromApi();
               if (result.success && result.data) {
-                const normalizedProfile = normalizeProfile(result.data);
+                const normalizedProfile = result.data; // already normalized by loadProfileFromApi
                 await chrome.storage.local.set({ [PROFILE_KEY]: normalizedProfile });
                 await syncHourlyUsageState(normalizedProfile);
                 await updateActionIcon(normalizedProfile);
@@ -755,10 +815,10 @@ export function initializeBackground(): void {
   });
 
   chrome.runtime.onInstalled.addListener(() => {
-    void initialize();
+    runInitializeOnce();
   });
   chrome.runtime.onStartup.addListener(() => {
-    void initialize();
+    runInitializeOnce();
   });
-  void initialize();
+  runInitializeOnce();
 }
