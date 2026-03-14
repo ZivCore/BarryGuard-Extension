@@ -1,4 +1,13 @@
-import type { ApiResponse, CheckResult, SelectedToken, TierLevel, TokenMetadata, TokenScore, UserProfile } from '../shared/types';
+import type {
+  ApiResponse,
+  CheckResult,
+  HourlyUsageState,
+  SelectedToken,
+  TierLevel,
+  TokenMetadata,
+  TokenScore,
+  UserProfile,
+} from '../shared/types';
 import {
   getAccountUrl,
   getForgotPasswordUrl,
@@ -19,6 +28,13 @@ interface PopupState {
   isLoggedIn: boolean;
   userProfile: UserProfile | null;
   selectedToken: SelectedToken | null;
+  usageState: HourlyUsageState | null;
+}
+
+interface PlanBranding {
+  brandLogo: string;
+  tokenFallbackLogo: string;
+  tierLogo: string;
 }
 
 const SCORE_THRESHOLDS = {
@@ -50,6 +66,7 @@ const state: PopupState = {
   isLoggedIn: false,
   userProfile: null,
   selectedToken: null,
+  usageState: null,
 };
 
 let isHydratingSelectedTokenMetadata = false;
@@ -63,6 +80,14 @@ const elements = {
     account: document.getElementById('account-screen'),
     manual: document.getElementById('manual-entry-screen'),
   },
+  brand: {
+    logo: document.getElementById('brand-logo') as HTMLImageElement | null,
+    usageIndicator: document.getElementById('usage-indicator'),
+    usageDonut: document.getElementById('usage-donut'),
+    usageRemaining: document.getElementById('usage-remaining'),
+    usageLabel: document.getElementById('usage-label'),
+    usageMeta: document.getElementById('usage-meta'),
+  },
   tokenDetail: {
     tokenLogo: document.getElementById('token-logo') as HTMLImageElement | null,
     tokenName: document.getElementById('token-name'),
@@ -73,6 +98,8 @@ const elements = {
     riskLabel: document.getElementById('risk-label'),
     checksList: document.getElementById('checks-list'),
     upgradeBanner: document.getElementById('upgrade-banner'),
+    upgradeBannerTitle: document.getElementById('upgrade-banner-title'),
+    upgradeBannerBody: document.getElementById('upgrade-banner-body'),
     manualEntryBtn: document.getElementById('manual-entry-btn'),
     accountBtn: document.getElementById('account-btn'),
     upgradeBtn: document.getElementById('upgrade-btn'),
@@ -101,6 +128,7 @@ const elements = {
   account: {
     email: document.getElementById('account-email'),
     tierBadge: document.getElementById('tier-badge'),
+    tierLogo: document.getElementById('account-tier-logo') as HTMLImageElement | null,
     tierName: document.getElementById('tier-name'),
     periodEnd: document.getElementById('period-end'),
     subscriptionInfo: document.getElementById('subscription-info'),
@@ -116,6 +144,42 @@ const elements = {
   },
 };
 
+function getPlanBranding(tier: TierLevel | null | undefined): PlanBranding {
+  switch (tier) {
+    case 'pro':
+      return {
+        brandLogo: '/gold256.png',
+        tokenFallbackLogo: '/gold256.png',
+        tierLogo: '/gold256.png',
+      };
+    case 'rescue_pass':
+      return {
+        brandLogo: '/silver256.png',
+        tokenFallbackLogo: '/silver256.png',
+        tierLogo: '/silver256.png',
+      };
+    case 'free':
+    default:
+      return {
+        brandLogo: '/logo.png',
+        tokenFallbackLogo: '/logo128.png',
+        tierLogo: '/logo128.png',
+      };
+  }
+}
+
+function applyPlanBranding(): void {
+  const branding = getPlanBranding(state.userProfile?.tier);
+
+  if (elements.brand.logo) {
+    elements.brand.logo.src = branding.brandLogo;
+  }
+
+  if (elements.account.tierLogo) {
+    elements.account.tierLogo.src = branding.tierLogo;
+  }
+}
+
 function openExternal(url: string): void {
   if (chrome.tabs?.create) {
     chrome.tabs.create({ url });
@@ -123,6 +187,20 @@ function openExternal(url: string): void {
   }
 
   window.open(url, '_blank', 'noopener,noreferrer');
+}
+
+function handleUpgradeFlow(): void {
+  if (state.userProfile?.tier === 'pro') {
+    openExternal(state.userProfile.customerPortalUrl ?? getAccountUrl());
+    return;
+  }
+
+  if (state.userProfile?.tier === 'rescue_pass' && state.userProfile.customerPortalUrl) {
+    openExternal(state.userProfile.customerPortalUrl);
+    return;
+  }
+
+  openExternal(getPricingUrl());
 }
 
 function showScreen(screen: ScreenName): void {
@@ -220,6 +298,114 @@ function formatTier(tier: TierLevel): string {
   }
 }
 
+function getCurrentUsageBucketKey(tier: TierLevel, audience: 'anonymous' | 'authenticated'): string {
+  return `${audience}:${tier}:${Math.floor(Date.now() / 3600000)}`;
+}
+
+function getUsageSummary(): { limit: number; used: number; remaining: number; ratio: number } | null {
+  const tier = state.userProfile?.tier ?? state.usageState?.tier ?? 'free';
+  const audience: 'anonymous' | 'authenticated' = state.userProfile ? 'authenticated' : 'anonymous';
+  const usageState = state.usageState;
+  const limit = state.userProfile?.singleTokenHourlyLimit ?? usageState?.limit ?? 0;
+  if (limit <= 0) {
+    return null;
+  }
+
+  const activeBucketKey = getCurrentUsageBucketKey(tier, audience);
+  const used =
+    usageState &&
+    usageState.bucketKey === activeBucketKey &&
+    usageState.tier === tier &&
+    usageState.audience === audience
+      ? Math.min(usageState.used, limit)
+      : 0;
+
+  return {
+    limit,
+    used,
+    remaining: Math.max(0, limit - used),
+    ratio: used / limit,
+  };
+}
+
+function hasExhaustedUsage(): boolean {
+  const summary = getUsageSummary();
+  return Boolean(summary && summary.remaining <= 0);
+}
+
+function renderUsageIndicator(): void {
+  const summary = getUsageSummary();
+  const indicator = elements.brand.usageIndicator;
+  const donut = elements.brand.usageDonut;
+  const remaining = elements.brand.usageRemaining;
+  const label = elements.brand.usageLabel;
+  const meta = elements.brand.usageMeta;
+
+  if (!indicator || !donut || !remaining || !label || !meta) {
+    return;
+  }
+
+  if (!summary) {
+    indicator.classList.add('hidden');
+    return;
+  }
+
+  indicator.classList.remove('hidden');
+  donut.style.setProperty('--usage-fill', `${Math.round(summary.ratio * 360)}deg`);
+  remaining.textContent = String(summary.remaining);
+  label.textContent = `${summary.remaining} left`;
+  meta.textContent = `${summary.used}/${summary.limit} used this hour`;
+}
+
+function getLimitUpgradeCopy(): { title: string; body: string; buttonLabel: string } {
+  switch (state.userProfile?.tier) {
+    case 'rescue_pass':
+      return {
+        title: 'Upgrade to Pro',
+        body: 'Increase your hourly quota and keep scanning more tokens without waiting.',
+        buttonLabel: 'Upgrade',
+      };
+    case 'pro':
+      return {
+        title: 'Hourly quota exhausted',
+        body: 'Your Pro quota resets automatically next hour. You can review your plan in Account.',
+        buttonLabel: 'Manage',
+      };
+    case 'free':
+    default:
+      return {
+        title: 'Upgrade to Rescue Pass',
+        body: 'Get more hourly scans and unlock list scanning directly on supported platforms.',
+        buttonLabel: 'Upgrade',
+      };
+  }
+}
+
+function updateUpgradeBanner(
+  visible: boolean,
+  copy?: { title: string; body: string; buttonLabel: string },
+): void {
+  if (!elements.tokenDetail.upgradeBanner) {
+    return;
+  }
+
+  if (!visible || !copy) {
+    elements.tokenDetail.upgradeBanner.classList.add('hidden');
+    return;
+  }
+
+  elements.tokenDetail.upgradeBanner.classList.remove('hidden');
+  if (elements.tokenDetail.upgradeBannerTitle) {
+    elements.tokenDetail.upgradeBannerTitle.textContent = copy.title;
+  }
+  if (elements.tokenDetail.upgradeBannerBody) {
+    elements.tokenDetail.upgradeBannerBody.textContent = copy.body;
+  }
+  if (elements.tokenDetail.upgradeBtn instanceof HTMLButtonElement) {
+    elements.tokenDetail.upgradeBtn.textContent = copy.buttonLabel;
+  }
+}
+
 function setTierBadgeClass(tier: TierLevel): void {
   const badge = elements.account.tierBadge;
   if (!badge) {
@@ -231,8 +417,9 @@ function setTierBadgeClass(tier: TierLevel): void {
 }
 
 function renderEmptyState(): void {
+  const branding = getPlanBranding(state.userProfile?.tier);
   if (elements.tokenDetail.tokenLogo) {
-    elements.tokenDetail.tokenLogo.src = '/icons/icon48.png';
+    elements.tokenDetail.tokenLogo.src = branding.tokenFallbackLogo;
     elements.tokenDetail.tokenLogo.alt = 'BarryGuard token placeholder';
   }
   elements.tokenDetail.tokenName!.textContent = 'No Token Selected';
@@ -250,10 +437,66 @@ function renderEmptyState(): void {
       </div>
     </div>
   `;
-  elements.tokenDetail.upgradeBanner?.classList.add('hidden');
+  updateUpgradeBanner(false);
   if (elements.tokenDetail.viewExplorer instanceof HTMLAnchorElement) {
     elements.tokenDetail.viewExplorer.dataset.address = '';
   }
+}
+
+function renderUsageLimitState(): void {
+  const branding = getPlanBranding(state.userProfile?.tier);
+  const summary = getUsageSummary();
+  const copy = getLimitUpgradeCopy();
+
+  if (elements.tokenDetail.tokenLogo) {
+    elements.tokenDetail.tokenLogo.src = branding.tokenFallbackLogo;
+    elements.tokenDetail.tokenLogo.alt = 'BarryGuard upgrade recommendation';
+  }
+
+  elements.tokenDetail.tokenName!.textContent = 'Hourly Limit Reached';
+  elements.tokenDetail.tokenSymbol!.textContent = summary ? `${summary.used}/${summary.limit} USED` : '';
+  elements.tokenDetail.tokenAddress!.textContent = summary
+    ? 'You have no BarryGuard analyses left in the current hourly window.'
+    : 'Your BarryGuard quota is currently exhausted.';
+  elements.tokenDetail.scoreValue!.textContent = '--';
+  elements.tokenDetail.scoreCircle!.className = 'score-circle score-medium';
+  elements.tokenDetail.riskLabel!.textContent = 'UPGRADE OR WAIT';
+  elements.tokenDetail.checksList!.innerHTML = `
+    <div class="check-item">
+      <div class="check-icon warning">!</div>
+      <div class="check-content">
+        <div class="check-label">Quota exhausted</div>
+        <div class="check-description">Your hourly BarryGuard request budget is fully used.</div>
+      </div>
+    </div>
+    <div class="check-item">
+      <div class="check-icon success">+</div>
+      <div class="check-content">
+        <div class="check-label">Next step</div>
+        <div class="check-description">Upgrade your plan for more capacity or wait until the next hourly reset.</div>
+      </div>
+    </div>
+  `;
+  updateUpgradeBanner(true, copy);
+  if (elements.tokenDetail.viewExplorer instanceof HTMLAnchorElement) {
+    elements.tokenDetail.viewExplorer.dataset.address = '';
+  }
+}
+
+function renderPrimaryTokenState(): void {
+  renderUsageIndicator();
+
+  if (state.selectedToken?.score) {
+    renderTokenDetail(state.selectedToken.score);
+    return;
+  }
+
+  if (hasExhaustedUsage()) {
+    renderUsageLimitState();
+    return;
+  }
+
+  renderEmptyState();
 }
 
 function renderChecks(score: TokenScore): void {
@@ -314,6 +557,7 @@ function renderChecks(score: TokenScore): void {
 function renderTokenDetail(score: TokenScore): void {
   const risk = getRiskLevel(score.score);
   const userTier = state.userProfile?.tier ?? 'free';
+  const branding = getPlanBranding(userTier);
   const tokenMetadata: TokenMetadata = {
     ...(score.token ?? {}),
     ...(state.selectedToken?.metadata ?? {}),
@@ -323,12 +567,12 @@ function renderTokenDetail(score: TokenScore): void {
   const tokenLogo = tokenMetadata?.imageUrl;
 
   if (elements.tokenDetail.tokenLogo) {
-    elements.tokenDetail.tokenLogo.src = tokenLogo || '/icons/icon48.png';
+    elements.tokenDetail.tokenLogo.src = tokenLogo || branding.tokenFallbackLogo;
     elements.tokenDetail.tokenLogo.alt = tokenName;
     elements.tokenDetail.tokenLogo.onerror = () => {
       if (elements.tokenDetail.tokenLogo) {
         elements.tokenDetail.tokenLogo.onerror = null;
-        elements.tokenDetail.tokenLogo.src = '/icons/icon48.png';
+        elements.tokenDetail.tokenLogo.src = branding.tokenFallbackLogo;
       }
     };
   }
@@ -339,7 +583,17 @@ function renderTokenDetail(score: TokenScore): void {
   elements.tokenDetail.scoreValue!.textContent = String(score.score);
   elements.tokenDetail.scoreCircle!.className = `score-circle score-${risk}`;
   elements.tokenDetail.riskLabel!.textContent = `${risk.toUpperCase()} RISK`;
-  elements.tokenDetail.upgradeBanner?.classList.toggle('hidden', userTier !== 'free');
+  renderUsageIndicator();
+  updateUpgradeBanner(
+    userTier === 'free',
+    userTier === 'free'
+      ? {
+          title: 'Upgrade to Rescue Pass',
+          body: 'Unlock all 6 risk checks',
+          buttonLabel: 'Upgrade',
+        }
+      : undefined,
+  );
 
   if (elements.tokenDetail.viewExplorer instanceof HTMLAnchorElement) {
     elements.tokenDetail.viewExplorer.dataset.address = score.address;
@@ -355,12 +609,16 @@ function updateAccountScreen(): void {
     elements.account.tierName!.textContent = 'Free Tier';
     elements.account.subscriptionInfo?.classList.add('hidden');
     setTierBadgeClass('free');
+    applyPlanBranding();
+    renderUsageIndicator();
     return;
   }
 
   elements.account.email!.textContent = user.email;
   elements.account.tierName!.textContent = formatTier(user.tier);
   setTierBadgeClass(user.tier);
+  applyPlanBranding();
+  renderUsageIndicator();
 
   if (user.tier === 'free') {
     elements.account.subscriptionInfo?.classList.add('hidden');
@@ -375,14 +633,11 @@ function updateAccountScreen(): void {
 
 function handleSelectedTokenUpdate(selectedToken: SelectedToken | null): void {
   state.selectedToken = selectedToken;
+  renderPrimaryTokenState();
 
-  if (!selectedToken?.score) {
-    renderEmptyState();
-    return;
+  if (selectedToken?.score) {
+    void hydrateSelectedTokenMetadata(selectedToken);
   }
-
-  renderTokenDetail(selectedToken.score);
-  void hydrateSelectedTokenMetadata(selectedToken);
 }
 
 async function hydrateSelectedTokenMetadata(selectedToken: SelectedToken): Promise<void> {
@@ -425,12 +680,7 @@ async function hydrateSelectedTokenMetadata(selectedToken: SelectedToken): Promi
 }
 
 function showCurrentOrEmptyToken(): void {
-  if (state.selectedToken) {
-    renderTokenDetail(state.selectedToken.score);
-    return;
-  }
-
-  renderEmptyState();
+  renderPrimaryTokenState();
 }
 
 function getRuntimeErrorMessage(): string | null {
@@ -490,11 +740,26 @@ async function loadUserProfile(): Promise<void> {
   if (!response.success || !response.data) {
     state.isLoggedIn = false;
     state.userProfile = null;
+    applyPlanBranding();
+    renderUsageIndicator();
     return;
   }
 
   state.isLoggedIn = true;
   state.userProfile = response.data;
+  applyPlanBranding();
+  renderUsageIndicator();
+}
+
+async function loadUsageState(): Promise<void> {
+  try {
+    const stored = await chrome.storage.local.get('hourly_usage_state');
+    state.usageState = (stored.hourly_usage_state as HourlyUsageState | undefined) ?? null;
+  } catch {
+    state.usageState = null;
+  }
+
+  renderUsageIndicator();
 }
 
 async function loadSelectedToken(): Promise<void> {
@@ -536,6 +801,8 @@ async function handleLogin(): Promise<void> {
 
     state.isLoggedIn = true;
     state.userProfile = response.data;
+    applyPlanBranding();
+    renderUsageIndicator();
     showCurrentOrEmptyToken();
     showScreen('token-detail');
   } finally {
@@ -586,6 +853,8 @@ async function handleRegister(): Promise<void> {
 
     state.isLoggedIn = true;
     state.userProfile = response.data;
+    applyPlanBranding();
+    renderUsageIndicator();
     showCurrentOrEmptyToken();
     showScreen('token-detail');
   } finally {
@@ -598,6 +867,9 @@ async function handleLogout(): Promise<void> {
   await sendMessage<void>({ type: 'LOGOUT' });
   state.isLoggedIn = false;
   state.userProfile = null;
+  state.usageState = null;
+  applyPlanBranding();
+  renderUsageIndicator();
   showCurrentOrEmptyToken();
   showScreen('token-detail');
 }
@@ -630,6 +902,13 @@ async function handleAnalyze(): Promise<void> {
     }, 5000);
 
     if (!response.success || !response.data) {
+      if (response.errorType === 'rate_limit') {
+        setManualError(null);
+        renderPrimaryTokenState();
+        showScreen('token-detail');
+        return;
+      }
+
       setManualError(response.error ?? 'Analysis failed.');
       return;
     }
@@ -675,12 +954,32 @@ async function handleOAuth(provider: 'google' | 'github'): Promise<void> {
 
 function setupEventListeners(): void {
   chrome.storage.onChanged.addListener((changes, areaName) => {
-    if (areaName !== 'local' || !changes.selectedToken) {
+    if (areaName !== 'local') {
       return;
     }
 
-    const selectedToken = changes.selectedToken.newValue as SelectedToken | undefined;
-    handleSelectedTokenUpdate(selectedToken ?? null);
+    if (changes.selectedToken) {
+      const selectedToken = changes.selectedToken.newValue as SelectedToken | undefined;
+      handleSelectedTokenUpdate(selectedToken ?? null);
+    }
+
+    if (changes.user_profile) {
+      state.userProfile = (changes.user_profile.newValue as UserProfile | undefined) ?? null;
+      applyPlanBranding();
+      renderUsageIndicator();
+      if (state.currentScreen === 'account') {
+        updateAccountScreen();
+      }
+      renderPrimaryTokenState();
+    }
+
+    if (changes.hourly_usage_state) {
+      state.usageState = (changes.hourly_usage_state.newValue as HourlyUsageState | undefined) ?? null;
+      renderUsageIndicator();
+      if (!state.selectedToken) {
+        renderPrimaryTokenState();
+      }
+    }
   });
 
   elements.tokenDetail.manualEntryBtn?.addEventListener('click', () => {
@@ -693,7 +992,7 @@ function setupEventListeners(): void {
   });
 
   elements.tokenDetail.upgradeBtn?.addEventListener('click', () => {
-    openExternal(getPricingUrl());
+    handleUpgradeFlow();
   });
 
   elements.tokenDetail.viewExplorer?.addEventListener('click', (event) => {
@@ -779,11 +1078,14 @@ async function init(): Promise<void> {
 
   try {
     await loadUserProfile();
+    await loadUsageState();
     await loadSelectedToken();
   } catch (error) {
     console.error('[BarryGuard] Popup initialization failed:', error);
-    renderEmptyState();
+    renderPrimaryTokenState();
   } finally {
+    applyPlanBranding();
+    renderUsageIndicator();
     showScreen('token-detail');
   }
 }

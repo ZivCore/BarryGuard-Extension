@@ -1,5 +1,6 @@
 import type { IPlatform } from './platform.interface';
 import type { SelectedToken, TokenMetadata, TokenScore } from '../shared/types';
+import { extractPumpFunEmbeddedMetadata } from '../shared/pumpfun-metadata';
 import { PLATFORM_SELECTORS } from '../config/selectors';
 
 const SELECTORS = PLATFORM_SELECTORS.pumpfun;
@@ -259,6 +260,9 @@ export class PumpFunPlatform implements IPlatform {
   private extractTokenMetadata(root: Element | Document, address: string): TokenMetadata {
     const elementRoot = root instanceof Document ? root.documentElement : root;
     const scopedRoot = elementRoot ?? document.documentElement;
+    const embeddedMetadata = this.isCurrentTokenPage(address)
+      ? extractPumpFunEmbeddedMetadata(address, document.documentElement.innerHTML)
+      : {};
     const name = this.findText(scopedRoot, SELECTORS.nameSelectors, (value) => value.length > 2 && value.length < 64);
     const symbol = this.findText(
       scopedRoot,
@@ -268,9 +272,9 @@ export class PumpFunPlatform implements IPlatform {
     const imageUrl = this.findImage(scopedRoot, address);
 
     return {
-      name: name ?? this.inferNameFromText(scopedRoot.textContent ?? ''),
-      symbol: symbol ?? this.inferSymbolFromTitle() ?? this.inferSymbolFromText(scopedRoot.textContent ?? ''),
-      imageUrl,
+      name: embeddedMetadata.name ?? name ?? this.inferNameFromText(scopedRoot.textContent ?? ''),
+      symbol: embeddedMetadata.symbol ?? symbol ?? this.inferSymbolFromTitle() ?? this.inferSymbolFromText(scopedRoot.textContent ?? ''),
+      imageUrl: embeddedMetadata.imageUrl ?? imageUrl,
     };
   }
 
