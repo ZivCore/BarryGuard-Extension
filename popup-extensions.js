@@ -1,3 +1,4 @@
+"use strict";
 // src/popup/extensions.ts
 // Handles: register screen navigation, upgrade button → barryguard.com/pricing,
 // manage subscription → barryguard.com/dashboard/account
@@ -75,3 +76,4 @@ document.getElementById('upgrade-btn')?.addEventListener('click', () => {
 document.getElementById('manage-subscription-btn')?.addEventListener('click', () => {
     window.open(`${BASE_URL}/dashboard/account`);
 });
+//# sourceMappingURL=extensions.js.map

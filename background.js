@@ -1,1 +1,122 @@
-var background=(function(){"use strict";function b(r){return r==null||typeof r=="function"?{main:r}:r}const S="https://barryguard.com/api",m={free:300*1e3,rescue_pass:120*1e3,pro:120*1e3},y={maxCallsPerSecond:10,maxCacheEntries:1e3};class _{constructor(e=S){this.authToken=null,this.baseUrl=e}setAuthToken(e){this.authToken=e}getAuthToken(){return this.authToken}async request(e,a={}){const n=`${this.baseUrl}${e}`,i={"Content-Type":"application/json",...a.headers};this.authToken&&(i.Authorization=`Bearer ${this.authToken.access_token}`);try{const l=await fetch(n,{...a,headers:i});return l.ok?{success:!0,data:await l.json()}:{success:!1,error:(await l.json().catch(()=>({message:"Unknown error"}))).message||`HTTP ${l.status}`}}catch(l){return{success:!1,error:l instanceof Error?l.message:"Network error"}}}async analyzeToken(e,a="solana"){return this.request("/analyze",{method:"POST",body:JSON.stringify({address:e,chain:a})})}async getTokenScore(e,a="solana"){return this.request(`/token/${e}?chain=${a}`)}async getUserTier(){return this.request("/user/tier")}async login(e,a){const n=await this.request("/auth/login",{method:"POST",body:JSON.stringify({email:e,password:a})});return n.success&&n.data&&(this.authToken=n.data.token),n}async oauthLogin(e){return this.request(`/auth/oauth/${e}`,{method:"POST"})}async refreshToken(){if(!this.authToken?.refresh_token)return{success:!1,error:"No refresh token available"};const e=await this.request("/auth/refresh",{method:"POST",body:JSON.stringify({refresh_token:this.authToken.refresh_token})});return e.success&&e.data&&(this.authToken=e.data),e}async logout(){const e=await this.request("/auth/logout",{method:"POST"});return this.authToken=null,e}async validateSession(){return this.request("/auth/session",{method:"POST"})}}const h=new _,f="barryguard_cache";class O{constructor(){this.cache=new Map,this.initialized=!1}async init(){if(!this.initialized)try{const e=await chrome.storage.local.get(f);if(e[f]){const a=e[f];this.cache=new Map(Object.entries(a)),this.cleanExpired()}this.initialized=!0}catch(e){console.error("[BarryGuard] Failed to initialize cache:",e),this.initialized=!0}}async get(e,a){await this.init();const n=this.cache.get(e);if(!n)return null;const i=Date.now(),l=m[a];return i-n.timestamp>l?(this.cache.delete(e),await this.persist(),null):n.score}async set(e,a,n){if(await this.init(),this.cache.size>=y.maxCacheEntries){const i=this.cache.keys().next().value;i&&this.cache.delete(i)}this.cache.set(e,{score:a,timestamp:Date.now(),tier:n}),await this.persist()}cleanExpired(){const e=Date.now(),a=Math.max(...Object.values(m));for(const[n,i]of this.cache.entries())e-i.timestamp>a&&this.cache.delete(n)}async persist(){try{const e=Object.fromEntries(this.cache.entries());await chrome.storage.local.set({[f]:e})}catch(e){console.error("[BarryGuard] Failed to persist cache:",e)}}async clear(){this.cache.clear(),await chrome.storage.local.remove(f)}getStats(){return{size:this.cache.size,maxSize:y.maxCacheEntries}}}const w=new O,E=b(()=>{const r={calls:[],canMakeCall(){const t=Date.now();return this.calls=this.calls.filter(c=>t-c<1e3),this.calls.length>=y.maxCallsPerSecond?!1:(this.calls.push(t),!0)},async waitForSlot(){for(;!this.canMakeCall();)await new Promise(t=>setTimeout(t,100))}},e={async get(){try{return(await chrome.storage.local.get("auth_token")).auth_token||null}catch{return null}},async set(t){await chrome.storage.local.set({auth_token:t})},async clear(){await chrome.storage.local.remove("auth_token")}},a={async get(){try{return(await chrome.storage.local.get("user_profile")).user_profile||null}catch{return null}},async set(t){await chrome.storage.local.set({user_profile:t})},async clear(){await chrome.storage.local.remove("user_profile")}};async function n(){await w.init();const t=await e.get();if(t){h.setAuthToken(t);const c=await h.validateSession();c.success?c.data&&await a.set(c.data):(await e.clear(),await a.clear(),h.setAuthToken(null))}console.log("[BarryGuard] Background worker initialized")}async function i(t){const s=(await a.get())?.tier||"free",o=await w.get(t,s);if(o)return{success:!0,data:{...o,cached:!0}};await r.waitForSlot();const u=await h.getTokenScore(t);if(u.success&&u.data)return await w.set(t,u.data,s),{success:!0,data:{...u.data,cached:!0}};const d=await h.analyzeToken(t);return d.success&&d.data?(await w.set(t,d.data,s),{success:!0,data:{...d.data,cached:!1}}):d}async function l(t,c){const s=await h.login(t,c);return s.success&&s.data?(await e.set(s.data.token),await a.set(s.data.user),{success:!0,data:s.data.user}):{success:!1,error:s.error}}async function p(t){return await h.oauthLogin(t)}async function T(){return await h.logout(),await e.clear(),await a.clear(),{success:!0}}async function A(){const t=await a.get();if(t)return{success:!0,data:t};const c=await h.getUserTier();return c.success&&c.data?(await a.set(c.data),{success:!0,data:c.data}):{success:!1,error:"Not logged in"}}chrome.runtime.onMessage.addListener((t,c,s)=>((async()=>{try{switch(t.type){case"GET_TOKEN_SCORE":{const o=t.payload,u=await i(o);s(u);break}case"GET_USER_TIER":{const o=await A();s(o);break}case"LOGIN":{const{email:o,password:u}=t.payload,d=await l(o,u);s(d);break}case"OAUTH_LOGIN":{const o=t.payload,u=await p(o);s(u);break}case"LOGOUT":{const o=await T();s(o);break}case"ANALYZE_TOKEN":{const o=t.payload,u=await i(o);s(u);break}default:s({success:!1,error:"Unknown message type"})}}catch(o){s({success:!1,error:o instanceof Error?o.message:"Unknown error"})}})(),!0)),chrome.runtime.onInstalled.addListener(()=>{n()}),chrome.runtime.onStartup.addListener(()=>{n()}),n()});function P(){}globalThis.browser?.runtime?.id?globalThis.browser:globalThis.chrome;function g(r,...e){}const L={debug:(...r)=>g(console.debug,...r),log:(...r)=>g(console.log,...r),warn:(...r)=>g(console.warn,...r),error:(...r)=>g(console.error,...r)};let k;try{k=E.main(),k instanceof Promise&&console.warn("The background's main() function return a promise, but it must be synchronous")}catch(r){throw L.error("The background crashed on startup!"),r}var z=k;return z})();
+import { BarryGuardApiClient } from '../shared/api-client';
+import { TokenCache } from '../shared/cache';
+const api = new BarryGuardApiClient();
+const cache = new TokenCache();
+const AUTH_KEY = 'auth_token';
+const PROFILE_KEY = 'user_profile';
+const RATE_WINDOW_MS = 1000;
+const MAX_CALLS_PER_SECOND = 10;
+const callTimestamps = [];
+async function waitForRateLimit() {
+    const now = Date.now();
+    const recent = callTimestamps.filter(t => now - t < RATE_WINDOW_MS);
+    if (recent.length >= MAX_CALLS_PER_SECOND) {
+        await new Promise(r => setTimeout(r, 100));
+        return waitForRateLimit();
+    }
+    callTimestamps.push(Date.now());
+}
+async function getStoredToken() {
+    const s = await chrome.storage.local.get(AUTH_KEY);
+    return s[AUTH_KEY] ?? null;
+}
+async function getStoredProfile() {
+    const s = await chrome.storage.local.get(PROFILE_KEY);
+    return s[PROFILE_KEY] ?? null;
+}
+async function initialize() {
+    await cache.init();
+    const token = await getStoredToken();
+    if (token) {
+        api.setAuthToken(token);
+        const res = await api.validateSession();
+        if (res.success && res.data) {
+            await chrome.storage.local.set({ [PROFILE_KEY]: res.data });
+        }
+        else {
+            await chrome.storage.local.remove([AUTH_KEY, PROFILE_KEY]);
+            api.clearAuthToken();
+        }
+    }
+    console.log('[BarryGuard] Background worker initialized');
+}
+async function getTokenScore(address) {
+    const profile = await getStoredProfile();
+    const tier = profile?.tier ?? 'free';
+    const cached = await cache.get(address, tier);
+    if (cached)
+        return { success: true, data: { ...cached, cached: true } };
+    await waitForRateLimit();
+    const cached2 = await api.getTokenScore(address);
+    if (cached2.success && cached2.data) {
+        await cache.set(address, cached2.data, tier);
+        return { success: true, data: { ...cached2.data, cached: true } };
+    }
+    const fresh = await api.analyzeToken(address);
+    if (fresh.success && fresh.data) {
+        await cache.set(address, fresh.data, tier);
+        return { success: true, data: { ...fresh.data, cached: false } };
+    }
+    return fresh;
+}
+chrome.runtime.onMessage.addListener((msg, _sender, respond) => {
+    (async () => {
+        try {
+            switch (msg.type) {
+                case 'GET_TOKEN_SCORE':
+                    respond(await getTokenScore(msg.payload));
+                    break;
+                case 'ANALYZE_TOKEN':
+                    respond(await getTokenScore(msg.payload));
+                    break;
+                case 'GET_USER_TIER': {
+                    const profile = await getStoredProfile();
+                    if (profile) {
+                        respond({ success: true, data: profile });
+                        break;
+                    }
+                    const res = await api.getUserTier();
+                    if (res.success && res.data)
+                        await chrome.storage.local.set({ [PROFILE_KEY]: res.data });
+                    respond(res);
+                    break;
+                }
+                case 'LOGIN': {
+                    const res = await api.login(msg.payload.email, msg.payload.password);
+                    if (res.success && res.data) {
+                        await chrome.storage.local.set({ [AUTH_KEY]: res.data.token, [PROFILE_KEY]: res.data.user });
+                    }
+                    respond(res.success ? { success: true, data: res.data?.user } : res);
+                    break;
+                }
+                case 'REGISTER': {
+                    const res = await api.register(msg.payload.email, msg.payload.password);
+                    if (res.success && res.data) {
+                        await chrome.storage.local.set({ [AUTH_KEY]: res.data.token, [PROFILE_KEY]: res.data.user });
+                    }
+                    respond(res.success ? { success: true, data: res.data?.user } : res);
+                    break;
+                }
+                case 'OAUTH_LOGIN': {
+                    respond(await api.oauthLogin(msg.payload));
+                    break;
+                }
+                case 'LOGOUT': {
+                    await api.logout();
+                    await chrome.storage.local.remove([AUTH_KEY, PROFILE_KEY]);
+                    respond({ success: true });
+                    break;
+                }
+                default: respond({ success: false, error: 'Unknown message type' });
+            }
+        }
+        catch (e) {
+            respond({ success: false, error: e instanceof Error ? e.message : 'Unknown error' });
+        }
+    })();
+    return true;
+});
+chrome.runtime.onInstalled.addListener(initialize);
+chrome.runtime.onStartup.addListener(initialize);
+initialize();
+//# sourceMappingURL=index.js.map
