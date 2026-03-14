@@ -60,6 +60,53 @@ const CHECK_FALLBACK_TIERS: Record<string, TierLevel> = {
   holderCount: 'rescue_pass',
 };
 
+const CHECK_METADATA: Record<string, { label: string; teaser: string }> = {
+  mintAuthority: {
+    label: 'Mint Authority',
+    teaser: 'Checks whether new tokens can still be minted after launch.',
+  },
+  freezeAuthority: {
+    label: 'Freeze Authority',
+    teaser: 'Checks whether token transfers can still be frozen by an authority.',
+  },
+  liquidityLocked: {
+    label: 'Liquidity Lock',
+    teaser: 'Checks whether liquidity appears locked or can still be removed.',
+  },
+  topHolderConcentration: {
+    label: 'Top Holder Concentration',
+    teaser: 'Checks whether a small number of wallets control too much supply.',
+  },
+  tokenAge: {
+    label: 'Token Age',
+    teaser: 'Checks how new the token is and whether it lacks trading history.',
+  },
+  holderCount: {
+    label: 'Holder Count',
+    teaser: 'Checks how widely the token is distributed across wallet holders.',
+  },
+};
+
+const CHECK_DESCRIPTION_TRANSLATIONS: Record<string, string> = {
+  'Niemand kann neue Tokens drucken.': 'No one can mint additional tokens.',
+  'Neue Tokens koennen weiterhin gedruckt werden.': 'New tokens can still be minted.',
+  'Neue Tokens können weiterhin gedruckt werden.': 'New tokens can still be minted.',
+  'Keine Wallet kann eingefroren werden.': 'No wallet can be frozen.',
+  'Wallets koennen weiterhin eingefroren werden.': 'Wallets can still be frozen.',
+  'Wallets können weiterhin eingefroren werden.': 'Wallets can still be frozen.',
+  'Die Liquiditaet ist gelockt.': 'Liquidity appears to be locked.',
+  'Die Liquidität ist gelockt.': 'Liquidity appears to be locked.',
+  'Die Liquiditaet kann jederzeit abgezogen werden.': 'Liquidity can be removed at any time.',
+  'Die Liquidität kann jederzeit abgezogen werden.': 'Liquidity can be removed at any time.',
+  'Wenige Wallets halten einen grossen Teil des Angebots.': 'A small number of wallets hold a large share of the supply.',
+  'Wenige Wallets halten einen großen Teil des Angebots.': 'A small number of wallets hold a large share of the supply.',
+  'Die Verteilung auf Wallets wirkt gesund.': 'The wallet distribution looks healthy.',
+  'Token ist sehr neu.': 'The token is very new.',
+  'Token hat bereits etwas Historie.': 'The token already has some trading history.',
+  'Es gibt bislang nur wenige Holder.': 'There are still only a few holders.',
+  'Es gibt bereits viele Holder.': 'There are already many holders.',
+};
+
 const state: PopupState = {
   currentScreen: 'loading',
   initialized: false,
@@ -70,6 +117,7 @@ const state: PopupState = {
 };
 
 let isHydratingSelectedTokenMetadata = false;
+let copyToastTimeoutId: number | null = null;
 
 const elements = {
   screens: {
@@ -92,7 +140,8 @@ const elements = {
     tokenLogo: document.getElementById('token-logo') as HTMLImageElement | null,
     tokenName: document.getElementById('token-name'),
     tokenSymbol: document.getElementById('token-symbol'),
-    tokenAddress: document.getElementById('token-address'),
+    tokenAddress: document.getElementById('token-address') as HTMLButtonElement | null,
+    copyToast: document.getElementById('copy-toast'),
     scoreCircle: document.getElementById('score-circle'),
     scoreValue: document.getElementById('score-value'),
     riskLabel: document.getElementById('risk-label'),
@@ -189,6 +238,74 @@ function openExternal(url: string): void {
   window.open(url, '_blank', 'noopener,noreferrer');
 }
 
+async function copyTextToClipboard(text: string): Promise<boolean> {
+  try {
+    if (navigator.clipboard?.writeText) {
+      await navigator.clipboard.writeText(text);
+      return true;
+    }
+  } catch {
+    // fall through to execCommand fallback
+  }
+
+  try {
+    const textArea = document.createElement('textarea');
+    textArea.value = text;
+    textArea.setAttribute('readonly', 'true');
+    textArea.style.position = 'absolute';
+    textArea.style.left = '-9999px';
+    document.body.appendChild(textArea);
+    textArea.select();
+    const copied = document.execCommand('copy');
+    document.body.removeChild(textArea);
+    return copied;
+  } catch {
+    return false;
+  }
+}
+
+function updateTokenAddressButton(displayValue: string, fullAddress: string | null): void {
+  const button = elements.tokenDetail.tokenAddress;
+  if (!button) {
+    return;
+  }
+
+  button.textContent = displayValue;
+  button.dataset.fullAddress = fullAddress ?? '';
+  button.disabled = !fullAddress;
+  button.classList.toggle('is-empty', !fullAddress);
+  button.title = fullAddress ? 'Click to copy address' : '';
+}
+
+function showCopyToast(message = 'Copied'): void {
+  const toast = elements.tokenDetail.copyToast;
+  if (!toast) {
+    return;
+  }
+
+  toast.textContent = message;
+  toast.classList.remove('hidden');
+
+  if (copyToastTimeoutId) {
+    window.clearTimeout(copyToastTimeoutId);
+  }
+
+  copyToastTimeoutId = window.setTimeout(() => {
+    toast.classList.add('hidden');
+    copyToastTimeoutId = null;
+  }, 1200);
+}
+
+async function handleTokenAddressCopy(): Promise<void> {
+  const fullAddress = elements.tokenDetail.tokenAddress?.dataset.fullAddress?.trim();
+  if (!fullAddress) {
+    return;
+  }
+
+  const copied = await copyTextToClipboard(fullAddress);
+  showCopyToast(copied ? 'Copied' : 'Copy failed');
+}
+
 function handleUpgradeFlow(): void {
   if (state.userProfile?.tier === 'pro') {
     openExternal(state.userProfile.customerPortalUrl ?? getAccountUrl());
@@ -267,6 +384,110 @@ function canAccessTier(userTier: TierLevel, requiredTier: TierLevel): boolean {
   return getTierRank(userTier) >= getTierRank(requiredTier);
 }
 
+function normalizeCheckLabel(checkKey: string, fallbackLabel?: string): string {
+  return CHECK_METADATA[checkKey]?.label ?? fallbackLabel ?? checkKey;
+}
+
+function normalizeCheckDescription(description: string | undefined, checkKey: string): string {
+  if (!description) {
+    return CHECK_METADATA[checkKey]?.teaser ?? '';
+  }
+
+  return CHECK_DESCRIPTION_TRANSLATIONS[description] ?? description;
+}
+
+function normalizeCheckText(value: unknown): string {
+  return String(value ?? '')
+    .toLowerCase()
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function inferAuthorityStatus(
+  check: CheckResult,
+  safePatterns: string[],
+  dangerPatterns: string[],
+): CheckResult['status'] {
+  if (typeof check.value === 'boolean') {
+    return check.value ? 'danger' : 'success';
+  }
+
+  const text = `${normalizeCheckText(check.label)} ${normalizeCheckText(check.description)}`;
+
+  for (const pattern of safePatterns) {
+    if (text.includes(pattern)) {
+      return 'success';
+    }
+  }
+
+  for (const pattern of dangerPatterns) {
+    if (text.includes(pattern)) {
+      return 'danger';
+    }
+  }
+
+  return check.status;
+}
+
+function inferLiquidityStatus(check: CheckResult): CheckResult['status'] {
+  if (typeof check.value === 'boolean') {
+    return check.value ? 'success' : 'danger';
+  }
+
+  const text = `${normalizeCheckText(check.label)} ${normalizeCheckText(check.description)}`;
+  const dangerPatterns = [
+    'nicht gelockt',
+    'not locked',
+    'can be removed',
+    'removed at any time',
+    'abgezogen',
+  ];
+  const safePatterns = [
+    'geburnt',
+    'burned',
+    'burnt',
+    'gelockt',
+    'locked',
+    '>30 tage',
+    '>30 days',
+  ];
+
+  for (const pattern of dangerPatterns) {
+    if (text.includes(pattern)) {
+      return 'danger';
+    }
+  }
+
+  for (const pattern of safePatterns) {
+    if (text.includes(pattern)) {
+      return 'success';
+    }
+  }
+
+  return check.status;
+}
+
+function getDisplayCheckStatus(checkKey: string, check: CheckResult): CheckResult['status'] {
+  switch (checkKey) {
+    case 'mintAuthority':
+      return inferAuthorityStatus(
+        check,
+        ['deaktiv', 'disabled', 'no one can mint', 'cannot mint', "can't mint"],
+        [' aktiv', ' active', 'can still be minted', 'creator can mint', 'can mint new tokens'],
+      );
+    case 'freezeAuthority':
+      return inferAuthorityStatus(
+        check,
+        ['deaktiv', 'disabled', 'no wallet can be frozen', 'cannot be frozen', "can't be frozen"],
+        [' aktiv', ' active', 'can still be frozen', 'creator can freeze', 'wallets can still be frozen'],
+      );
+    case 'liquidityLocked':
+      return inferLiquidityStatus(check);
+    default:
+      return check.status;
+  }
+}
+
 function getRiskLevel(score: number): 'high' | 'medium' | 'low' {
   if (score <= SCORE_THRESHOLDS.high) {
     return 'high';
@@ -296,6 +517,10 @@ function formatTier(tier: TierLevel): string {
     case 'pro':
       return 'Pro';
   }
+}
+
+function getEffectiveViewerTier(): TierLevel {
+  return state.userProfile?.tier ?? 'free';
 }
 
 function getCurrentUsageBucketKey(tier: TierLevel, audience: 'anonymous' | 'authenticated'): string {
@@ -424,7 +649,7 @@ function renderEmptyState(): void {
   }
   elements.tokenDetail.tokenName!.textContent = 'No Token Selected';
   elements.tokenDetail.tokenSymbol!.textContent = '';
-  elements.tokenDetail.tokenAddress!.textContent = 'Browse pump.fun or enter a token address';
+  updateTokenAddressButton('Browse a supported site or enter a token address', null);
   elements.tokenDetail.scoreValue!.textContent = '--';
   elements.tokenDetail.scoreCircle!.className = 'score-circle';
   elements.tokenDetail.riskLabel!.textContent = 'ANALYZE TOKEN';
@@ -455,9 +680,12 @@ function renderUsageLimitState(): void {
 
   elements.tokenDetail.tokenName!.textContent = 'Hourly Limit Reached';
   elements.tokenDetail.tokenSymbol!.textContent = summary ? `${summary.used}/${summary.limit} USED` : '';
-  elements.tokenDetail.tokenAddress!.textContent = summary
-    ? 'You have no BarryGuard analyses left in the current hourly window.'
-    : 'Your BarryGuard quota is currently exhausted.';
+  updateTokenAddressButton(
+    summary
+      ? 'You have no BarryGuard analyses left in the current hourly window.'
+      : 'Your BarryGuard quota is currently exhausted.',
+    null,
+  );
   elements.tokenDetail.scoreValue!.textContent = '--';
   elements.tokenDetail.scoreCircle!.className = 'score-circle score-medium';
   elements.tokenDetail.riskLabel!.textContent = 'UPGRADE OR WAIT';
@@ -505,17 +733,23 @@ function renderChecks(score: TokenScore): void {
     return;
   }
 
-  const userTier = state.userProfile?.tier ?? 'free';
+  const userTier = getEffectiveViewerTier();
   list.innerHTML = '';
 
   for (const checkKey of CHECK_ORDER) {
     const check = score.checks[checkKey] as CheckResult | undefined;
-    if (!check) {
+    const requiredTier = check?.tier ?? CHECK_FALLBACK_TIERS[checkKey] ?? 'free';
+    const locked = check?.locked === true || !canAccessTier(userTier, requiredTier);
+    const metadata = CHECK_METADATA[checkKey] ?? { label: checkKey, teaser: '' };
+    const label = normalizeCheckLabel(checkKey, check?.label);
+    const description = locked
+      ? metadata.teaser
+      : normalizeCheckDescription(check?.description, checkKey);
+
+    if (!check && !locked) {
       continue;
     }
 
-    const requiredTier = check.tier ?? CHECK_FALLBACK_TIERS[checkKey] ?? 'free';
-    const locked = check.locked === true || !canAccessTier(userTier, requiredTier);
     const item = document.createElement('div');
     item.className = `check-item${locked ? ' locked' : ''}`;
 
@@ -523,29 +757,31 @@ function renderChecks(score: TokenScore): void {
       item.innerHTML = `
         <div class="check-icon locked-icon">LOCK</div>
         <div class="check-content">
-          <div class="check-label">${check.label}</div>
-          <div class="check-locked">Upgrade to ${formatTier(requiredTier)}</div>
+          <div class="check-label">${label}</div>
+          <div class="check-description">${description}</div>
+          <div class="check-locked">Not analyzed on Free plan. Upgrade to ${formatTier(requiredTier)}.</div>
         </div>
       `;
     } else {
+      const displayStatus = getDisplayCheckStatus(checkKey, check!);
       const statusClass =
-        check.status === 'success'
+        displayStatus === 'success'
           ? 'success'
-          : check.status === 'warning'
+          : displayStatus === 'warning'
             ? 'warning'
             : 'danger';
       const statusLabel =
-        check.status === 'success'
+        displayStatus === 'success'
           ? 'OK'
-          : check.status === 'warning'
+          : displayStatus === 'warning'
             ? '!'
             : 'X';
 
       item.innerHTML = `
         <div class="check-icon ${statusClass}">${statusLabel}</div>
         <div class="check-content">
-          <div class="check-label">${check.label}</div>
-          <div class="check-description">${check.description}</div>
+          <div class="check-label">${label}</div>
+          <div class="check-description">${description}</div>
         </div>
       `;
     }
@@ -556,7 +792,7 @@ function renderChecks(score: TokenScore): void {
 
 function renderTokenDetail(score: TokenScore): void {
   const risk = getRiskLevel(score.score);
-  const userTier = state.userProfile?.tier ?? 'free';
+  const userTier = getEffectiveViewerTier();
   const branding = getPlanBranding(userTier);
   const tokenMetadata: TokenMetadata = {
     ...(score.token ?? {}),
@@ -579,7 +815,7 @@ function renderTokenDetail(score: TokenScore): void {
 
   elements.tokenDetail.tokenName!.textContent = tokenName;
   elements.tokenDetail.tokenSymbol!.textContent = tokenSymbol;
-  elements.tokenDetail.tokenAddress!.textContent = truncateAddress(score.address);
+  updateTokenAddressButton(truncateAddress(score.address), score.address);
   elements.tokenDetail.scoreValue!.textContent = String(score.score);
   elements.tokenDetail.scoreCircle!.className = `score-circle score-${risk}`;
   elements.tokenDetail.riskLabel!.textContent = `${risk.toUpperCase()} RISK`;
@@ -993,6 +1229,10 @@ function setupEventListeners(): void {
 
   elements.tokenDetail.upgradeBtn?.addEventListener('click', () => {
     handleUpgradeFlow();
+  });
+
+  elements.tokenDetail.tokenAddress?.addEventListener('click', () => {
+    void handleTokenAddressCopy();
   });
 
   elements.tokenDetail.viewExplorer?.addEventListener('click', (event) => {

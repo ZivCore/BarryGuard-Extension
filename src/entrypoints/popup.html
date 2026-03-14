@@ -39,21 +39,29 @@
         </button>
       </div>
 
-      <div id="token-info">
-        <div class="token-header">
-          <img id="token-logo" class="token-logo" src="/icons/icon48.png" alt="Token logo">
-          <div class="token-name" id="token-name">Loading...</div>
-          <div class="token-symbol" id="token-symbol"></div>
+      <div class="analysis-overview">
+        <div id="token-info">
+          <div class="token-header">
+            <img id="token-logo" class="token-logo" src="/icons/icon48.png" alt="Token logo">
+            <div class="token-copy">
+              <div class="token-name" id="token-name">Loading...</div>
+              <div class="token-symbol" id="token-symbol"></div>
+            </div>
+          </div>
+          <div class="token-address-group">
+            <div class="token-address-label">Address</div>
+            <button type="button" class="token-address token-address-button" id="token-address"></button>
+          </div>
+          <div id="copy-toast" class="copy-toast hidden" aria-live="polite">Copied</div>
         </div>
-        <div class="token-address" id="token-address"></div>
-      </div>
 
-      <div id="score-container">
-        <div class="score-circle" id="score-circle">
-          <div class="score-value" id="score-value">--</div>
-          <div class="score-label">SCORE</div>
+        <div id="score-container">
+          <div class="score-circle" id="score-circle">
+            <div class="score-value" id="score-value">--</div>
+            <div class="score-label">SCORE</div>
+          </div>
+          <div class="risk-label" id="risk-label">ANALYZING...</div>
         </div>
-        <div class="risk-label" id="risk-label">ANALYZING...</div>
       </div>
 
       <div id="checks-container">
