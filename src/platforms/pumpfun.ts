@@ -5,6 +5,36 @@ import { PLATFORM_SELECTORS } from '../config/selectors';
 
 const SELECTORS = PLATFORM_SELECTORS.pumpfun;
 
+function isExtensionContextInvalidatedError(error: unknown): boolean {
+  const message =
+    typeof error === 'string'
+      ? error
+      : error instanceof Error
+        ? error.message
+        : '';
+
+  return message.toLowerCase().includes('extension context invalidated');
+}
+
+function safeSendMessage(message: { type: string; payload?: unknown }): void {
+  if (!chrome?.runtime?.id) {
+    return;
+  }
+
+  try {
+    chrome.runtime.sendMessage(message, () => {
+      const runtimeError = chrome.runtime.lastError?.message;
+      if (runtimeError && !isExtensionContextInvalidatedError(runtimeError)) {
+        console.error('[BarryGuard] Badge action failed:', runtimeError);
+      }
+    });
+  } catch (error) {
+    if (!isExtensionContextInvalidatedError(error)) {
+      throw error;
+    }
+  }
+}
+
 export class PumpFunPlatform implements IPlatform {
   readonly name = 'Pump.fun';
   readonly hostPattern = ['*://pump.fun/*'];
@@ -69,7 +99,7 @@ export class PumpFunPlatform implements IPlatform {
       event.preventDefault();
       event.stopPropagation();
 
-      chrome.runtime.sendMessage({
+      safeSendMessage({
         type: 'OPEN_POPUP_FOR_TOKEN',
         payload: this.buildSelectedToken(address, score),
       });

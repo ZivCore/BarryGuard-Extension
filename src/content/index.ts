@@ -14,6 +14,67 @@ const PLATFORM_HOSTS: Record<SupportedPlatform, string[]> = {
 const CURRENT_ADDRESS_PATTERN = /^\/coin\/([1-9A-HJ-NP-Za-km-z]{32,44})$/;
 const PROFILE_STORAGE_KEY = 'user_profile';
 
+function isExtensionContextInvalidatedError(error: unknown): boolean {
+  const message =
+    typeof error === 'string'
+      ? error
+      : error instanceof Error
+        ? error.message
+        : '';
+
+  return message.toLowerCase().includes('extension context invalidated');
+}
+
+function hasExtensionRuntime(): boolean {
+  return Boolean(chrome?.runtime?.id);
+}
+
+function withSafeRuntime<T>(action: () => T): T | undefined {
+  if (!hasExtensionRuntime()) {
+    return undefined;
+  }
+
+  try {
+    return action();
+  } catch (error) {
+    if (isExtensionContextInvalidatedError(error)) {
+      return undefined;
+    }
+
+    throw error;
+  }
+}
+
+function sendRuntimeMessage(
+  message: { type: string; payload?: unknown },
+  callback: (response: any) => void,
+): void {
+  withSafeRuntime(() => {
+    chrome.runtime.sendMessage(message, (response) => {
+      const runtimeError = chrome.runtime.lastError?.message;
+      if (runtimeError && isExtensionContextInvalidatedError(runtimeError)) {
+        return;
+      }
+
+      callback(response);
+    });
+  });
+}
+
+function persistSelectedToken(selectedToken: {
+  address: string;
+  score: TokenScore;
+  metadata: TokenMetadata;
+}): void {
+  withSafeRuntime(() => {
+    void chrome.storage.local.set({ selectedToken }).catch((error: unknown) => {
+      if (!isExtensionContextInvalidatedError(error)) {
+        console.error('[BarryGuard] Failed to persist selected token:', error);
+      }
+    });
+  });
+}
+
 function detectPlatform(): IPlatform | null {
   const host = window.location.hostname;
   for (const [key, patterns] of Object.entries(PLATFORM_HOSTS) as [SupportedPlatform, string[]][]) {
@@ -62,7 +123,7 @@ export function initializeContentScript(): void {
   }
 
   function loadUserTier(): void {
-    chrome.runtime.sendMessage({ type: 'GET_USER_TIER' }, (response) => {
+    sendRuntimeMessage({ type: 'GET_USER_TIER' }, (response) => {
       if (!response?.success || !response.data) {
         currentTier = 'free';
         scanAll();
@@ -82,7 +143,7 @@ export function initializeContentScript(): void {
     pending.add(address);
     (platform as PumpFunPlatform).renderLoadingBadge(address);
 
-    chrome.runtime.sendMessage({ type: 'GET_TOKEN_SCORE', payload: address }, (response) => {
+    sendRuntimeMessage({ type: 'GET_TOKEN_SCORE', payload: address }, (response) => {
       pending.delete(address);
       if (response?.success && response.data) {
         const score = response.data as TokenScore;
@@ -90,17 +151,15 @@ export function initializeContentScript(): void {
 
         if ((platform as PumpFunPlatform).isCurrentTokenPage(address)) {
           const selectedToken = (platform as PumpFunPlatform).buildSelectedToken(address, score);
-          chrome.runtime.sendMessage({ type: 'GET_TOKEN_METADATA', payload: address }, (metadataResponse) => {
+          sendRuntimeMessage({ type: 'GET_TOKEN_METADATA', payload: address }, (metadataResponse) => {
             const metadata = {
               ...(selectedToken.metadata ?? {}),
               ...((metadataResponse?.success ? metadataResponse.data : {}) as TokenMetadata | undefined),
             };
 
-            void chrome.storage.local.set({
-              selectedToken: {
-                ...selectedToken,
-                metadata,
-              },
+            persistSelectedToken({
+              ...selectedToken,
+              metadata,
             });
           });
         }
@@ -158,13 +217,15 @@ export function initializeContentScript(): void {
   }) as History['replaceState'];
 
   platform.observeDOMChanges(scanAll);
-  chrome.storage.onChanged.addListener((changes, areaName) => {
-    if (areaName !== 'local' || !changes[PROFILE_STORAGE_KEY]) {
-      return;
-    }
+  withSafeRuntime(() => {
+    chrome.storage.onChanged.addListener((changes, areaName) => {
+      if (areaName !== 'local' || !changes[PROFILE_STORAGE_KEY]) {
+        return;
+      }
 
-    updateTierFromProfile(changes[PROFILE_STORAGE_KEY].newValue);
-    scanAll();
+      updateTierFromProfile(changes[PROFILE_STORAGE_KEY].newValue);
+      scanAll();
+    });
   });
   window.addEventListener('popstate', handleUrlChange);
   window.addEventListener('hashchange', handleUrlChange);
