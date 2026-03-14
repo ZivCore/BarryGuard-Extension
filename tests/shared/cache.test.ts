@@ -81,4 +81,26 @@ describe('TokenCache', () => {
     expect(stats.maxSize).toBe(1000);
     expect(stats.size).toBe(0);
   });
+
+  it('returns null for cross-tier cache lookup (free entry looked up as rescue_pass)', async () => {
+    const score = makeScore(70);
+    await cache.set('crossAddr', score, 'free');
+    const result = await cache.get('crossAddr', 'rescue_pass');
+    expect(result).toBeNull();
+  });
+
+  it('evicts expired paid-tier entries at init using per-tier TTL (not free TTL)', async () => {
+    vi.useFakeTimers();
+    const score = makeScore(80);
+    // Write a paid entry that is 3 minutes old (TTL is 2 min for rescue_pass)
+    const threeMinutesAgo = Date.now() - 3 * 60 * 1000;
+    storageMock['barryguard_cache'] = { 'paidAddr': { score, timestamp: threeMinutesAgo, tier: 'rescue_pass' } };
+
+    const freshCache = new TokenCache();
+    await freshCache.init(); // should evict the 3-min-old rescue_pass entry
+    const result = await freshCache.get('paidAddr', 'rescue_pass');
+    expect(result).toBeNull();
+
+    vi.useRealTimers();
+  });
 });
