@@ -1019,6 +1019,35 @@ async function loadSelectedToken(): Promise<void> {
   }
 }
 
+async function refreshSelectedTokenScore(): Promise<void> {
+  const selectedToken = state.selectedToken;
+  if (!selectedToken?.address || !state.userProfile) {
+    return;
+  }
+
+  const response = await sendMessage<TokenScore>({
+    type: 'GET_TOKEN_SCORE',
+    payload: selectedToken.address,
+  }, 5000);
+
+  if (!response.success || !response.data) {
+    return;
+  }
+
+  if (state.selectedToken?.address !== selectedToken.address) {
+    return;
+  }
+
+  const nextToken: SelectedToken = {
+    ...selectedToken,
+    score: response.data,
+  };
+
+  state.selectedToken = nextToken;
+  renderTokenDetail(response.data);
+  await chrome.storage.local.set({ selectedToken: nextToken });
+}
+
 async function handleLogin(): Promise<void> {
   const email = elements.login.email?.value.trim() ?? '';
   const password = elements.login.password?.value ?? '';
@@ -1050,6 +1079,7 @@ async function handleLogin(): Promise<void> {
     state.userProfile = response.data;
     applyPlanBranding();
     renderUsageIndicator();
+    await refreshSelectedTokenScore();
     showCurrentOrEmptyToken();
     showScreen('token-detail');
   } finally {
@@ -1102,6 +1132,7 @@ async function handleRegister(): Promise<void> {
     state.userProfile = response.data;
     applyPlanBranding();
     renderUsageIndicator();
+    await refreshSelectedTokenScore();
     showCurrentOrEmptyToken();
     showScreen('token-detail');
   } finally {
@@ -1211,6 +1242,7 @@ function setupEventListeners(): void {
     }
 
     if (changes.user_profile) {
+      const previousTier = state.userProfile?.tier ?? null;
       state.userProfile = (changes.user_profile.newValue as UserProfile | undefined) ?? null;
       applyPlanBranding();
       renderUsageIndicator();
@@ -1218,6 +1250,9 @@ function setupEventListeners(): void {
         updateAccountScreen();
       }
       renderPrimaryTokenState();
+      if (previousTier !== (state.userProfile?.tier ?? null)) {
+        void refreshSelectedTokenScore();
+      }
     }
 
     if (changes.hourly_usage_state) {
@@ -1331,6 +1366,7 @@ async function init(): Promise<void> {
     await loadUserProfile();
     await loadUsageState();
     await loadSelectedToken();
+    await refreshSelectedTokenScore();
   } catch (error) {
     console.error('[BarryGuard] Popup initialization failed:', error);
     renderPrimaryTokenState();
