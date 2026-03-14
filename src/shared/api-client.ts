@@ -1,7 +1,6 @@
 // src/shared/api-client.ts
 import type { ApiResponse, AuthToken, TokenScore, UserProfile } from './types';
-
-const BASE_URL = 'https://barryguard.com/api';
+import { getApiBaseUrl } from './runtime-config';
 
 export class BarryGuardApiClient {
   private authToken: AuthToken | null = null;
@@ -19,6 +18,7 @@ export class BarryGuardApiClient {
   }
 
   private async request<T>(path: string, options: RequestInit = {}): Promise<ApiResponse<T>> {
+    const baseUrl = getApiBaseUrl();
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
       ...(options.headers as Record<string, string>),
@@ -28,7 +28,7 @@ export class BarryGuardApiClient {
     }
 
     try {
-      const res = await fetch(`${BASE_URL}${path}`, { ...options, headers });
+      const res = await fetch(`${baseUrl}${path}`, { ...options, headers });
       if (res.ok) return { success: true, data: await res.json() as T };
       const err = await res.json().catch(() => ({ message: `HTTP ${res.status}` }));
       return { success: false, error: (err as { message?: string }).message ?? `HTTP ${res.status}` };

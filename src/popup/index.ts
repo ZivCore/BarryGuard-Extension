@@ -1,11 +1,12 @@
-import type { ApiResponse, CheckResult, TierLevel, TokenScore, UserProfile } from '../shared/types';
+import type { ApiResponse, CheckResult, SelectedToken, TierLevel, TokenScore, UserProfile } from '../shared/types';
+import {
+  getAccountUrl,
+  getForgotPasswordUrl,
+  getOAuthUrl,
+  getPricingUrl,
+} from '../shared/runtime-config';
 
 type ScreenName = 'loading' | 'token-detail' | 'login' | 'register' | 'account' | 'manual';
-
-interface SelectedToken {
-  address: string;
-  score: TokenScore;
-}
 
 interface RuntimeMessage {
   type: string;
@@ -306,9 +307,11 @@ function renderChecks(score: TokenScore): void {
 function renderTokenDetail(score: TokenScore): void {
   const risk = getRiskLevel(score.score);
   const userTier = state.userProfile?.tier ?? 'free';
+  const tokenName = state.selectedToken?.metadata?.name ?? score.token?.name ?? 'Unknown Token';
+  const tokenSymbol = state.selectedToken?.metadata?.symbol ?? score.token?.symbol ?? '';
 
-  elements.tokenDetail.tokenName!.textContent = 'Token Analysis';
-  elements.tokenDetail.tokenSymbol!.textContent = '';
+  elements.tokenDetail.tokenName!.textContent = tokenName;
+  elements.tokenDetail.tokenSymbol!.textContent = tokenSymbol;
   elements.tokenDetail.tokenAddress!.textContent = truncateAddress(score.address);
   elements.tokenDetail.scoreValue!.textContent = String(score.score);
   elements.tokenDetail.scoreCircle!.className = `score-circle score-${risk}`;
@@ -566,7 +569,11 @@ async function handleAnalyze(): Promise<void> {
       return;
     }
 
-    state.selectedToken = { address, score: response.data };
+    state.selectedToken = {
+      address,
+      score: response.data,
+      metadata: response.data.token,
+    };
     await chrome.storage.local.set({ selectedToken: state.selectedToken });
     renderTokenDetail(response.data);
     showScreen('token-detail');
@@ -588,7 +595,7 @@ async function handleOAuth(provider: 'google' | 'github'): Promise<void> {
     return;
   }
 
-  openExternal(`https://barryguard.com/auth/${provider}?extension=true`);
+  openExternal(getOAuthUrl(provider));
   window.close();
 }
 
@@ -603,7 +610,7 @@ function setupEventListeners(): void {
   });
 
   elements.tokenDetail.upgradeBtn?.addEventListener('click', () => {
-    openExternal('https://barryguard.com/pricing');
+    openExternal(getPricingUrl());
   });
 
   elements.tokenDetail.viewExplorer?.addEventListener('click', (event) => {
@@ -626,7 +633,7 @@ function setupEventListeners(): void {
   });
   elements.login.forgotPassword?.addEventListener('click', (event) => {
     event.preventDefault();
-    openExternal('https://barryguard.com/forgot-password');
+    openExternal(getForgotPasswordUrl());
   });
   elements.login.registerLink?.addEventListener('click', (event) => {
     event.preventDefault();
@@ -648,9 +655,14 @@ function setupEventListeners(): void {
 
   elements.account.backBtn?.addEventListener('click', () => showScreen('token-detail'));
   elements.account.manageBtn?.addEventListener('click', () => {
+    if (state.userProfile?.customerPortalUrl) {
+      openExternal(state.userProfile.customerPortalUrl);
+      return;
+    }
+
     openExternal(state.userProfile?.tier === 'free'
-      ? 'https://barryguard.com/pricing'
-      : 'https://barryguard.com/dashboard/account');
+      ? getPricingUrl()
+      : getAccountUrl());
   });
   elements.account.logoutBtn?.addEventListener('click', () => {
     void handleLogout();

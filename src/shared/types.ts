@@ -3,6 +3,11 @@
 export type RiskLevel = 'high' | 'medium' | 'low';
 export type TierLevel = 'free' | 'rescue_pass' | 'pro';
 
+export interface TokenMetadata {
+  name?: string;
+  symbol?: string;
+}
+
 export interface CheckResult {
   status: 'success' | 'warning' | 'danger';
   value: unknown;
@@ -20,6 +25,7 @@ export interface TokenScore {
   checks: Record<string, CheckResult>;
   cached: boolean;
   analyzedAt?: string;
+  token?: TokenMetadata;
 }
 
 export interface AuthToken {
@@ -35,6 +41,7 @@ export interface UserProfile {
   stripeCustomerId?: string;
   subscriptionStatus?: string;
   currentPeriodEnd?: string;
+  customerPortalUrl?: string;
 }
 
 export interface ApiResponse<T> {
@@ -47,4 +54,10 @@ export interface CacheEntry {
   score: TokenScore;
   timestamp: number;
   tier: TierLevel;
+}
+
+export interface SelectedToken {
+  address: string;
+  score: TokenScore;
+  metadata?: TokenMetadata;
 }
