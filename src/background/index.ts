@@ -55,6 +55,88 @@ const PAID_ACTION_ICON_PATHS: Record<'rescue_pass' | 'pro', Record<number, strin
   },
 };
 
+type JsonRecord = Record<string, unknown>;
+
+function asRecord(value: unknown): JsonRecord | null {
+  return value && typeof value === 'object' ? (value as JsonRecord) : null;
+}
+
+function pickString(record: JsonRecord, keys: string[]): string | undefined {
+  for (const key of keys) {
+    const value = record[key];
+    if (typeof value === 'string' && value.trim()) {
+      return value.trim();
+    }
+  }
+
+  return undefined;
+}
+
+function normalizeTierValue(value: unknown): TierLevel | null {
+  if (typeof value !== 'string') {
+    return null;
+  }
+
+  const normalized = value.trim().toLowerCase().replace(/[\s-]+/g, '_');
+  if (normalized === 'free') {
+    return 'free';
+  }
+
+  if (['rescue_pass', 'rescue', 'premium', 'paid'].includes(normalized)) {
+    return 'rescue_pass';
+  }
+
+  if (normalized === 'pro') {
+    return 'pro';
+  }
+
+  return null;
+}
+
+function inferTier(record: JsonRecord): TierLevel {
+  const directTier = normalizeTierValue(
+    pickString(record, ['tier', 'plan', 'planTier', 'plan_tier', 'subscriptionTier', 'subscription_tier']),
+  );
+  if (directTier) {
+    return directTier;
+  }
+
+  const nestedSources = [
+    asRecord(record.data),
+    asRecord(record.user),
+    asRecord(record.profile),
+    asRecord(record.subscription),
+  ].filter((value): value is JsonRecord => Boolean(value));
+
+  for (const source of nestedSources) {
+    const nestedTier = inferTier(source);
+    if (nestedTier !== 'free') {
+      return nestedTier;
+    }
+  }
+
+  const priceHint = pickString(record, ['priceId', 'price_id', 'stripePriceId', 'stripe_price_id', 'product', 'productName']);
+  if (priceHint) {
+    const normalizedPriceHint = priceHint.toLowerCase();
+    if (normalizedPriceHint.includes('pro')) {
+      return 'pro';
+    }
+    if (normalizedPriceHint.includes('rescue')) {
+      return 'rescue_pass';
+    }
+  }
+
+  const status = pickString(record, ['subscriptionStatus', 'subscription_status', 'status']);
+  if (status) {
+    const normalizedStatus = status.toLowerCase();
+    if (['active', 'trialing'].includes(normalizedStatus)) {
+      return 'rescue_pass';
+    }
+  }
+
+  return 'free';
+}
+
 async function getStoredToken(): Promise<AuthToken | null> {
   const stored = await chrome.storage.local.get(AUTH_KEY);
   return stored[AUTH_KEY] ?? null;
@@ -103,19 +185,50 @@ async function updateActionIcon(profile: UserProfile | null): Promise<void> {
   }
 }
 
-function normalizeProfile(profile: UserProfile): UserProfile {
-  const tier = profile.tier ?? 'free';
+function normalizeProfile(profile: UserProfile | JsonRecord): UserProfile {
+  const profileRecord = asRecord(profile) ?? {};
+  const nestedData = asRecord(profileRecord.data) ?? {};
+  const nestedUser = asRecord(profileRecord.user) ?? {};
+  const nestedProfile = asRecord(profileRecord.profile) ?? {};
+  const nestedSubscription = asRecord(profileRecord.subscription) ?? {};
+  const merged = {
+    ...nestedData,
+    ...nestedUser,
+    ...nestedProfile,
+    ...nestedSubscription,
+    ...profileRecord,
+  } as JsonRecord;
+  const typedProfile = merged as Partial<UserProfile>;
+  const tier = inferTier(merged);
+  const stripeCustomerId =
+    pickString(merged, ['stripeCustomerId', 'stripe_customer_id']) ?? typedProfile.stripeCustomerId;
+  const subscriptionStatus =
+    pickString(merged, ['subscriptionStatus', 'subscription_status']) ?? typedProfile.subscriptionStatus;
+  const currentPeriodEnd =
+    pickString(merged, ['currentPeriodEnd', 'current_period_end']) ?? typedProfile.currentPeriodEnd;
+  const customerPortalUrl =
+    pickString(merged, ['customerPortalUrl', 'customer_portal_url']) ?? typedProfile.customerPortalUrl;
+  const email = pickString(merged, ['email']) ?? typedProfile.email ?? '';
+  const id = pickString(merged, ['id']) ?? typedProfile.id ?? email;
 
   return {
-    ...profile,
+    ...(typedProfile as UserProfile),
+    id,
+    email,
     tier,
     capabilities: {
-      singleTokenAnalysis: profile.capabilities?.singleTokenAnalysis ?? true,
-      tokenListAnalysis: profile.capabilities?.tokenListAnalysis ?? tier !== 'free',
+      singleTokenAnalysis: typedProfile.capabilities?.singleTokenAnalysis ?? true,
+      tokenListAnalysis: typedProfile.capabilities?.tokenListAnalysis ?? tier !== 'free',
     },
-    listRequestLimit: profile.listRequestLimit ?? DEFAULT_LIST_REQUEST_LIMIT[tier],
-    singleTokenCooldownSeconds: profile.singleTokenCooldownSeconds ?? (tier === 'free' ? FREE_COOLDOWN_SECONDS : 0),
-    singleTokenHourlyLimit: profile.singleTokenHourlyLimit ?? (tier === 'free' ? FREE_HOURLY_LIMIT : DEFAULT_LIST_REQUEST_LIMIT[tier]),
+    listRequestLimit: typedProfile.listRequestLimit ?? DEFAULT_LIST_REQUEST_LIMIT[tier],
+    singleTokenCooldownSeconds:
+      typedProfile.singleTokenCooldownSeconds ?? (tier === 'free' ? FREE_COOLDOWN_SECONDS : 0),
+    singleTokenHourlyLimit:
+      typedProfile.singleTokenHourlyLimit ?? (tier === 'free' ? FREE_HOURLY_LIMIT : DEFAULT_LIST_REQUEST_LIMIT[tier]),
+    stripeCustomerId,
+    subscriptionStatus,
+    currentPeriodEnd,
+    customerPortalUrl,
   };
 }
 
