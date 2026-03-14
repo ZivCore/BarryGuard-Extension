@@ -1,2 +1,4 @@
-barryguard-projektbeschreibung.md
-barryguard-spezifikation.md
+/docs
+node_modules/
+dist/
+package-lock.json
