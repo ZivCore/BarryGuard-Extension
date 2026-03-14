@@ -312,7 +312,10 @@ function renderChecks(score: TokenScore): void {
 function renderTokenDetail(score: TokenScore): void {
   const risk = getRiskLevel(score.score);
   const userTier = state.userProfile?.tier ?? 'free';
-  const tokenMetadata = state.selectedToken?.metadata ?? score.token;
+  const tokenMetadata: TokenMetadata = {
+    ...(score.token ?? {}),
+    ...(state.selectedToken?.metadata ?? {}),
+  };
   const tokenName = tokenMetadata?.name ?? 'Unknown Token';
   const tokenSymbol = tokenMetadata?.symbol ?? '';
   const tokenLogo = tokenMetadata?.imageUrl;
@@ -320,6 +323,12 @@ function renderTokenDetail(score: TokenScore): void {
   if (elements.tokenDetail.tokenLogo) {
     elements.tokenDetail.tokenLogo.src = tokenLogo || '/icons/icon48.png';
     elements.tokenDetail.tokenLogo.alt = tokenName;
+    elements.tokenDetail.tokenLogo.onerror = () => {
+      if (elements.tokenDetail.tokenLogo) {
+        elements.tokenDetail.tokenLogo.onerror = null;
+        elements.tokenDetail.tokenLogo.src = '/icons/icon48.png';
+      }
+    };
   }
 
   elements.tokenDetail.tokenName!.textContent = tokenName;
@@ -360,6 +369,17 @@ function updateAccountScreen(): void {
   elements.account.periodEnd!.textContent = user.currentPeriodEnd
     ? new Date(user.currentPeriodEnd).toLocaleDateString()
     : '--';
+}
+
+function handleSelectedTokenUpdate(selectedToken: SelectedToken | null): void {
+  state.selectedToken = selectedToken;
+
+  if (!selectedToken?.score) {
+    renderEmptyState();
+    return;
+  }
+
+  renderTokenDetail(selectedToken.score);
 }
 
 function showCurrentOrEmptyToken(): void {
@@ -439,18 +459,9 @@ async function loadSelectedToken(): Promise<void> {
   try {
     const stored = await chrome.storage.local.get('selectedToken');
     const selectedToken = stored.selectedToken as SelectedToken | undefined;
-
-    if (!selectedToken?.score) {
-      state.selectedToken = null;
-      renderEmptyState();
-      return;
-    }
-
-    state.selectedToken = selectedToken;
-    renderTokenDetail(selectedToken.score);
+    handleSelectedTokenUpdate(selectedToken ?? null);
   } catch {
-    state.selectedToken = null;
-    renderEmptyState();
+    handleSelectedTokenUpdate(null);
   }
 }
 
@@ -621,6 +632,15 @@ async function handleOAuth(provider: 'google' | 'github'): Promise<void> {
 }
 
 function setupEventListeners(): void {
+  chrome.storage.onChanged.addListener((changes, areaName) => {
+    if (areaName !== 'local' || !changes.selectedToken) {
+      return;
+    }
+
+    const selectedToken = changes.selectedToken.newValue as SelectedToken | undefined;
+    handleSelectedTokenUpdate(selectedToken ?? null);
+  });
+
   elements.tokenDetail.manualEntryBtn?.addEventListener('click', () => {
     setManualError(null);
     showScreen('manual');

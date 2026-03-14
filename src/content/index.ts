@@ -33,6 +33,7 @@ export function initializeContentScript(): void {
   const platform = detectedPlatform;
   console.log(`[BarryGuard] Platform: ${platform.name}`);
   const pending = new Set<string>();
+  let lastUrl = window.location.href;
 
   function fetchAndRender(address: string): void {
     if (pending.has(address)) {
@@ -65,9 +66,31 @@ export function initializeContentScript(): void {
     platform.extractTokenAddresses().forEach(fetchAndRender);
   }
 
+  function handleUrlChange(): void {
+    const currentUrl = window.location.href;
+    if (currentUrl === lastUrl) {
+      return;
+    }
+
+    lastUrl = currentUrl;
+    scanAll();
+  }
+
+  const originalPushState = history.pushState.bind(history);
+  history.pushState = ((...args: Parameters<History['pushState']>) => {
+    originalPushState(...args);
+    handleUrlChange();
+  }) as History['pushState'];
+
+  const originalReplaceState = history.replaceState.bind(history);
+  history.replaceState = ((...args: Parameters<History['replaceState']>) => {
+    originalReplaceState(...args);
+    handleUrlChange();
+  }) as History['replaceState'];
+
   platform.observeDOMChanges(scanAll);
-  window.addEventListener('popstate', scanAll);
-  window.addEventListener('hashchange', scanAll);
+  window.addEventListener('popstate', handleUrlChange);
+  window.addEventListener('hashchange', handleUrlChange);
 
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', scanAll, { once: true });

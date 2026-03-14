@@ -61,7 +61,7 @@ export class PumpFunPlatform implements IPlatform {
     badge.style.backgroundColor = colors.bg;
     badge.style.color = colors.text;
     badge.style.border = `1px solid ${colors.border}`;
-    badge.textContent = String(score.score);
+    badge.innerHTML = this.getBadgeMarkup(String(score.score));
     badge.title = `BarryGuard Score: ${score.score}/100 - Click for details`;
     badge.onclick = (event) => {
       event.preventDefault();
@@ -88,7 +88,7 @@ export class PumpFunPlatform implements IPlatform {
     badge.style.backgroundColor = '#f3f4f6';
     badge.style.color = '#6b7280';
     badge.style.border = '1px solid #e5e7eb';
-    badge.textContent = '...';
+    badge.innerHTML = this.getBadgeMarkup('...');
     badge.title = 'BarryGuard: Loading...';
     badge.onclick = null;
 
@@ -103,7 +103,7 @@ export class PumpFunPlatform implements IPlatform {
       return;
     }
 
-    badge.textContent = '?';
+    badge.innerHTML = this.getBadgeMarkup('?');
     badge.title = 'BarryGuard: Score unavailable';
     badge.style.backgroundColor = '#f3f4f6';
     badge.style.color = '#9ca3af';
@@ -164,15 +164,18 @@ export class PumpFunPlatform implements IPlatform {
       'display:inline-flex',
       'align-items:center',
       'justify-content:center',
-      'padding:2px 6px',
-      'border-radius:4px',
+      'gap:6px',
+      'padding:4px 8px',
+      'border-radius:999px',
       'font-size:11px',
-      'font-weight:600',
+      'font-weight:700',
       'font-family:system-ui,-apple-system,sans-serif',
       'margin-left:6px',
       'cursor:pointer',
       'transition:all 0.2s ease',
       'z-index:1000',
+      'white-space:nowrap',
+      'box-shadow:0 4px 10px rgba(15,23,42,0.08)',
     ].join(';');
 
     return badge;
@@ -180,6 +183,10 @@ export class PumpFunPlatform implements IPlatform {
 
   private insertBadge(address: string, target: Element, badge: HTMLDivElement): void {
     if (this.isCurrentTokenPage(address)) {
+      document
+        .querySelectorAll('[data-barryguard-context="detail"]')
+        .forEach((element) => element.remove());
+      badge.setAttribute('data-barryguard-context', 'detail');
       badge.style.marginLeft = '0';
       badge.style.marginTop = '8px';
       target.insertAdjacentElement('afterend', badge);
@@ -232,7 +239,7 @@ export class PumpFunPlatform implements IPlatform {
 
     return {
       name: name ?? this.inferNameFromText(scopedRoot.textContent ?? ''),
-      symbol: symbol ?? this.inferSymbolFromText(scopedRoot.textContent ?? '') ?? this.inferSymbolFromTitle(),
+      symbol: symbol ?? this.inferSymbolFromTitle() ?? this.inferSymbolFromText(scopedRoot.textContent ?? ''),
       imageUrl,
     };
   }
@@ -241,6 +248,10 @@ export class PumpFunPlatform implements IPlatform {
     for (const selector of selectors) {
       const matches = Array.from(root.querySelectorAll(selector));
       for (const match of matches) {
+        if (match.closest('[data-barryguard="true"]')) {
+          continue;
+        }
+
         const value = match.textContent?.trim();
         if (value && isValid(value)) {
           return value;
@@ -285,7 +296,7 @@ export class PumpFunPlatform implements IPlatform {
       .map((part) => part.trim())
       .filter(Boolean);
 
-    return parts.find((part) => /^\$?[A-Z0-9_]{2,12}$/.test(part));
+    return parts.find((part) => /^\$?(?=.*[A-Z])[A-Z0-9_]{2,12}$/.test(part));
   }
 
   private inferSymbolFromTitle(): string | undefined {
@@ -302,5 +313,12 @@ export class PumpFunPlatform implements IPlatform {
     };
 
     return map[risk] ?? map.high;
+  }
+
+  private getBadgeMarkup(value: string): string {
+    return [
+      '<span style="font-size:10px;font-weight:800;letter-spacing:0.04em;text-transform:uppercase;">BarryGuard</span>',
+      `<span style="font-size:12px;font-weight:800;">${value}</span>`,
+    ].join('');
   }
 }
