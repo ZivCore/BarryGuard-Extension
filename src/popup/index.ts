@@ -52,6 +52,8 @@ const state: PopupState = {
   selectedToken: null,
 };
 
+let isHydratingSelectedTokenMetadata = false;
+
 const elements = {
   screens: {
     loading: document.getElementById('loading'),
@@ -380,6 +382,46 @@ function handleSelectedTokenUpdate(selectedToken: SelectedToken | null): void {
   }
 
   renderTokenDetail(selectedToken.score);
+  void hydrateSelectedTokenMetadata(selectedToken);
+}
+
+async function hydrateSelectedTokenMetadata(selectedToken: SelectedToken): Promise<void> {
+  if (isHydratingSelectedTokenMetadata) {
+    return;
+  }
+
+  isHydratingSelectedTokenMetadata = true;
+
+  try {
+    const response = await sendMessage<TokenMetadata>({
+      type: 'GET_TOKEN_METADATA',
+      payload: selectedToken.address,
+    }, 5000);
+
+    if (!response.success || !response.data) {
+      return;
+    }
+
+    const mergedToken: SelectedToken = {
+      ...selectedToken,
+      metadata: {
+        ...(selectedToken.metadata ?? {}),
+        ...response.data,
+      },
+    };
+
+    const before = JSON.stringify(selectedToken.metadata ?? {});
+    const after = JSON.stringify(mergedToken.metadata ?? {});
+    if (before === after) {
+      return;
+    }
+
+    state.selectedToken = mergedToken;
+    renderTokenDetail(mergedToken.score);
+    await chrome.storage.local.set({ selectedToken: mergedToken });
+  } finally {
+    isHydratingSelectedTokenMetadata = false;
+  }
 }
 
 function showCurrentOrEmptyToken(): void {

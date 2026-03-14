@@ -1,6 +1,6 @@
 import { PumpFunPlatform } from '../platforms/pumpfun';
 import type { IPlatform } from '../platforms/platform.interface';
-import type { TokenScore } from '../shared/types';
+import type { TokenMetadata, TokenScore } from '../shared/types';
 
 type SupportedPlatform = 'pumpfun';
 
@@ -50,8 +50,19 @@ export function initializeContentScript(): void {
         platform.renderScoreBadge(address, score);
 
         if ((platform as PumpFunPlatform).isCurrentTokenPage(address)) {
-          void chrome.storage.local.set({
-            selectedToken: (platform as PumpFunPlatform).buildSelectedToken(address, score),
+          const selectedToken = (platform as PumpFunPlatform).buildSelectedToken(address, score);
+          chrome.runtime.sendMessage({ type: 'GET_TOKEN_METADATA', payload: address }, (metadataResponse) => {
+            const metadata = {
+              ...(selectedToken.metadata ?? {}),
+              ...((metadataResponse?.success ? metadataResponse.data : {}) as TokenMetadata | undefined),
+            };
+
+            void chrome.storage.local.set({
+              selectedToken: {
+                ...selectedToken,
+                metadata,
+              },
+            });
           });
         }
 

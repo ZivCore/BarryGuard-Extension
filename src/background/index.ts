@@ -57,7 +57,32 @@ function decodeHtml(text: string): string {
     .replace(/&quot;/g, '"')
     .replace(/&#39;/g, "'")
     .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>');
+    .replace(/&gt;/g, '>')
+    .replace(/\\u0026/g, '&')
+    .replace(/\\\//g, '/');
+}
+
+function extractCoinMetadataFromHtml(address: string, html: string): TokenMetadata {
+  const coinMatch = html.match(
+    new RegExp(
+      `"mint":"${address}"[\\s\\S]*?"name":"([^"]{1,120})"[\\s\\S]*?"symbol":"([^"]{1,40})"[\\s\\S]*?"image_uri":"([^"]{1,500})"`,
+      'i',
+    ),
+  );
+
+  const embeddedName = coinMatch?.[1];
+  const embeddedSymbol = coinMatch?.[2];
+  const embeddedImage = coinMatch?.[3];
+
+  const headingName = html.match(/<h1[^>]*>([^<]{1,120})<\/h1>/i)?.[1];
+  const titleSymbol = html.match(/<title>([A-Z0-9_]{2,20})\s+\$[^<]+<\/title>/i)?.[1];
+  const pumpImage = html.match(new RegExp(`https://images\\.pump\\.fun/coin-image/${address}[^"'\\s<]+`, 'i'))?.[0];
+
+  return {
+    name: embeddedName ? decodeHtml(embeddedName.trim()) : headingName ? decodeHtml(headingName.trim()) : undefined,
+    symbol: embeddedSymbol?.trim() || titleSymbol?.trim(),
+    imageUrl: embeddedImage ? decodeHtml(embeddedImage.trim()) : pumpImage,
+  };
 }
 
 async function getPumpFunMetadata(address: string): Promise<{ success: boolean; data?: TokenMetadata; error?: string }> {
@@ -68,15 +93,7 @@ async function getPumpFunMetadata(address: string): Promise<{ success: boolean; 
     }
 
     const html = await response.text();
-    const name = html.match(/<h1[^>]*>([^<]{1,120})<\/h1>/i)?.[1];
-    const symbol = html.match(/<title>([A-Z0-9_]{2,20})\s+\$[^<]+<\/title>/i)?.[1];
-    const imageUrl = html.match(new RegExp(`https://images\\.pump\\.fun/coin-image/${address}[^"'\\s<]+`, 'i'))?.[0];
-
-    const metadata: TokenMetadata = {
-      name: name ? decodeHtml(name.trim()) : undefined,
-      symbol: symbol?.trim(),
-      imageUrl,
-    };
+    const metadata = extractCoinMetadataFromHtml(address, html);
 
     if (!metadata.name && !metadata.symbol && !metadata.imageUrl) {
       return { success: false, error: 'No token metadata found on pump.fun.' };
@@ -118,7 +135,16 @@ async function getTokenScore(address: string) {
 }
 
 async function openPopupForToken(selectedToken: SelectedToken) {
-  await chrome.storage.local.set({ selectedToken });
+  const metadataResult = await getPumpFunMetadata(selectedToken.address);
+  const enrichedToken: SelectedToken = {
+    ...selectedToken,
+    metadata: {
+      ...(selectedToken.metadata ?? {}),
+      ...(metadataResult.success ? metadataResult.data : {}),
+    },
+  };
+
+  await chrome.storage.local.set({ selectedToken: enrichedToken });
 
   try {
     await chrome.action.openPopup();
