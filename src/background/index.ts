@@ -1,27 +1,59 @@
 import { BarryGuardApiClient } from '../shared/api-client';
 import { TokenCache } from '../shared/cache';
-import type { AuthToken, SelectedToken, TokenMetadata, UserProfile, TierLevel } from '../shared/types';
+import { extractPumpFunEmbeddedMetadata } from '../shared/pumpfun-metadata';
+import type {
+  ApiResponse,
+  HourlyUsageState,
+  SelectedToken,
+  TokenMetadata,
+  TokenListAnalysisData,
+  TokenScore,
+  UserProfile,
+  TierLevel,
+  AuthToken,
+} from '../shared/types';
 
 const api = new BarryGuardApiClient();
 const cache = new TokenCache();
 
 const AUTH_KEY = 'auth_token';
 const PROFILE_KEY = 'user_profile';
-const RATE_WINDOW_MS = 1000;
-const MAX_CALLS_PER_SECOND = 10;
+const SINGLE_ANALYSIS_KEY = 'single_analysis_state';
+const HOURLY_USAGE_KEY = 'hourly_usage_state';
+const ANONYMOUS_HOURLY_LIMIT = 10;
+const FREE_HOURLY_LIMIT = 100;
+const FREE_COOLDOWN_SECONDS = 10;
+const DEFAULT_LIST_REQUEST_LIMIT: Record<TierLevel, number> = {
+  free: 0,
+  rescue_pass: 500,
+  pro: 2000,
+};
 
-const callTimestamps: number[] = [];
-
-async function waitForRateLimit(): Promise<void> {
-  const now = Date.now();
-  const recent = callTimestamps.filter((timestamp) => now - timestamp < RATE_WINDOW_MS);
-  if (recent.length >= MAX_CALLS_PER_SECOND) {
-    await new Promise((resolve) => setTimeout(resolve, 100));
-    return waitForRateLimit();
-  }
-
-  callTimestamps.push(Date.now());
+interface SingleAnalysisState {
+  lastAnalyzeAt?: number;
 }
+
+const DEFAULT_ACTION_ICON_PATHS = {
+  16: 'icons/icon16.png',
+  32: 'icons/icon32.png',
+  48: 'icons/icon48.png',
+  128: 'icons/icon128.png',
+} as const;
+
+const PAID_ACTION_ICON_PATHS: Record<'rescue_pass' | 'pro', Record<number, string>> = {
+  rescue_pass: {
+    16: 'silver256.png',
+    32: 'silver256.png',
+    48: 'silver256.png',
+    128: 'silver256.png',
+  },
+  pro: {
+    16: 'gold256.png',
+    32: 'gold256.png',
+    48: 'gold256.png',
+    128: 'gold256.png',
+  },
+};
 
 async function getStoredToken(): Promise<AuthToken | null> {
   const stored = await chrome.storage.local.get(AUTH_KEY);
@@ -39,16 +71,75 @@ async function initialize(): Promise<void> {
   const token = await getStoredToken();
   if (token) {
     api.setAuthToken(token);
-    const session = await api.validateSession();
-    if (session.success && session.data) {
-      await chrome.storage.local.set({ [PROFILE_KEY]: session.data });
+    const profileResult = await loadProfileFromApi();
+    if (profileResult.success && profileResult.data) {
+      await chrome.storage.local.set({ [PROFILE_KEY]: profileResult.data });
+      await syncHourlyUsageState(profileResult.data);
+      await updateActionIcon(profileResult.data);
     } else {
-      await chrome.storage.local.remove([AUTH_KEY, PROFILE_KEY]);
+      await chrome.storage.local.remove([AUTH_KEY, PROFILE_KEY, HOURLY_USAGE_KEY]);
       api.clearAuthToken();
+      await syncHourlyUsageState(null);
+      await updateActionIcon(null);
     }
+  } else {
+    await syncHourlyUsageState(null);
+    await updateActionIcon(null);
   }
 
   console.log('[BarryGuard] Background worker initialized');
+}
+
+async function updateActionIcon(profile: UserProfile | null): Promise<void> {
+  try {
+    if (profile?.tier === 'pro' || profile?.tier === 'rescue_pass') {
+      await chrome.action.setIcon({ path: PAID_ACTION_ICON_PATHS[profile.tier] });
+      return;
+    }
+
+    await chrome.action.setIcon({ path: DEFAULT_ACTION_ICON_PATHS });
+  } catch {
+    // Ignore icon update failures in unsupported environments.
+  }
+}
+
+function normalizeProfile(profile: UserProfile): UserProfile {
+  const tier = profile.tier ?? 'free';
+
+  return {
+    ...profile,
+    tier,
+    capabilities: {
+      singleTokenAnalysis: profile.capabilities?.singleTokenAnalysis ?? true,
+      tokenListAnalysis: profile.capabilities?.tokenListAnalysis ?? tier !== 'free',
+    },
+    listRequestLimit: profile.listRequestLimit ?? DEFAULT_LIST_REQUEST_LIMIT[tier],
+    singleTokenCooldownSeconds: profile.singleTokenCooldownSeconds ?? (tier === 'free' ? FREE_COOLDOWN_SECONDS : 0),
+    singleTokenHourlyLimit: profile.singleTokenHourlyLimit ?? (tier === 'free' ? FREE_HOURLY_LIMIT : DEFAULT_LIST_REQUEST_LIMIT[tier]),
+  };
+}
+
+async function loadProfileFromApi(): Promise<ApiResponse<UserProfile>> {
+  const session = await api.validateSession();
+  if (!session.success || !session.data) {
+    return session;
+  }
+
+  const tierResult = await api.getUserTier();
+  if (!tierResult.success || !tierResult.data) {
+    return {
+      success: true,
+      data: normalizeProfile(session.data),
+    };
+  }
+
+  return {
+    success: true,
+    data: normalizeProfile({
+      ...session.data,
+      ...tierResult.data,
+    }),
+  };
 }
 
 function decodeHtml(text: string): string {
@@ -63,25 +154,16 @@ function decodeHtml(text: string): string {
 }
 
 function extractCoinMetadataFromHtml(address: string, html: string): TokenMetadata {
-  const coinMatch = html.match(
-    new RegExp(
-      `"mint":"${address}"[\\s\\S]*?"name":"([^"]{1,120})"[\\s\\S]*?"symbol":"([^"]{1,40})"[\\s\\S]*?"image_uri":"([^"]{1,500})"`,
-      'i',
-    ),
-  );
-
-  const embeddedName = coinMatch?.[1];
-  const embeddedSymbol = coinMatch?.[2];
-  const embeddedImage = coinMatch?.[3];
+  const embeddedMetadata = extractPumpFunEmbeddedMetadata(address, html);
 
   const headingName = html.match(/<h1[^>]*>([^<]{1,120})<\/h1>/i)?.[1];
   const titleSymbol = html.match(/<title>([A-Z0-9_]{2,20})\s+\$[^<]+<\/title>/i)?.[1];
   const pumpImage = html.match(new RegExp(`https://images\\.pump\\.fun/coin-image/${address}[^"'\\s<]+`, 'i'))?.[0];
 
   return {
-    name: embeddedName ? decodeHtml(embeddedName.trim()) : headingName ? decodeHtml(headingName.trim()) : undefined,
-    symbol: embeddedSymbol?.trim() || titleSymbol?.trim(),
-    imageUrl: embeddedImage ? decodeHtml(embeddedImage.trim()) : pumpImage,
+    name: embeddedMetadata.name ? decodeHtml(embeddedMetadata.name) : headingName ? decodeHtml(headingName.trim()) : undefined,
+    symbol: embeddedMetadata.symbol?.trim() || titleSymbol?.trim(),
+    imageUrl: embeddedMetadata.imageUrl ? decodeHtml(embeddedMetadata.imageUrl) : pumpImage,
   };
 }
 
@@ -108,16 +190,216 @@ async function getPumpFunMetadata(address: string): Promise<{ success: boolean; 
   }
 }
 
+async function getSingleAnalysisState(): Promise<SingleAnalysisState> {
+  const stored = await chrome.storage.local.get(SINGLE_ANALYSIS_KEY);
+  return (stored[SINGLE_ANALYSIS_KEY] as SingleAnalysisState | undefined) ?? {};
+}
+
+async function setSingleAnalysisState(state: SingleAnalysisState): Promise<void> {
+  await chrome.storage.local.set({ [SINGLE_ANALYSIS_KEY]: state });
+}
+
+function getCooldownSeconds(profile: UserProfile | null): number {
+  return profile?.singleTokenCooldownSeconds ?? (profile?.tier === 'free' ? FREE_COOLDOWN_SECONDS : 0);
+}
+
+function getHourlyLimit(profile: UserProfile | null): number {
+  if (!profile) {
+    return ANONYMOUS_HOURLY_LIMIT;
+  }
+
+  return profile.singleTokenHourlyLimit ?? (profile.tier === 'free' ? FREE_HOURLY_LIMIT : DEFAULT_LIST_REQUEST_LIMIT[profile.tier]);
+}
+
+function getUsageBucketKey(tier: TierLevel, audience: 'anonymous' | 'authenticated', timestamp = Date.now()): string {
+  return `${audience}:${tier}:${Math.floor(timestamp / 3600000)}`;
+}
+
+async function getStoredHourlyUsageState(): Promise<HourlyUsageState | null> {
+  const stored = await chrome.storage.local.get(HOURLY_USAGE_KEY);
+  return (stored[HOURLY_USAGE_KEY] as HourlyUsageState | undefined) ?? null;
+}
+
+async function setHourlyUsageState(state: HourlyUsageState): Promise<void> {
+  await chrome.storage.local.set({ [HOURLY_USAGE_KEY]: state });
+}
+
+async function syncHourlyUsageState(profile: UserProfile | null): Promise<HourlyUsageState | null> {
+  const tier = profile?.tier ?? 'free';
+  const audience: HourlyUsageState['audience'] = profile ? 'authenticated' : 'anonymous';
+  const limit = getHourlyLimit(profile);
+  const bucketKey = getUsageBucketKey(tier, audience);
+  const existing = await getStoredHourlyUsageState();
+
+  if (
+    existing &&
+    existing.bucketKey === bucketKey &&
+    existing.tier === tier &&
+    existing.audience === audience &&
+    existing.limit === limit
+  ) {
+    return existing;
+  }
+
+  const nextState: HourlyUsageState = {
+    bucketKey,
+    tier,
+    audience,
+    used:
+      existing &&
+      existing.bucketKey === bucketKey &&
+      existing.tier === tier &&
+      existing.audience === audience
+        ? Math.min(existing.used, limit)
+        : 0,
+    limit,
+    updatedAt: Date.now(),
+  };
+
+  await setHourlyUsageState(nextState);
+  return nextState;
+}
+
+async function markUsageExhausted(profile: UserProfile | null): Promise<void> {
+  if (!profile) {
+    return;
+  }
+
+  const state = await syncHourlyUsageState(profile);
+  if (!state) {
+    return;
+  }
+
+  await setHourlyUsageState({
+    ...state,
+    used: state.limit,
+    updatedAt: Date.now(),
+  });
+}
+
+async function incrementHourlyUsage(profile: UserProfile | null, amount: number): Promise<void> {
+  if (!profile || amount <= 0) {
+    return;
+  }
+
+  const state = await syncHourlyUsageState(profile);
+  if (!state) {
+    return;
+  }
+
+  await setHourlyUsageState({
+    ...state,
+    used: Math.min(state.limit, state.used + amount),
+    updatedAt: Date.now(),
+  });
+}
+
+function mapApiFailure<T>(response: ApiResponse<T>): ApiResponse<T> {
+  if (response.success) {
+    return response;
+  }
+
+  if (response.statusCode === 403) {
+    return {
+      ...response,
+      errorType: 'plan_gate',
+      error: response.error ?? 'This feature is not available on your current plan.',
+    };
+  }
+
+  if (response.statusCode === 429) {
+    return {
+      ...response,
+      errorType: 'rate_limit',
+      error: response.error ?? 'Rate limit reached. Please try again later.',
+    };
+  }
+
+  return {
+    ...response,
+    errorType: response.errorType ?? 'server',
+  };
+}
+
+async function maybeEnforceSingleCooldown(profile: UserProfile | null): Promise<ApiResponse<never> | null> {
+  const cooldownSeconds = getCooldownSeconds(profile);
+  if (cooldownSeconds <= 0) {
+    return null;
+  }
+
+  const state = await getSingleAnalysisState();
+  const lastAnalyzeAt = state.lastAnalyzeAt ?? 0;
+  const elapsedSeconds = Math.floor((Date.now() - lastAnalyzeAt) / 1000);
+  if (!lastAnalyzeAt || elapsedSeconds >= cooldownSeconds) {
+    return null;
+  }
+
+  const retryAfterSeconds = cooldownSeconds - elapsedSeconds;
+  return {
+    success: false,
+    error: `Free plan cooldown active. Try again in ${retryAfterSeconds}s.`,
+    statusCode: 429,
+    errorType: 'cooldown',
+    retryAfterSeconds,
+  };
+}
+
+async function maybeEnforceHourlyLimit(
+  profile: UserProfile | null,
+  requestedUnits = 1,
+): Promise<ApiResponse<never> | null> {
+  const normalizedUnits = Math.max(1, requestedUnits);
+  const state = await syncHourlyUsageState(profile);
+  if (!state || state.limit <= 0) {
+    return null;
+  }
+
+  if (state.used + normalizedUnits <= state.limit) {
+    return null;
+  }
+
+  return {
+    success: false,
+    error: `Hourly limit reached. You used ${state.used}/${state.limit} analyses this hour.`,
+    statusCode: 429,
+    errorType: 'rate_limit',
+  };
+}
+
+function extractListScores(payload: unknown): TokenScore[] {
+  if (Array.isArray(payload)) {
+    return payload.filter((item): item is TokenScore =>
+      typeof item === 'object' && item !== null && typeof (item as TokenScore).address === 'string' && typeof (item as TokenScore).score === 'number');
+  }
+
+  if (!payload || typeof payload !== 'object') {
+    return [];
+  }
+
+  const record = payload as Record<string, unknown>;
+  const candidates = [record.results, record.scores, record.tokens, record.data];
+  for (const candidate of candidates) {
+    const scores = extractListScores(candidate);
+    if (scores.length > 0) {
+      return scores;
+    }
+  }
+
+  const keyedScores = Object.values(record).filter((item): item is TokenScore =>
+    typeof item === 'object' && item !== null && typeof (item as TokenScore).address === 'string' && typeof (item as TokenScore).score === 'number');
+
+  return keyedScores;
+}
+
 async function getTokenScore(address: string) {
   const profile = await getStoredProfile();
-  const tier: TierLevel = profile?.tier ?? 'free';
+  const normalizedProfile = profile ? normalizeProfile(profile) : null;
+  const tier: TierLevel = normalizedProfile?.tier ?? 'free';
 
   const cached = await cache.get(address, tier);
   if (cached) {
     return { success: true, data: { ...cached, cached: true } };
   }
-
-  await waitForRateLimit();
 
   const existing = await api.getTokenScore(address);
   if (existing.success && existing.data) {
@@ -125,13 +407,98 @@ async function getTokenScore(address: string) {
     return { success: true, data: { ...existing.data, cached: true } };
   }
 
+  const cooldown = await maybeEnforceSingleCooldown(normalizedProfile);
+  if (cooldown) {
+    return cooldown;
+  }
+
+  const hourlyLimit = await maybeEnforceHourlyLimit(normalizedProfile);
+  if (hourlyLimit) {
+    return hourlyLimit;
+  }
+
   const fresh = await api.analyzeToken(address);
   if (fresh.success && fresh.data) {
+    if (tier === 'free') {
+      await setSingleAnalysisState({ lastAnalyzeAt: Date.now() });
+    }
+    await incrementHourlyUsage(normalizedProfile, 1);
     await cache.set(address, fresh.data, tier);
     return { success: true, data: { ...fresh.data, cached: false } };
   }
 
-  return fresh;
+  if (fresh.statusCode === 429) {
+    await markUsageExhausted(normalizedProfile);
+  }
+
+  return mapApiFailure(fresh);
+}
+
+async function analyzeTokenList(addresses: string[]): Promise<ApiResponse<TokenListAnalysisData>> {
+  const deduped = [...new Set(addresses.filter((address): address is string => typeof address === 'string' && address.length > 0))];
+  if (deduped.length === 0) {
+    return { success: true, data: { scores: [], cachedAddresses: [] } };
+  }
+
+  const profile = await getStoredProfile();
+  const normalizedProfile = profile ? normalizeProfile(profile) : null;
+  const tier = normalizedProfile?.tier ?? 'free';
+
+  if (!normalizedProfile?.capabilities?.tokenListAnalysis) {
+    return {
+      success: false,
+      error: 'List scanning is available on Rescue Pass and Pro.',
+      statusCode: 403,
+      errorType: 'plan_gate',
+    };
+  }
+
+  const scores: TokenScore[] = [];
+  const cachedAddresses: string[] = [];
+  const missingAddresses: string[] = [];
+
+  for (const address of deduped) {
+    const cached = await cache.get(address, tier);
+    if (cached) {
+      scores.push({ ...cached, cached: true });
+      cachedAddresses.push(address);
+      continue;
+    }
+
+    missingAddresses.push(address);
+  }
+
+  if (missingAddresses.length === 0) {
+    return { success: true, data: { scores, cachedAddresses } };
+  }
+
+  const hourlyLimit = await maybeEnforceHourlyLimit(normalizedProfile, missingAddresses.length);
+  if (hourlyLimit) {
+    return hourlyLimit as ApiResponse<TokenListAnalysisData>;
+  }
+
+  const response = await api.analyzeTokenList(missingAddresses);
+  if (!response.success) {
+    if (response.statusCode === 429) {
+      await markUsageExhausted(normalizedProfile);
+    }
+    return mapApiFailure(response) as ApiResponse<TokenListAnalysisData>;
+  }
+
+  const networkScores = extractListScores(response.data);
+  await incrementHourlyUsage(normalizedProfile, missingAddresses.length);
+  for (const score of networkScores) {
+    await cache.set(score.address, score, tier);
+    scores.push({ ...score, cached: false });
+  }
+
+  return {
+    success: true,
+    data: {
+      scores,
+      cachedAddresses,
+    },
+  };
 }
 
 async function openPopupForToken(selectedToken: SelectedToken) {
@@ -166,6 +533,9 @@ export function initializeBackground(): void {
           case 'ANALYZE_TOKEN':
             respond(await getTokenScore(message.payload));
             break;
+          case 'ANALYZE_TOKEN_LIST':
+            respond(await analyzeTokenList((message.payload?.addresses as string[] | undefined) ?? []));
+            break;
           case 'GET_TOKEN_METADATA':
             respond(await getPumpFunMetadata(message.payload));
             break;
@@ -174,38 +544,55 @@ export function initializeBackground(): void {
             break;
           case 'GET_USER_TIER': {
             const profile = await getStoredProfile();
-            if (profile) {
-              respond({ success: true, data: profile });
+            if (profile?.capabilities && typeof profile.listRequestLimit === 'number') {
+              await syncHourlyUsageState(profile);
+              respond({ success: true, data: normalizeProfile(profile) });
               break;
             }
 
             const result = await api.getUserTier();
             if (result.success && result.data) {
-              await chrome.storage.local.set({ [PROFILE_KEY]: result.data });
+              const normalizedProfile = normalizeProfile(result.data);
+              await chrome.storage.local.set({ [PROFILE_KEY]: normalizedProfile });
+              await syncHourlyUsageState(normalizedProfile);
+              await updateActionIcon(normalizedProfile);
+              respond({ success: true, data: normalizedProfile });
+              break;
             }
-            respond(result);
+
+            respond(mapApiFailure(result));
             break;
           }
           case 'LOGIN': {
             const result = await api.login(message.payload.email, message.payload.password);
             if (result.success && result.data) {
+              const normalizedUser = normalizeProfile(result.data.user);
               await chrome.storage.local.set({
                 [AUTH_KEY]: result.data.token,
-                [PROFILE_KEY]: result.data.user,
+                [PROFILE_KEY]: normalizedUser,
               });
+              await syncHourlyUsageState(normalizedUser);
+              await updateActionIcon(normalizedUser);
+              respond({ success: true, data: normalizedUser });
+              break;
             }
-            respond(result.success ? { success: true, data: result.data?.user } : result);
+            respond(result.success ? { success: true, data: result.data?.user } : mapApiFailure(result));
             break;
           }
           case 'REGISTER': {
             const result = await api.register(message.payload.email, message.payload.password);
             if (result.success && result.data) {
+              const normalizedUser = normalizeProfile(result.data.user);
               await chrome.storage.local.set({
                 [AUTH_KEY]: result.data.token,
-                [PROFILE_KEY]: result.data.user,
+                [PROFILE_KEY]: normalizedUser,
               });
+              await syncHourlyUsageState(normalizedUser);
+              await updateActionIcon(normalizedUser);
+              respond({ success: true, data: normalizedUser });
+              break;
             }
-            respond(result.success ? { success: true, data: result.data?.user } : result);
+            respond(result.success ? { success: true, data: result.data?.user } : mapApiFailure(result));
             break;
           }
           case 'OAUTH_LOGIN':
@@ -213,7 +600,9 @@ export function initializeBackground(): void {
             break;
           case 'LOGOUT':
             await api.logout();
-            await chrome.storage.local.remove([AUTH_KEY, PROFILE_KEY]);
+            await chrome.storage.local.remove([AUTH_KEY, PROFILE_KEY, HOURLY_USAGE_KEY]);
+            await syncHourlyUsageState(null);
+            await updateActionIcon(null);
             respond({ success: true });
             break;
           default:

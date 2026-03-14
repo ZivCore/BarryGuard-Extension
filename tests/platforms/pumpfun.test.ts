@@ -191,4 +191,43 @@ describe('PumpFunPlatform', () => {
       }),
     );
   });
+
+  it('prefers embedded Pump.fun metadata on detail pages when DOM text is noisy', () => {
+    window.history.replaceState({}, '', '/coin/D9g3NFv4qCeDFbj35DxB4aa53oDudfUtbv6S8Umdpump');
+    document.title = 'WHALE $8.7K | Pump';
+    document.body.innerHTML = `
+      <h1>Noise</h1>
+      <strong>2AxsZ3</strong>
+      <span>E4YLPV</span>
+      <script>
+        self.__next_f = self.__next_f || [];
+        self.__next_f.push([1,"1c:[\\"$\\",\\"$L43\\",null,{\\"mint\\":\\"D9g3NFv4qCeDFbj35DxB4aa53oDudfUtbv6S8Umdpump\\",\\"children\\":[\\"$\\",\\"$L4a\\",null,{\\"coin\\":{\\"mint\\":\\"D9g3NFv4qCeDFbj35DxB4aa53oDudfUtbv6S8Umdpump\\",\\"name\\":\\"Agent W\\",\\"symbol\\":\\"WHALE\\",\\"image_uri\\":\\"https://ipfs.io/ipfs/bafkreigravkelqw53yxy5ysruy6jf5jujjew6tt7lvlwb6uhxhddjusw6y\\"}}]}]"]);
+      </script>
+    `;
+
+    platform.renderScoreBadge('D9g3NFv4qCeDFbj35DxB4aa53oDudfUtbv6S8Umdpump', {
+      address: 'D9g3NFv4qCeDFbj35DxB4aa53oDudfUtbv6S8Umdpump',
+      chain: 'solana',
+      score: 91,
+      risk: 'low',
+      checks: {},
+      cached: false,
+    });
+
+    const badge = document.querySelector('[data-barryguard-badge="D9g3NFv4qCeDFbj35DxB4aa53oDudfUtbv6S8Umdpump"]') as HTMLElement;
+    badge.click();
+
+    expect(chrome.runtime.sendMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'OPEN_POPUP_FOR_TOKEN',
+        payload: expect.objectContaining({
+          metadata: expect.objectContaining({
+            name: 'Agent W',
+            symbol: 'WHALE',
+            imageUrl: 'https://ipfs.io/ipfs/bafkreigravkelqw53yxy5ysruy6jf5jujjew6tt7lvlwb6uhxhddjusw6y',
+          }),
+        }),
+      }),
+    );
+  });
 });

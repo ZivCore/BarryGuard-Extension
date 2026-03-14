@@ -127,7 +127,75 @@ body {
   font-weight: 700;
   letter-spacing: 0.01em;
   line-height: 1;
-  margin-top: 3px;
+}
+
+.usage-indicator {
+  align-items: center;
+  background: rgba(255, 252, 246, 0.14);
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 18px;
+  display: flex;
+  gap: 10px;
+  justify-content: center;
+  margin-top: 14px;
+  padding: 10px 12px;
+  width: 100%;
+}
+
+.usage-donut {
+  --usage-fill: 0deg;
+  align-items: center;
+  background:
+    conic-gradient(var(--deep-blue) 0deg, var(--swiss-red) var(--usage-fill), rgba(23, 59, 99, 0.12) var(--usage-fill), rgba(23, 59, 99, 0.12) 360deg);
+  border-radius: 50%;
+  display: flex;
+  height: 46px;
+  justify-content: center;
+  position: relative;
+  width: 46px;
+}
+
+.usage-donut::after {
+  background: rgba(255, 251, 245, 0.92);
+  border: 1px solid rgba(23, 59, 99, 0.06);
+  border-radius: 50%;
+  content: "";
+  inset: 5px;
+  position: absolute;
+}
+
+.usage-donut-inner {
+  align-items: center;
+  display: flex;
+  justify-content: center;
+  position: relative;
+  z-index: 1;
+}
+
+.usage-remaining {
+  color: var(--deep-blue);
+  font-size: 13px;
+  font-weight: 800;
+  line-height: 1;
+}
+
+.usage-copy {
+  min-width: 0;
+  text-align: left;
+}
+
+.usage-label {
+  color: #f7f2eb;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+}
+
+.usage-meta {
+  color: rgba(247, 242, 235, 0.82);
+  font-size: 11px;
+  margin-top: 1px;
 }
 
 .brand-subtitle {
@@ -672,10 +740,20 @@ body {
 }
 
 .tier-badge {
+  align-items: center;
   border-radius: 999px;
   display: inline-flex;
   gap: 7px;
   padding: 7px 14px;
+}
+
+.tier-icon-image {
+  border-radius: 999px;
+  display: block;
+  flex-shrink: 0;
+  height: 20px;
+  object-fit: cover;
+  width: 20px;
 }
 
 .tier-badge.free {

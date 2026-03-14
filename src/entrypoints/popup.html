@@ -15,7 +15,7 @@
 
     <div class="brand-banner">
       <div class="brand-mark-frame">
-        <img src="/logo2.png" alt="BarryGuard St. Bernard Logo" class="brand-mark">
+        <img id="brand-logo" src="/logo.png" alt="BarryGuard brand logo" class="brand-mark">
       </div>
       <div class="brand-copy">
         <div class="brand-kicker">Swiss Crypto Protector</div>
@@ -63,8 +63,8 @@
 
       <div id="upgrade-banner" class="upgrade-banner hidden">
         <div class="upgrade-text">
-          <strong>Upgrade to Rescue Pass</strong>
-          <p>Unlock all 6 risk checks</p>
+          <strong id="upgrade-banner-title">Upgrade to Rescue Pass</strong>
+          <p id="upgrade-banner-body">Unlock all 6 risk checks</p>
         </div>
         <button id="upgrade-btn" class="btn-primary">Upgrade</button>
       </div>
@@ -170,8 +170,19 @@
         <div class="account-info">
           <div class="account-email" id="account-email">Loading...</div>
           <div class="tier-badge free" id="tier-badge">
-            <span class="tier-icon">BG</span>
+            <img id="account-tier-logo" class="tier-icon-image" src="/logo128.png" alt="BarryGuard tier logo">
             <span class="tier-name" id="tier-name">Free Tier</span>
+          </div>
+          <div id="usage-indicator" class="usage-indicator hidden" aria-label="Hourly usage">
+            <div id="usage-donut" class="usage-donut">
+              <div class="usage-donut-inner">
+                <span id="usage-remaining" class="usage-remaining">--</span>
+              </div>
+            </div>
+            <div class="usage-copy">
+              <div id="usage-label" class="usage-label">Requests left</div>
+              <div id="usage-meta" class="usage-meta">0/0 used</div>
+            </div>
           </div>
         </div>
 

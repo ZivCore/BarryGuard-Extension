@@ -29,11 +29,22 @@ export class BarryGuardApiClient {
 
     try {
       const res = await fetch(`${baseUrl}${path}`, { ...options, headers });
-      if (res.ok) return { success: true, data: await res.json() as T };
+      if (res.ok) {
+        return { success: true, data: await res.json() as T, statusCode: res.status };
+      }
+
       const err = await res.json().catch(() => ({ message: `HTTP ${res.status}` }));
-      return { success: false, error: (err as { message?: string }).message ?? `HTTP ${res.status}` };
+      return {
+        success: false,
+        error: (err as { message?: string }).message ?? `HTTP ${res.status}`,
+        statusCode: res.status,
+      };
     } catch (e) {
-      return { success: false, error: e instanceof Error ? e.message : 'Network error' };
+      return {
+        success: false,
+        error: e instanceof Error ? e.message : 'Network error',
+        errorType: 'network',
+      };
     }
   }
 
@@ -46,6 +57,13 @@ export class BarryGuardApiClient {
 
   getTokenScore(address: string, chain = 'solana'): Promise<ApiResponse<TokenScore>> {
     return this.request<TokenScore>(`/token/${address}?chain=${chain}`);
+  }
+
+  analyzeTokenList(addresses: string[], chain = 'solana', force = false): Promise<ApiResponse<unknown>> {
+    return this.request<unknown>('/analyze-list', {
+      method: 'POST',
+      body: JSON.stringify({ addresses, chain, force }),
+    });
   }
 
   getUserTier(): Promise<ApiResponse<UserProfile>> {
