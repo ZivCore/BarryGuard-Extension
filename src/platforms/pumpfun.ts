@@ -56,12 +56,13 @@ export class PumpFunPlatform implements IPlatform {
       return;
     }
 
+    const isDetailPage = this.isCurrentTokenPage(address);
     const colors = this.getColors(score.risk);
     const badge = this.getBadge(address) ?? this.createBadge(address);
     badge.style.backgroundColor = colors.bg;
     badge.style.color = colors.text;
     badge.style.border = `1px solid ${colors.border}`;
-    badge.innerHTML = this.getBadgeMarkup(String(score.score));
+    badge.innerHTML = this.getBadgeMarkup(String(score.score), !isDetailPage);
     badge.title = `BarryGuard Score: ${score.score}/100 - Click for details`;
     badge.onclick = (event) => {
       event.preventDefault();
@@ -84,11 +85,12 @@ export class PumpFunPlatform implements IPlatform {
       return;
     }
 
+    const isDetailPage = this.isCurrentTokenPage(address);
     const badge = this.getBadge(address) ?? this.createBadge(address);
     badge.style.backgroundColor = '#f3f4f6';
     badge.style.color = '#6b7280';
     badge.style.border = '1px solid #e5e7eb';
-    badge.innerHTML = this.getBadgeMarkup('...');
+    badge.innerHTML = this.getBadgeMarkup('...', !isDetailPage);
     badge.title = 'BarryGuard: Loading...';
     badge.onclick = null;
 
@@ -103,7 +105,7 @@ export class PumpFunPlatform implements IPlatform {
       return;
     }
 
-    badge.innerHTML = this.getBadgeMarkup('?');
+    badge.innerHTML = this.getBadgeMarkup('?', !this.isCurrentTokenPage(address));
     badge.title = 'BarryGuard: Score unavailable';
     badge.style.backgroundColor = '#f3f4f6';
     badge.style.color = '#9ca3af';
@@ -195,6 +197,16 @@ export class PumpFunPlatform implements IPlatform {
 
     const link = target as HTMLAnchorElement;
     const cardRoot = this.findCardRoot(link);
+    const nameNode = this.findNameNode(cardRoot ?? link);
+    badge.setAttribute('data-barryguard-context', 'list');
+    badge.style.marginLeft = '0';
+    badge.style.marginTop = '4px';
+
+    if (nameNode) {
+      nameNode.insertAdjacentElement('afterend', badge);
+      return;
+    }
+
     const insertionPoint = this.findInsertionPoint(cardRoot ?? link);
     if (insertionPoint) {
       insertionPoint.insertAdjacentElement('afterend', badge);
@@ -220,6 +232,24 @@ export class PumpFunPlatform implements IPlatform {
       const candidate = root.querySelector(selector);
       if (candidate) {
         return candidate;
+      }
+    }
+
+    return null;
+  }
+
+  private findNameNode(root: Element): Element | null {
+    for (const selector of SELECTORS.nameSelectors) {
+      const matches = Array.from(root.querySelectorAll(selector));
+      for (const match of matches) {
+        if (match.closest('[data-barryguard="true"]')) {
+          continue;
+        }
+
+        const value = match.textContent?.trim();
+        if (value && value.length > 2 && value.length < 64) {
+          return match;
+        }
       }
     }
 
@@ -315,10 +345,18 @@ export class PumpFunPlatform implements IPlatform {
     return map[risk] ?? map.high;
   }
 
-  private getBadgeMarkup(value: string): string {
+  private getBadgeMarkup(value: string, compact = false): string {
+    const label = compact ? 'BarryGuard' : 'BarryGuard';
+    const labelStyle = compact
+      ? 'font-size:9px;font-weight:800;letter-spacing:0.03em;text-transform:uppercase;line-height:1;'
+      : 'font-size:10px;font-weight:800;letter-spacing:0.04em;text-transform:uppercase;line-height:1;';
+    const valueStyle = compact
+      ? 'font-size:11px;font-weight:800;line-height:1;'
+      : 'font-size:12px;font-weight:800;line-height:1;';
+
     return [
-      '<span style="font-size:10px;font-weight:800;letter-spacing:0.04em;text-transform:uppercase;">BarryGuard</span>',
-      `<span style="font-size:12px;font-weight:800;">${value}</span>`,
+      `<span style="${labelStyle}">${label}</span>`,
+      `<span style="${valueStyle}">${value}</span>`,
     ].join('');
   }
 }

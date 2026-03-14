@@ -117,6 +117,33 @@ describe('PumpFunPlatform', () => {
     );
   });
 
+  it('inserts list badges directly below the token name', () => {
+    document.body.innerHTML = `
+      <a href="/coin/7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU">
+        <div class="card">
+          <span class="name">Token A</span>
+          <span class="symbol">$TKNA</span>
+        </div>
+      </a>
+    `;
+
+    platform.renderScoreBadge('7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU', {
+      address: '7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU',
+      chain: 'solana',
+      score: 22,
+      risk: 'high',
+      checks: {},
+      cached: false,
+    });
+
+    const nameNode = document.querySelector('.name');
+    const badge = document.querySelector('[data-barryguard-badge="7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU"]');
+
+    expect(nameNode?.nextElementSibling).toBe(badge);
+    expect((badge as HTMLElement).dataset.barryguardContext).toBe('list');
+    expect((badge as HTMLElement).style.marginTop).toBe('4px');
+  });
+
   it('includes the current coin page address in extracted addresses', () => {
     window.history.replaceState({}, '', '/coin/EncFm8nRh1VBwcRmGugTUzoGsC1n2srWesKDkiMAYWLt');
     document.body.innerHTML = '<h1>Terafab</h1>';
