@@ -2,7 +2,11 @@ const DEFAULT_API_URL = 'https://www.barryguard.com/api';
 const DEFAULT_APP_URL = 'https://www.barryguard.com';
 
 function normalizeApiUrl(url: string): string {
-  return url.replace(/\/+$/, '');
+  const cleaned = url.replace(/\/+$/, '');
+  if (!cleaned.startsWith('https://')) {
+    throw new Error(`[BarryGuard] API URL must use HTTPS. Received: "${cleaned}"`);
+  }
+  return cleaned;
 }
 
 function normalizeAppUrl(url: string): string {
