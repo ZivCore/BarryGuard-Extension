@@ -1,4 +1,3 @@
-// src/platforms/pumpfun.ts
 import type { IPlatform } from './platform.interface';
 import type { TokenScore } from '../shared/types';
 import { PLATFORM_SELECTORS } from '../config/selectors';
@@ -13,9 +12,12 @@ export class PumpFunPlatform implements IPlatform {
     const addresses: string[] = [];
     const seen = new Set<string>();
 
-    document.querySelectorAll<HTMLAnchorElement>(SELECTORS.tokenLink).forEach(link => {
+    document.querySelectorAll<HTMLAnchorElement>(SELECTORS.tokenLink).forEach((link) => {
       const href = link.getAttribute('href');
-      if (!href) return;
+      if (!href) {
+        return;
+      }
+
       const match = href.match(SELECTORS.addressPattern);
       if (match?.[1] && !seen.has(match[1])) {
         addresses.push(match[1]);
@@ -27,94 +29,138 @@ export class PumpFunPlatform implements IPlatform {
   }
 
   renderScoreBadge(address: string, score: TokenScore): void {
-    const link = document.querySelector(`a[href="/coin/${address}"]`);
-    if (!link) return;
-    if (link.querySelector(`[data-barryguard-badge="${address}"]`)) return;
+    const link = this.getLink(address);
+    if (!link) {
+      return;
+    }
 
     const colors = this.getColors(score.risk);
-    const badge = document.createElement('div');
-    badge.setAttribute('data-barryguard-badge', address);
-    badge.setAttribute('data-barryguard', 'true');
-    badge.style.cssText = [
-      'display:inline-flex', 'align-items:center', 'justify-content:center',
-      'padding:2px 6px', 'border-radius:4px', 'font-size:11px', 'font-weight:600',
-      'font-family:system-ui,-apple-system,sans-serif', 'margin-left:6px',
-      'cursor:pointer', 'transition:all 0.2s ease', 'z-index:1000',
-      `background-color:${colors.bg}`, `color:${colors.text}`, `border:1px solid ${colors.border}`,
-    ].join(';');
+    const badge = this.getBadge(address) ?? this.createBadge(address);
+    badge.style.backgroundColor = colors.bg;
+    badge.style.color = colors.text;
+    badge.style.border = `1px solid ${colors.border}`;
+    badge.textContent = String(score.score);
+    badge.title = `BarryGuard Score: ${score.score}/100 - Click for details`;
+    badge.onclick = (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      chrome.runtime.sendMessage({
+        type: 'OPEN_POPUP_FOR_TOKEN',
+        payload: { address, score },
+      });
+    };
 
-    badge.textContent = `${score.score}`;
-    badge.title = `BarryGuard Score: ${score.score}/100 — Click for details`;
-
-    badge.addEventListener('click', (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      chrome.storage.local.set({ selectedToken: { address, score } });
-    });
-
-    const container = (link.querySelector(SELECTORS.cardContainer) ?? link)
-      .querySelector(SELECTORS.insertionPoint);
-    container
-      ? container.insertAdjacentElement('afterend', badge)
-      : link.appendChild(badge);
+    if (!this.getBadge(address)) {
+      this.insertBadge(link, badge);
+    }
   }
 
   renderLoadingBadge(address: string): void {
-    const link = document.querySelector(`a[href="/coin/${address}"]`);
-    if (!link || link.querySelector(`[data-barryguard-badge="${address}"]`)) return;
+    const link = this.getLink(address);
+    if (!link) {
+      return;
+    }
 
-    const badge = document.createElement('div');
-    badge.setAttribute('data-barryguard-badge', address);
-    badge.setAttribute('data-barryguard', 'true');
-    badge.style.cssText = [
-      'display:inline-flex', 'align-items:center', 'justify-content:center',
-      'padding:2px 6px', 'border-radius:4px', 'font-size:11px', 'font-weight:600',
-      'font-family:system-ui,-apple-system,sans-serif', 'margin-left:6px', 'z-index:1000',
-      'background-color:#f3f4f6', 'color:#6b7280', 'border:1px solid #e5e7eb',
-    ].join(';');
+    const badge = this.getBadge(address) ?? this.createBadge(address);
+    badge.style.backgroundColor = '#f3f4f6';
+    badge.style.color = '#6b7280';
+    badge.style.border = '1px solid #e5e7eb';
     badge.textContent = '...';
     badge.title = 'BarryGuard: Loading...';
+    badge.onclick = null;
 
-    const container = (link.querySelector(SELECTORS.cardContainer) ?? link)
-      .querySelector(SELECTORS.insertionPoint);
-    container
-      ? container.insertAdjacentElement('afterend', badge)
-      : link.appendChild(badge);
+    if (!this.getBadge(address)) {
+      this.insertBadge(link, badge);
+    }
   }
 
   renderErrorBadge(address: string): void {
-    const badge = document.querySelector(`[data-barryguard-badge="${address}"]`);
-    if (!badge) return;
-    (badge as HTMLElement).textContent = '?';
-    badge.setAttribute('title', 'BarryGuard: Score unavailable');
-    (badge as HTMLElement).style.backgroundColor = '#f3f4f6';
-    (badge as HTMLElement).style.color = '#9ca3af';
+    const badge = this.getBadge(address);
+    if (!badge) {
+      return;
+    }
+
+    badge.textContent = '?';
+    badge.title = 'BarryGuard: Score unavailable';
+    badge.style.backgroundColor = '#f3f4f6';
+    badge.style.color = '#9ca3af';
+    badge.style.border = '1px solid #e5e7eb';
+    badge.onclick = null;
   }
 
   observeDOMChanges(callback: () => void): void {
     const observer = new MutationObserver((mutations) => {
-      const hasNew = mutations.some(m =>
-        Array.from(m.addedNodes).some(n => {
-          if (n.nodeType !== Node.ELEMENT_NODE) return false;
-          const el = n as Element;
-          return el.matches(SELECTORS.tokenLink) || !!el.querySelector(SELECTORS.tokenLink);
-        })
-      );
-      if (hasNew) setTimeout(callback, 100);
+      const hasNewTokenNodes = mutations.some((mutation) =>
+        Array.from(mutation.addedNodes).some((node) => {
+          if (node.nodeType !== Node.ELEMENT_NODE) {
+            return false;
+          }
+
+          const element = node as Element;
+          return element.matches(SELECTORS.tokenLink) || !!element.querySelector(SELECTORS.tokenLink);
+        }));
+
+      if (hasNewTokenNodes) {
+        setTimeout(callback, 100);
+      }
     });
+
     observer.observe(document.body, { childList: true, subtree: true });
   }
 
   removeBadges(): void {
-    document.querySelectorAll('[data-barryguard-badge]').forEach(b => b.remove());
+    document.querySelectorAll('[data-barryguard-badge]').forEach((badge) => badge.remove());
+  }
+
+  private getLink(address: string): HTMLAnchorElement | null {
+    return document.querySelector(`a[href="/coin/${address}"]`);
+  }
+
+  private getBadge(address: string): HTMLDivElement | null {
+    return document.querySelector(`[data-barryguard-badge="${address}"]`);
+  }
+
+  private createBadge(address: string): HTMLDivElement {
+    const badge = document.createElement('div');
+    badge.setAttribute('data-barryguard-badge', address);
+    badge.setAttribute('data-barryguard', 'true');
+    badge.style.cssText = [
+      'display:inline-flex',
+      'align-items:center',
+      'justify-content:center',
+      'padding:2px 6px',
+      'border-radius:4px',
+      'font-size:11px',
+      'font-weight:600',
+      'font-family:system-ui,-apple-system,sans-serif',
+      'margin-left:6px',
+      'cursor:pointer',
+      'transition:all 0.2s ease',
+      'z-index:1000',
+    ].join(';');
+
+    return badge;
+  }
+
+  private insertBadge(link: HTMLAnchorElement, badge: HTMLDivElement): void {
+    const container = (link.querySelector(SELECTORS.cardContainer) ?? link)
+      .querySelector(SELECTORS.insertionPoint);
+
+    if (container) {
+      container.insertAdjacentElement('afterend', badge);
+      return;
+    }
+
+    link.appendChild(badge);
   }
 
   private getColors(risk: string): { bg: string; text: string; border: string } {
     const map: Record<string, { bg: string; text: string; border: string }> = {
-      high:   { bg: '#fee2e2', text: '#991b1b', border: '#fecaca' },
+      high: { bg: '#fee2e2', text: '#991b1b', border: '#fecaca' },
       medium: { bg: '#fef3c7', text: '#92400e', border: '#fde68a' },
-      low:    { bg: '#d1fae5', text: '#065f46', border: '#a7f3d0' },
+      low: { bg: '#d1fae5', text: '#065f46', border: '#a7f3d0' },
     };
+
     return map[risk] ?? map.high;
   }
 }
