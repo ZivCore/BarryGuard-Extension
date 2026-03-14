@@ -1,31 +1,10 @@
-/**
- * Platform Interface
- * Abstraction for multi-platform support
- */
+// src/platforms/platform.interface.ts
+import type { TokenScore } from '../shared/types';
 
 export interface IPlatform {
-  /**
-   * Platform name
-   */
   readonly name: string;
-
-  /**
-   * URL patterns to match for this platform
-   */
   readonly hostPattern: string[];
-
-  /**
-   * Extract all token addresses from current page
-   */
   extractTokenAddresses(): string[];
-
-  /**
-   * Render score badge for a token
-   */
-  renderScoreBadge(address: string, score: number, risk: 'high' | 'medium' | 'low'): void;
-
-  /**
-   * Observe DOM changes for dynamic content
-   */
+  renderScoreBadge(address: string, score: TokenScore): void;
   observeDOMChanges(callback: () => void): void;
 }
