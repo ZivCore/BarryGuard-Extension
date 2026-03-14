@@ -39,7 +39,7 @@ test('loads the built extension on pump.fun and renders a BarryGuard badge', asy
       });
     });
 
-    await context.route(`https://barryguard.com/api/token/${tokenAddress}*`, async (route) => {
+    await context.route(new RegExp(`https://(www\\.)?barryguard\\.com/api/token/${tokenAddress}\\?chain=.*`), async (route) => {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',
@@ -58,7 +58,7 @@ test('loads the built extension on pump.fun and renders a BarryGuard badge', asy
       });
     });
 
-    await context.route('https://barryguard.com/api/analyze', async (route) => {
+    await context.route(/https:\/\/(www\.)?barryguard\.com\/api\/analyze/, async (route) => {
       await route.fulfill({
         status: 200,
         contentType: 'application/json',

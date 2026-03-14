@@ -20,7 +20,7 @@ BarryGuard is a Chrome/Brave extension that analyzes Solana tokens in real time 
 The extension is a thin client:
 - no scoring logic runs in the browser
 - no direct blockchain calls are made from the extension
-- analysis is fetched from the [BarryGuard backend](https://barryguard.com)
+- analysis is fetched from the [BarryGuard backend](https://www.barryguard.com)
 
 ---
 
@@ -132,13 +132,13 @@ The extension communicates only with the BarryGuard API.
 Default base URL:
 
 ```text
-https://barryguard.com/api
+https://www.barryguard.com/api
 ```
 
 You can override it locally with:
 
 ```text
-WXT_BARRYGUARD_API_URL=https://barryguard.com/api
+WXT_BARRYGUARD_API_URL=https://www.barryguard.com/api
 ```
 
 Recommended local setup:
@@ -173,6 +173,6 @@ No permission is granted to use, copy, modify, or redistribute this software.
 
 <div align="center">
 
-[Website](https://barryguard.com) · [Report an Issue](https://github.com/Rokk001/BarryGuard-Extension/issues)
+[Website](https://www.barryguard.com) · [Report an Issue](https://github.com/Rokk001/BarryGuard-Extension/issues)
 
 </div>

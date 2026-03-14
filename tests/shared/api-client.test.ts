@@ -32,7 +32,7 @@ describe('BarryGuardApiClient', () => {
     mockOk({ score: 80, risk: 'low' });
     await client.getTokenScore('abc123');
     expect(mockFetch).toHaveBeenCalledWith(
-      'https://barryguard.com/api/token/abc123?chain=solana',
+      'https://www.barryguard.com/api/token/abc123?chain=solana',
       expect.objectContaining({ headers: expect.any(Object) })
     );
   });

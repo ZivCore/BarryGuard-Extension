@@ -10,7 +10,7 @@ export default defineConfig({
     name: 'BarryGuard',
     description: 'Real-time Solana token risk analysis overlay for pump.fun',
     permissions: ['activeTab', 'storage'],
-    host_permissions: ['*://pump.fun/*', '*://barryguard.com/*'],
+    host_permissions: ['*://pump.fun/*', '*://barryguard.com/*', '*://www.barryguard.com/*'],
     icons: {
       '16': 'icons/icon16.png',
       '32': 'icons/icon32.png',
@@ -18,7 +18,7 @@ export default defineConfig({
       '128': 'icons/icon128.png',
     },
     content_security_policy: {
-      extension_pages: "script-src 'self'; object-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self'; connect-src https://barryguard.com",
+      extension_pages: "script-src 'self'; object-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self'; connect-src https://barryguard.com https://www.barryguard.com",
     },
   },
   zip: {

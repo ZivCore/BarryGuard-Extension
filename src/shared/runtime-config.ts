@@ -1,5 +1,5 @@
-const DEFAULT_API_URL = 'https://barryguard.com/api';
-const DEFAULT_APP_URL = 'https://barryguard.com';
+const DEFAULT_API_URL = 'https://www.barryguard.com/api';
+const DEFAULT_APP_URL = 'https://www.barryguard.com';
 
 function normalizeApiUrl(url: string): string {
   return url.replace(/\/+$/, '');
