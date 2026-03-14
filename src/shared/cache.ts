@@ -33,6 +33,10 @@ export class TokenCache {
     const entry = this.cache.get(address);
     if (!entry) return null;
 
+    if (entry.tier !== tier) {
+      return null;
+    }
+
     const age = Date.now() - entry.timestamp;
     if (age > TTL_MS[tier]) {
       this.cache.delete(address);
