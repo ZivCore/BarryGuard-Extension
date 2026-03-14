@@ -380,7 +380,7 @@ export class PumpFunPlatform implements IPlatform {
   }
 
   private getBadgeMarkup(value: string, compact = false): string {
-    const label = compact ? 'BarryGuard' : 'BarryGuard';
+    const label = compact ? 'BG' : 'BarryGuard';
     const labelStyle = compact
       ? 'font-size:9px;font-weight:800;letter-spacing:0.03em;text-transform:uppercase;line-height:1;'
       : 'font-size:10px;font-weight:800;letter-spacing:0.04em;text-transform:uppercase;line-height:1;';
