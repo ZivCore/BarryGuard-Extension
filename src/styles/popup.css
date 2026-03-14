@@ -245,9 +245,23 @@ body {
 }
 
 .token-header {
+  align-items: center;
+  display: flex;
+  flex-direction: column;
   margin-bottom: 8px;
   padding-top: 10px;
   text-align: center;
+}
+
+.token-logo {
+  background: rgba(255, 255, 255, 0.9);
+  border: 1px solid rgba(23, 59, 99, 0.12);
+  border-radius: 18px;
+  box-shadow: 0 8px 18px rgba(39, 51, 60, 0.12);
+  height: 64px;
+  margin-bottom: 12px;
+  object-fit: cover;
+  width: 64px;
 }
 
 .token-name {

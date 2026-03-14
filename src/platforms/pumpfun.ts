@@ -11,6 +11,12 @@ export class PumpFunPlatform implements IPlatform {
   extractTokenAddresses(): string[] {
     const addresses: string[] = [];
     const seen = new Set<string>();
+    const currentAddress = this.getCurrentAddress();
+
+    if (currentAddress) {
+      addresses.push(currentAddress);
+      seen.add(currentAddress);
+    }
 
     document.querySelectorAll<HTMLAnchorElement>(SELECTORS.tokenLink).forEach((link) => {
       const href = link.getAttribute('href');
@@ -28,9 +34,25 @@ export class PumpFunPlatform implements IPlatform {
     return addresses;
   }
 
+  isCurrentTokenPage(address: string): boolean {
+    return this.getCurrentAddress() === address;
+  }
+
+  buildSelectedToken(address: string, score: TokenScore): SelectedToken {
+    const metadataRoot = this.isCurrentTokenPage(address)
+      ? document
+      : this.getLink(address);
+
+    return {
+      address,
+      score,
+      metadata: this.extractTokenMetadata(metadataRoot ?? document, address),
+    };
+  }
+
   renderScoreBadge(address: string, score: TokenScore): void {
-    const link = this.getLink(address);
-    if (!link) {
+    const target = this.getTargetElement(address);
+    if (!target) {
       return;
     }
 
@@ -45,26 +67,20 @@ export class PumpFunPlatform implements IPlatform {
       event.preventDefault();
       event.stopPropagation();
 
-      const selectedToken: SelectedToken = {
-        address,
-        score,
-        metadata: this.extractTokenMetadata(link),
-      };
-
       chrome.runtime.sendMessage({
         type: 'OPEN_POPUP_FOR_TOKEN',
-        payload: selectedToken,
+        payload: this.buildSelectedToken(address, score),
       });
     };
 
     if (!this.getBadge(address)) {
-      this.insertBadge(link, badge);
+      this.insertBadge(address, target, badge);
     }
   }
 
   renderLoadingBadge(address: string): void {
-    const link = this.getLink(address);
-    if (!link) {
+    const target = this.getTargetElement(address);
+    if (!target) {
       return;
     }
 
@@ -77,7 +93,7 @@ export class PumpFunPlatform implements IPlatform {
     badge.onclick = null;
 
     if (!this.getBadge(address)) {
-      this.insertBadge(link, badge);
+      this.insertBadge(address, target, badge);
     }
   }
 
@@ -119,6 +135,23 @@ export class PumpFunPlatform implements IPlatform {
     return document.querySelector(`a[href="/coin/${address}"]`);
   }
 
+  private getCurrentAddress(): string | null {
+    const match = window.location.pathname.match(SELECTORS.addressPattern);
+    return match?.[1] ?? null;
+  }
+
+  private getDetailTitle(): HTMLElement | null {
+    return document.querySelector('h1');
+  }
+
+  private getTargetElement(address: string): Element | null {
+    if (this.isCurrentTokenPage(address)) {
+      return this.getDetailTitle();
+    }
+
+    return this.getLink(address);
+  }
+
   private getBadge(address: string): HTMLDivElement | null {
     return document.querySelector(`[data-barryguard-badge="${address}"]`);
   }
@@ -145,7 +178,15 @@ export class PumpFunPlatform implements IPlatform {
     return badge;
   }
 
-  private insertBadge(link: HTMLAnchorElement, badge: HTMLDivElement): void {
+  private insertBadge(address: string, target: Element, badge: HTMLDivElement): void {
+    if (this.isCurrentTokenPage(address)) {
+      badge.style.marginLeft = '0';
+      badge.style.marginTop = '8px';
+      target.insertAdjacentElement('afterend', badge);
+      return;
+    }
+
+    const link = target as HTMLAnchorElement;
     const cardRoot = this.findCardRoot(link);
     const insertionPoint = this.findInsertionPoint(cardRoot ?? link);
     if (insertionPoint) {
@@ -178,18 +219,21 @@ export class PumpFunPlatform implements IPlatform {
     return null;
   }
 
-  private extractTokenMetadata(link: HTMLAnchorElement): TokenMetadata {
-    const cardRoot = this.findCardRoot(link) ?? link;
-    const name = this.findText(cardRoot, SELECTORS.nameSelectors, (value) => value.length > 2 && value.length < 64);
+  private extractTokenMetadata(root: Element | Document, address: string): TokenMetadata {
+    const elementRoot = root instanceof Document ? root.documentElement : root;
+    const scopedRoot = elementRoot ?? document.documentElement;
+    const name = this.findText(scopedRoot, SELECTORS.nameSelectors, (value) => value.length > 2 && value.length < 64);
     const symbol = this.findText(
-      cardRoot,
+      scopedRoot,
       SELECTORS.symbolSelectors,
       (value) => /^\$?[A-Z0-9_]{2,12}$/.test(value) && value !== name,
     );
+    const imageUrl = this.findImage(scopedRoot, address);
 
     return {
-      name: name ?? this.inferNameFromText(cardRoot.textContent ?? ''),
-      symbol: symbol ?? this.inferSymbolFromText(cardRoot.textContent ?? ''),
+      name: name ?? this.inferNameFromText(scopedRoot.textContent ?? ''),
+      symbol: symbol ?? this.inferSymbolFromText(scopedRoot.textContent ?? '') ?? this.inferSymbolFromTitle(),
+      imageUrl,
     };
   }
 
@@ -200,6 +244,25 @@ export class PumpFunPlatform implements IPlatform {
         const value = match.textContent?.trim();
         if (value && isValid(value)) {
           return value;
+        }
+      }
+    }
+
+    return undefined;
+  }
+
+  private findImage(root: Element, address: string): string | undefined {
+    const exactMatch = root.querySelector<HTMLImageElement>(`img[src*="/coin-image/${address}"]`);
+    if (exactMatch?.src) {
+      return exactMatch.src;
+    }
+
+    for (const selector of SELECTORS.imageSelectors) {
+      const matches = Array.from(root.querySelectorAll<HTMLImageElement>(selector));
+      for (const match of matches) {
+        const src = match.getAttribute('src') ?? '';
+        if (src.includes('/coin-image/')) {
+          return match.src;
         }
       }
     }
@@ -223,6 +286,12 @@ export class PumpFunPlatform implements IPlatform {
       .filter(Boolean);
 
     return parts.find((part) => /^\$?[A-Z0-9_]{2,12}$/.test(part));
+  }
+
+  private inferSymbolFromTitle(): string | undefined {
+    const title = document.title.trim();
+    const match = title.match(/^([A-Z0-9_]{2,20})\s+\$/);
+    return match?.[1];
   }
 
   private getColors(risk: string): { bg: string; text: string; border: string } {

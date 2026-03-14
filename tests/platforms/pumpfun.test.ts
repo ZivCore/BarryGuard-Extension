@@ -13,6 +13,7 @@ describe('PumpFunPlatform', () => {
 
     platform = new PumpFunPlatform();
     document.body.innerHTML = '';
+    window.history.replaceState({}, '', '/');
   });
 
   it('extracts valid Solana addresses from /coin/ links', () => {
@@ -109,6 +110,54 @@ describe('PumpFunPlatform', () => {
           metadata: expect.objectContaining({
             name: 'Token A',
             symbol: '$TKNA',
+          }),
+        }),
+      }),
+    );
+  });
+
+  it('includes the current coin page address in extracted addresses', () => {
+    window.history.replaceState({}, '', '/coin/EncFm8nRh1VBwcRmGugTUzoGsC1n2srWesKDkiMAYWLt');
+    document.body.innerHTML = '<h1>Terafab</h1>';
+
+    const addresses = platform.extractTokenAddresses();
+
+    expect(addresses).toContain('EncFm8nRh1VBwcRmGugTUzoGsC1n2srWesKDkiMAYWLt');
+  });
+
+  it('renders a badge on the current coin detail page and includes image metadata', () => {
+    window.history.replaceState({}, '', '/coin/EncFm8nRh1VBwcRmGugTUzoGsC1n2srWesKDkiMAYWLt');
+    document.title = 'TERAFAB $32.6K | Pump';
+    document.body.innerHTML = `
+      <h1>Terafab</h1>
+      <img
+        alt="Terafab logo"
+        src="https://images.pump.fun/coin-image/EncFm8nRh1VBwcRmGugTUzoGsC1n2srWesKDkiMAYWLt?variant=86x86"
+      />
+    `;
+
+    platform.renderScoreBadge('EncFm8nRh1VBwcRmGugTUzoGsC1n2srWesKDkiMAYWLt', {
+      address: 'EncFm8nRh1VBwcRmGugTUzoGsC1n2srWesKDkiMAYWLt',
+      chain: 'solana',
+      score: 84,
+      risk: 'low',
+      checks: {},
+      cached: false,
+    });
+
+    const badge = document.querySelector('[data-barryguard-badge="EncFm8nRh1VBwcRmGugTUzoGsC1n2srWesKDkiMAYWLt"]') as HTMLElement;
+    expect(badge).toBeTruthy();
+
+    badge.click();
+
+    expect(chrome.runtime.sendMessage).toHaveBeenCalledWith(
+      expect.objectContaining({
+        type: 'OPEN_POPUP_FOR_TOKEN',
+        payload: expect.objectContaining({
+          metadata: expect.objectContaining({
+            name: 'Terafab',
+            symbol: 'TERAFAB',
+            imageUrl: expect.stringContaining('/coin-image/EncFm8nRh1VBwcRmGugTUzoGsC1n2srWesKDkiMAYWLt'),
           }),
         }),
       }),

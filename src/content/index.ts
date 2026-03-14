@@ -45,7 +45,15 @@ export function initializeContentScript(): void {
     chrome.runtime.sendMessage({ type: 'GET_TOKEN_SCORE', payload: address }, (response) => {
       pending.delete(address);
       if (response?.success && response.data) {
-        platform.renderScoreBadge(address, response.data as TokenScore);
+        const score = response.data as TokenScore;
+        platform.renderScoreBadge(address, score);
+
+        if ((platform as PumpFunPlatform).isCurrentTokenPage(address)) {
+          void chrome.storage.local.set({
+            selectedToken: (platform as PumpFunPlatform).buildSelectedToken(address, score),
+          });
+        }
+
         return;
       }
 
