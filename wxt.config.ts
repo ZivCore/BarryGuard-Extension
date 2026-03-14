@@ -9,7 +9,7 @@ export default defineConfig({
   manifest: {
     name: 'BarryGuard',
     description: 'Real-time Solana token risk analysis overlay for pump.fun',
-    permissions: ['activeTab', 'storage'],
+    permissions: ['storage'],
     host_permissions: ['*://pump.fun/*', '*://barryguard.com/*', '*://www.barryguard.com/*'],
     icons: {
       '16': 'icons/icon16.png',
