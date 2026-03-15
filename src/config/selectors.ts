@@ -13,8 +13,8 @@ export interface PlatformSelectors {
 
 export const PLATFORM_SELECTORS: Record<string, PlatformSelectors> = {
   pumpfun: {
-    tokenLink: 'a[href^="/coin/"]',
-    addressPattern: /^\/coin\/([1-9A-HJ-NP-Za-km-z]{32,44})$/,
+    tokenLink: 'a[href^="/coin/"], a[href^="/"]',
+    addressPattern: /^\/(?:coin\/)?([1-9A-HJ-NP-Za-km-z]{32,44})(?:[/?#]|$)$/,
     cardContainerSelectors: [
       '[data-testid*="coin"]',
       '[class*="group"]',

@@ -748,7 +748,13 @@ function isValidSolanaAddress(value: unknown): value is string {
 
 const _inFlightAddresses = new Set<string>();
 
-async function getTokenScore(address: string) {
+async function getTokenScore(
+  address: string,
+  options: {
+    skipLocalCache?: boolean;
+    preferExistingOnly?: boolean;
+  } = {},
+) {
   if (_inFlightAddresses.has(address)) {
     return { success: false, error: 'Analysis already in progress for this token.', errorType: 'busy' as const };
   }
@@ -760,9 +766,11 @@ async function getTokenScore(address: string) {
     const normalizedProfile = await refreshProfileStateIfNeeded();
     const tier: TierLevel = normalizedProfile?.tier ?? 'free';
 
-    const cached = await cache.get(address, tier);
-    if (cached) {
-      return { success: true, data: { ...cached, cached: true } };
+    if (!options.skipLocalCache) {
+      const cached = await cache.get(address, tier);
+      if (cached) {
+        return { success: true, data: { ...cached, cached: true } };
+      }
     }
 
     const existing = await api.getTokenScore(address);
@@ -772,6 +780,10 @@ async function getTokenScore(address: string) {
         await cache.set(address, normalizedExisting, tier);
         return { success: true, data: { ...normalizedExisting, cached: true } };
       }
+    }
+
+    if (options.preferExistingOnly) {
+      return mapApiFailure(existing);
     }
 
     const cooldown = await maybeEnforceSingleCooldown(normalizedProfile);
@@ -880,7 +892,14 @@ async function analyzeTokenList(addresses: string[]): Promise<ApiResponse<TokenL
 }
 
 async function openPopupForToken(selectedToken: SelectedToken) {
-  const metadataResult = await getPumpFunMetadata(selectedToken.address);
+  const hasMetadata = Boolean(
+    selectedToken.metadata?.name
+    || selectedToken.metadata?.symbol
+    || selectedToken.metadata?.imageUrl,
+  );
+  const metadataResult = hasMetadata
+    ? { success: false as const }
+    : await getPumpFunMetadata(selectedToken.address);
   const enrichedToken: SelectedToken = {
     ...selectedToken,
     metadata: {
@@ -912,6 +931,27 @@ export {
   refreshProfileStateIfNeeded as _refreshProfileStateIfNeededForTest,
 };
 
+function getTokenScorePayloadDetails(payload: unknown): {
+  address: string | null;
+  skipLocalCache: boolean;
+  preferExistingOnly: boolean;
+} {
+  if (typeof payload === 'string') {
+    return {
+      address: payload,
+      skipLocalCache: false,
+      preferExistingOnly: false,
+    };
+  }
+
+  const record = asRecord(payload);
+  return {
+    address: typeof record?.address === 'string' ? record.address : null,
+    skipLocalCache: record?.skipLocalCache === true,
+    preferExistingOnly: record?.preferExistingOnly === true,
+  };
+}
+
 export function initializeBackground(): void {
   chrome.runtime.onMessage.addListener((message, sender, respond) => {
     // Only accept messages from this extension's own pages (popup, content scripts, background)
@@ -922,9 +962,22 @@ export function initializeBackground(): void {
     (async () => {
       try {
         switch (message.type) {
-          case 'GET_TOKEN_SCORE':
-            respond(await getTokenScore(message.payload));
+          case 'GET_TOKEN_SCORE': {
+            const payload = getTokenScorePayloadDetails(message.payload);
+            respond(await getTokenScore(payload.address ?? '', {
+              skipLocalCache: payload.skipLocalCache,
+              preferExistingOnly: payload.preferExistingOnly,
+            }));
             break;
+          }
+          case 'GET_TOKEN_SCORE_FRESH': {
+            const payload = getTokenScorePayloadDetails(message.payload);
+            respond(await getTokenScore(payload.address ?? '', {
+              skipLocalCache: true,
+              preferExistingOnly: true,
+            }));
+            break;
+          }
           case 'ANALYZE_TOKEN':
             respond(await getTokenScore(message.payload));
             break;

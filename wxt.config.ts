@@ -8,9 +8,23 @@ export default defineConfig({
   outDir: '.output',
   manifest: {
     name: 'BarryGuard',
-    description: 'Real-time Solana token risk analysis overlay for pump.fun',
+    description: 'Real-time Solana token risk analysis overlay for supported Solana sites',
     permissions: ['storage'],
-    host_permissions: ['*://pump.fun/*', '*://barryguard.com/*', '*://www.barryguard.com/*'],
+    host_permissions: [
+      '*://pump.fun/*',
+      '*://amm.pump.fun/*',
+      '*://swap.pump.fun/*',
+      '*://raydium.io/*',
+      '*://letsbonk.fun/*',
+      '*://bonk.fun/*',
+      '*://moonshot.money/*',
+      '*://dexscreener.com/*',
+      '*://birdeye.so/*',
+      '*://solscan.io/*',
+      '*://*.solscan.io/*',
+      '*://barryguard.com/*',
+      '*://www.barryguard.com/*',
+    ],
     icons: {
       '16': 'icons/icon16.png',
       '32': 'icons/icon32.png',
@@ -18,7 +32,7 @@ export default defineConfig({
       '128': 'icons/icon128.png',
     },
     content_security_policy: {
-      extension_pages: "script-src 'self'; object-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://images.pump.fun https://pump.mypinata.cloud https://ipfs.io https://imagedelivery.net; connect-src https://pump.fun https://barryguard.com https://www.barryguard.com",
+      extension_pages: "script-src 'self'; object-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https:; connect-src https://pump.fun https://amm.pump.fun https://swap.pump.fun https://raydium.io https://letsbonk.fun https://bonk.fun https://moonshot.money https://dexscreener.com https://birdeye.so https://solscan.io https://barryguard.com https://www.barryguard.com",
     },
   },
   zip: {

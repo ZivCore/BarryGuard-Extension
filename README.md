@@ -8,14 +8,14 @@
   [![Chrome Web Store](https://img.shields.io/badge/Chrome%20Web%20Store-Coming%20Soon-orange)](https://chrome.google.com/webstore)
   [![License](https://img.shields.io/badge/License-Source%20Available-blue)](#license)
 
-  *Real-time scam detection for Solana tokens on Pump.fun*
+  *Real-time scam detection for Solana tokens on supported Solana sites*
 </div>
 
 ---
 
 ## Overview
 
-BarryGuard is a Chrome/Brave extension that analyzes Solana tokens in real time and overlays risk scores directly on [Pump.fun](https://pump.fun).
+BarryGuard is a Chrome/Brave extension that analyzes Solana tokens in real time and overlays risk scores directly on supported Solana sites.
 
 The extension is a thin client:
 - no scoring logic runs in the browser
@@ -28,7 +28,16 @@ The extension is a thin client:
 
 ### Color-Coded Risk Badges
 
-Scores appear directly on Pump.fun token cards:
+Scores appear directly on supported Solana token pages and lists, including:
+- Pump.fun
+- PumpSwap
+- Raydium
+- LetsBonk
+- Moonshot
+- Dexscreener
+- Birdeye
+
+Current badge colors:
 - Green badge (`61-100`): low risk
 - Yellow badge (`31-60`): medium risk
 - Red badge (`0-30`): high risk
@@ -52,7 +61,7 @@ The extension supports tier-based responses from the backend:
 
 ### Manual Token Lookup
 
-The popup can analyze any Solana token address directly, even outside Pump.fun.
+The popup can analyze any Solana token address directly, even outside the currently supported sites.
 
 ---
 
@@ -152,7 +161,7 @@ No secrets or API keys are stored in this repository.
 ## Privacy
 
 - No wallet data: private keys are never requested or stored
-- No browsing tracking: only token addresses on Pump.fun are processed
+- No browsing tracking: only token addresses on supported Solana sites are processed
 - Public source: the repository is kept inspectable for security review
 
 ---

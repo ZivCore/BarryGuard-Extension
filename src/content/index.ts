@@ -1,18 +1,30 @@
 import { PumpFunPlatform } from '../platforms/pumpfun';
+import { PumpSwapPlatform } from '../platforms/pumpswap';
+import { RaydiumPlatform } from '../platforms/raydium';
+import { LetsBonkPlatform } from '../platforms/letsbonk';
+import { MoonshotPlatform } from '../platforms/moonshot';
+import { DexScreenerPlatform } from '../platforms/dexscreener';
+import { BirdeyePlatform } from '../platforms/birdeye';
+import { SolscanPlatform } from '../platforms/solscan';
 import type { IPlatform } from '../platforms/platform.interface';
-import type { TierLevel, TokenMetadata, TokenScore } from '../shared/types';
+import type { ApiResponse, SelectedToken, TierLevel, TokenMetadata, TokenScore } from '../shared/types';
 
-type SupportedPlatform = 'pumpfun';
-
-const PLATFORMS: Record<SupportedPlatform, IPlatform> = {
-  pumpfun: new PumpFunPlatform(),
-};
-
-const PLATFORM_HOSTS: Record<SupportedPlatform, string[]> = {
-  pumpfun: ['pump.fun'],
-};
-const CURRENT_ADDRESS_PATTERN = /^\/coin\/([1-9A-HJ-NP-Za-km-z]{32,44})$/;
+const PLATFORMS: IPlatform[] = [
+  new PumpSwapPlatform(),
+  new PumpFunPlatform(),
+  new RaydiumPlatform(),
+  new LetsBonkPlatform(),
+  new MoonshotPlatform(),
+  new DexScreenerPlatform(),
+  new BirdeyePlatform(),
+  new SolscanPlatform(),
+];
 const PROFILE_STORAGE_KEY = 'user_profile';
+const SELECTED_TOKEN_STORAGE_KEY = 'selectedToken';
+const RETRY_BASE_DELAY_MS = 1500;
+const MAX_DETAIL_RETRY_ATTEMPTS = 6;
+const STORAGE_RECONCILE_INTERVAL_MS = 1000;
+const MAX_STORAGE_RECONCILE_ATTEMPTS = 180;
 
 function isExtensionContextInvalidatedError(error: unknown): boolean {
   const message =
@@ -76,32 +88,87 @@ function persistSelectedToken(selectedToken: {
 }
 
 function detectPlatform(): IPlatform | null {
-  const host = window.location.hostname;
-  for (const [key, patterns] of Object.entries(PLATFORM_HOSTS) as [SupportedPlatform, string[]][]) {
-    if (patterns.some((pattern) => host.includes(pattern))) {
-      return PLATFORMS[key];
+  for (const platform of PLATFORMS) {
+    if (platform.matchesLocation(window.location)) {
+      return platform;
     }
   }
 
   return null;
 }
 
-export function getCurrentPageAddress(pathname: string): string | null {
-  const match = pathname.match(CURRENT_ADDRESS_PATTERN);
-  return match?.[1] ?? null;
+export function getCurrentPageAddress(pathOrUrl: string): string | null {
+  const preferredKeys = ['outputMint', 'tokenAddress', 'mint', 'baseMint', 'address', 'inputMint', 'quoteMint'];
+  for (const key of preferredKeys) {
+    const queryMatch = pathOrUrl.match(new RegExp(`[?&]${key}=([1-9A-HJ-NP-Za-km-z]{32,44})`, 'i'));
+    if (queryMatch?.[1]) {
+      return queryMatch[1];
+    }
+  }
+
+  const pathMatch = pathOrUrl.match(/\/(?:coin|token|trade|swap|coins?)\/([1-9A-HJ-NP-Za-km-z]{32,44})(?:[/?#]|$)/i)
+    ?? pathOrUrl.match(/^\/([1-9A-HJ-NP-Za-km-z]{32,44})(?:[/?#]|$)/);
+
+  return pathMatch?.[1] ?? null;
 }
 
-export function selectAddressesForTier(addresses: string[], pathname: string, tier: TierLevel): string[] {
+export function selectAddressesForTier(addresses: string[], currentAddress: string | null, tier: TierLevel): string[] {
+  return selectAddressesForContext(addresses, currentAddress, tier);
+}
+
+export function selectAddressesForContext(
+  addresses: string[],
+  currentAddress: string | null,
+  tier: TierLevel,
+): string[] {
   if (tier !== 'free') {
     return addresses;
   }
 
-  const currentAddress = getCurrentPageAddress(pathname);
   if (!currentAddress) {
     return [];
   }
 
   return addresses.filter((address) => address === currentAddress);
+}
+
+export function shouldRetryTokenScoreFetch(
+  currentPageAddress: string | null,
+  address: string,
+  response: ApiResponse<TokenScore> | undefined,
+): boolean {
+  if (currentPageAddress !== address) {
+    return false;
+  }
+
+  if (!response || response.success) {
+    return false;
+  }
+
+  if (response.statusCode === 400 || response.statusCode === 401 || response.statusCode === 403) {
+    return false;
+  }
+
+  if (response.errorType === 'plan_gate' || response.errorType === 'validation') {
+    return false;
+  }
+
+  if (response.errorType === 'rate_limit' || response.errorType === 'cooldown') {
+    return false;
+  }
+
+  return true;
+}
+
+export function shouldApplySelectedTokenScore(
+  currentPageAddress: string | null,
+  selectedToken: SelectedToken | undefined,
+): selectedToken is SelectedToken & { score: TokenScore } {
+  return Boolean(
+    currentPageAddress
+    && selectedToken?.score
+    && selectedToken.address === currentPageAddress,
+  );
 }
 
 export function initializeContentScript(): void {
@@ -114,8 +181,168 @@ export function initializeContentScript(): void {
   const platform = detectedPlatform;
   console.log(`[BarryGuard] Platform: ${platform.name}`);
   const pending = new Set<string>();
+  const resolvedScores = new Map<string, TokenScore>();
+  const retryAttempts = new Map<string, number>();
+  const retryTimers = new Map<string, number>();
+  const renderRetryAttempts = new Map<string, number>();
+  const renderRetryTimers = new Map<string, number>();
+  const storageReconcileAttempts = new Map<string, number>();
+  const storageReconcileTimers = new Map<string, number>();
   let lastUrl = window.location.href;
   let currentTier: TierLevel = 'free';
+
+  function hasRenderedBadge(address: string): boolean {
+    return Boolean(document.querySelector(`[data-barryguard-badge="${address}"]`));
+  }
+
+  function hasResolvedBadge(address: string): boolean {
+    return resolvedScores.has(address) && hasRenderedBadge(address);
+  }
+
+  function clearRetry(address: string): void {
+    retryAttempts.delete(address);
+    const timerId = retryTimers.get(address);
+    if (timerId) {
+      window.clearTimeout(timerId);
+      retryTimers.delete(address);
+    }
+  }
+
+  function clearRenderRetry(address: string): void {
+    renderRetryAttempts.delete(address);
+    const timerId = renderRetryTimers.get(address);
+    if (timerId) {
+      window.clearTimeout(timerId);
+      renderRetryTimers.delete(address);
+    }
+  }
+
+  function clearStorageReconcile(address: string): void {
+    storageReconcileAttempts.delete(address);
+    const timerId = storageReconcileTimers.get(address);
+    if (timerId) {
+      window.clearTimeout(timerId);
+      storageReconcileTimers.delete(address);
+    }
+  }
+
+  function clearAddressState(address: string): void {
+    clearRetry(address);
+    clearRenderRetry(address);
+    clearStorageReconcile(address);
+    pending.delete(address);
+    resolvedScores.delete(address);
+  }
+
+  function shouldRetryScoreFetch(address: string, response: ApiResponse<TokenScore> | undefined): boolean {
+    return shouldRetryTokenScoreFetch(platform.getCurrentPageAddress(), address, response);
+  }
+
+  function scheduleRetry(address: string): void {
+    if (retryTimers.has(address)) {
+      return;
+    }
+
+    const nextAttempt = (retryAttempts.get(address) ?? 0) + 1;
+    if (nextAttempt > MAX_DETAIL_RETRY_ATTEMPTS) {
+      return;
+    }
+
+    retryAttempts.set(address, nextAttempt);
+    const delayMs = RETRY_BASE_DELAY_MS * nextAttempt;
+    const timerId = window.setTimeout(() => {
+      retryTimers.delete(address);
+      fetchAndRender(address);
+    }, delayMs);
+    retryTimers.set(address, timerId);
+  }
+
+  function scheduleRenderRetry(address: string): void {
+    if (renderRetryTimers.has(address)) {
+      return;
+    }
+
+    const score = resolvedScores.get(address);
+    if (!score || platform.getCurrentPageAddress() !== address) {
+      return;
+    }
+
+    const nextAttempt = (renderRetryAttempts.get(address) ?? 0) + 1;
+    if (nextAttempt > 20) {
+      return;
+    }
+
+    renderRetryAttempts.set(address, nextAttempt);
+    const delayMs = Math.min(500 * nextAttempt, 2000);
+    const timerId = window.setTimeout(() => {
+      renderRetryTimers.delete(address);
+      const latestScore = resolvedScores.get(address);
+      if (!latestScore) {
+        return;
+      }
+
+      platform.renderScoreBadge(address, latestScore);
+      if (!hasRenderedBadge(address)) {
+        scheduleRenderRetry(address);
+        return;
+      }
+
+      clearRenderRetry(address);
+    }, delayMs);
+    renderRetryTimers.set(address, timerId);
+  }
+
+  function applySelectedTokenScore(selectedToken: SelectedToken | undefined): boolean {
+    if (!shouldApplySelectedTokenScore(platform.getCurrentPageAddress(), selectedToken)) {
+      return false;
+    }
+
+    resolvedScores.set(selectedToken.address, selectedToken.score);
+    clearRetry(selectedToken.address);
+    pending.delete(selectedToken.address);
+    platform.renderScoreBadge(selectedToken.address, selectedToken.score);
+    if (!hasRenderedBadge(selectedToken.address)) {
+      scheduleRenderRetry(selectedToken.address);
+    } else {
+      clearRenderRetry(selectedToken.address);
+      clearStorageReconcile(selectedToken.address);
+    }
+
+    return true;
+  }
+
+  function reconcileSelectedTokenFromStorage(address: string): void {
+    withSafeRuntime(() => {
+      void chrome.storage.local.get(SELECTED_TOKEN_STORAGE_KEY).then((stored) => {
+        const selectedToken = stored[SELECTED_TOKEN_STORAGE_KEY] as SelectedToken | undefined;
+        if (!applySelectedTokenScore(selectedToken) && platform.getCurrentPageAddress() === address && !hasResolvedBadge(address)) {
+          scheduleStorageReconcile(address);
+        }
+      }).catch((error: unknown) => {
+        if (!isExtensionContextInvalidatedError(error) && platform.getCurrentPageAddress() === address && !hasResolvedBadge(address)) {
+          scheduleStorageReconcile(address);
+        }
+      });
+    });
+  }
+
+  function scheduleStorageReconcile(address: string): void {
+    if (storageReconcileTimers.has(address) || platform.getCurrentPageAddress() !== address || hasResolvedBadge(address)) {
+      return;
+    }
+
+    const nextAttempt = (storageReconcileAttempts.get(address) ?? 0) + 1;
+    if (nextAttempt > MAX_STORAGE_RECONCILE_ATTEMPTS) {
+      return;
+    }
+
+    storageReconcileAttempts.set(address, nextAttempt);
+    const timerId = window.setTimeout(() => {
+      storageReconcileTimers.delete(address);
+      reconcileSelectedTokenFromStorage(address);
+    }, STORAGE_RECONCILE_INTERVAL_MS);
+    storageReconcileTimers.set(address, timerId);
+  }
 
   function updateTierFromProfile(profile: unknown): void {
     const maybeTier = (profile as { tier?: TierLevel } | undefined)?.tier;
@@ -141,16 +368,23 @@ export function initializeContentScript(): void {
     }
 
     pending.add(address);
-    (platform as PumpFunPlatform).renderLoadingBadge(address);
+    platform.renderLoadingBadge(address);
 
     sendRuntimeMessage({ type: 'GET_TOKEN_SCORE', payload: address }, (response) => {
       pending.delete(address);
       if (response?.success && response.data) {
+        clearRetry(address);
         const score = response.data as TokenScore;
+        resolvedScores.set(address, score);
         platform.renderScoreBadge(address, score);
+        if (!hasRenderedBadge(address)) {
+          scheduleRenderRetry(address);
+        } else {
+          clearRenderRetry(address);
+        }
 
-        if ((platform as PumpFunPlatform).isCurrentTokenPage(address)) {
-          const selectedToken = (platform as PumpFunPlatform).buildSelectedToken(address, score);
+        if (platform.getCurrentPageAddress() === address) {
+          const selectedToken = platform.buildSelectedToken(address, score);
           sendRuntimeMessage({ type: 'GET_TOKEN_METADATA', payload: address }, (metadataResponse) => {
             const metadata = {
               ...(selectedToken.metadata ?? {}),
@@ -167,7 +401,15 @@ export function initializeContentScript(): void {
         return;
       }
 
-      (platform as PumpFunPlatform).renderErrorBadge(address);
+      if (shouldRetryScoreFetch(address, response as ApiResponse<TokenScore> | undefined)) {
+        scheduleRetry(address);
+      }
+
+      if (platform.getCurrentPageAddress() === address) {
+        scheduleStorageReconcile(address);
+      }
+
+      platform.renderErrorBadge(address);
     });
   }
 
@@ -179,19 +421,35 @@ export function initializeContentScript(): void {
         return;
       }
 
+      clearAddressState(address);
       badge.remove();
     });
   }
 
   function scanAll(): void {
-    const addresses = selectAddressesForTier(
+    const currentPageAddress = platform.getCurrentPageAddress();
+    const addresses = selectAddressesForContext(
       platform.extractTokenAddresses(),
-      window.location.pathname,
+      currentPageAddress,
       currentTier,
     );
 
     syncVisibleBadges(addresses);
-    addresses.forEach(fetchAndRender);
+    if (currentPageAddress) {
+      scheduleStorageReconcile(currentPageAddress);
+    }
+
+    addresses.forEach((address) => {
+      const resolvedScore = resolvedScores.get(address);
+      if (resolvedScore) {
+        platform.renderScoreBadge(address, resolvedScore);
+        if (!hasRenderedBadge(address)) {
+          scheduleRenderRetry(address);
+        }
+      }
+
+      fetchAndRender(address);
+    });
   }
 
   function handleUrlChange(): void {
@@ -208,6 +466,14 @@ export function initializeContentScript(): void {
   withSafeRuntime(() => {
     chrome.storage.onChanged.addListener((changes, areaName) => {
       if (areaName !== 'local' || !changes[PROFILE_STORAGE_KEY]) {
+        if (areaName !== 'local' || !changes[SELECTED_TOKEN_STORAGE_KEY]) {
+          return;
+        }
+
+        const selectedToken = changes[SELECTED_TOKEN_STORAGE_KEY].newValue as SelectedToken | undefined;
+        if (!applySelectedTokenScore(selectedToken)) {
+          return;
+        }
         return;
       }
 
@@ -217,6 +483,12 @@ export function initializeContentScript(): void {
   });
   window.addEventListener('popstate', handleUrlChange);
   window.addEventListener('hashchange', handleUrlChange);
+  window.addEventListener('focus', scanAll);
+  document.addEventListener('visibilitychange', () => {
+    if (document.visibilityState === 'visible') {
+      scanAll();
+    }
+  });
 
   // Intercept SPA navigation (pushState/replaceState do not fire popstate)
   const originalPushState = history.pushState.bind(history);

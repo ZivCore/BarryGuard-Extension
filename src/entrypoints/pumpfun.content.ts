@@ -13,7 +13,19 @@ function isExtensionContextInvalidatedError(error: unknown): boolean {
 }
 
 export default defineContentScript({
-  matches: ['*://pump.fun/*'],
+  matches: [
+    '*://pump.fun/*',
+    '*://amm.pump.fun/*',
+    '*://swap.pump.fun/*',
+    '*://raydium.io/*',
+    '*://letsbonk.fun/*',
+    '*://bonk.fun/*',
+    '*://moonshot.money/*',
+    '*://dexscreener.com/*',
+    '*://birdeye.so/*',
+    '*://solscan.io/*',
+    '*://*.solscan.io/*',
+  ],
   runAt: 'document_end',
   main() {
     try {
