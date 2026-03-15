@@ -126,6 +126,22 @@ describe('additional Solana platforms', () => {
     expect(platform.extractTokenAddresses()).toEqual([TOKEN_A]);
   });
 
+  it('ignores Dexscreener maker wallet links when extracting token addresses', () => {
+    const platform = new DexScreenerPlatform();
+    const makerWallet = '6Q4Xu2sXxMLZ7w8sL9fL1v7b7dQGJwR2X8c7mWq9rYpS';
+    window.history.replaceState({}, '', '/solana/BGxJ6fDcfwC3h7K4Y3DEj7S2xKz5b3jQzL2p8sY3pair');
+    document.body.innerHTML = `
+      <main>
+        <a href="https://solscan.io/token/${TOKEN_A}">Token explorer</a>
+        <section aria-label="Transactions">
+          <a href="/solana/${makerWallet}">Maker</a>
+        </section>
+      </main>
+    `;
+
+    expect(platform.extractTokenAddresses()).toEqual([TOKEN_A]);
+  });
+
   it('extracts Birdeye token addresses from token routes', () => {
     const platform = new BirdeyePlatform();
     window.history.replaceState({}, '', `/token/${TOKEN_A}?chain=solana`);
@@ -192,6 +208,38 @@ describe('additional Solana platforms', () => {
 
     expect(tokenName?.nextElementSibling).toBe(badge);
     expect(badge?.textContent).toContain('BarryGuard');
+  });
+
+  it('prefers the Bags token name over unrelated headings on detail pages', () => {
+    const platform = new BagsPlatform();
+    const bagsToken = 'ESBCnCXtEZDmX8QnHU6qMZXd9mvjSAZVoYaLKKADBAGS';
+    window.history.replaceState({}, '', `/${bagsToken}`);
+    document.body.innerHTML = `
+      <main>
+        <section class="stats">
+          <h2>Top holders</h2>
+        </section>
+        <section class="hero">
+          <div class="tokenTitle">Example Token</div>
+        </section>
+      </main>
+    `;
+    document.title = 'Example Token on Bags | Bags';
+
+    platform.renderScoreBadge(bagsToken, {
+      address: bagsToken,
+      chain: 'solana',
+      score: 88,
+      risk: 'low',
+      checks: {},
+      cached: false,
+    });
+
+    const tokenName = document.querySelector('.tokenTitle');
+    const badge = document.querySelector(`[data-barryguard-badge="${bagsToken}"]`);
+
+    expect(tokenName?.nextElementSibling).toBe(badge);
+    expect(document.querySelector('.stats [data-barryguard-badge]')).toBeNull();
   });
 
   it('extracts Solscan token addresses from token routes and token links', () => {
@@ -333,6 +381,55 @@ describe('additional Solana platforms', () => {
 
     expect(tokenH2?.nextElementSibling).toBe(badge);
     expect(badge?.textContent).toContain('BarryGuard');
+  });
+
+  it('moves a Dexscreener badge out of the trending header once the detail target appears', () => {
+    const platform = new DexScreenerPlatform();
+    window.history.replaceState({}, '', '/solana/BGxJ6fDcfwC3h7K4Y3DEj7S2xKz5b3jQzL2p8sY3pair');
+    document.body.innerHTML = `
+      <header>
+        <a href="/token/${TOKEN_A}">
+          <span>Trending</span>
+          <span>Token A</span>
+        </a>
+      </header>
+      <main></main>
+    `;
+
+    platform.renderLoadingBadge(TOKEN_A);
+
+    const headerLink = document.querySelector('header a');
+    let badge = document.querySelector(`[data-barryguard-badge="${TOKEN_A}"]`);
+    expect(headerLink?.nextElementSibling).toBe(badge);
+
+    document.body.innerHTML = `
+      <header>
+        <a href="/token/${TOKEN_A}">
+          <span>Trending</span>
+          <span>Token A</span>
+        </a>
+      </header>
+      <main>
+        <a href="https://solscan.io/token/${TOKEN_A}">Solscan</a>
+        <h2>Token A Copy token address</h2>
+      </main>
+    `;
+    document.title = 'Token A $0.001 - DEX Screener';
+
+    platform.renderScoreBadge(TOKEN_A, {
+      address: TOKEN_A,
+      chain: 'solana',
+      score: 55,
+      risk: 'medium',
+      checks: {},
+      cached: false,
+    });
+
+    const tokenH2 = document.querySelector('main h2');
+    badge = document.querySelector(`[data-barryguard-badge="${TOKEN_A}"]`);
+
+    expect(tokenH2?.nextElementSibling).toBe(badge);
+    expect(document.querySelector('header [data-barryguard-badge]')).toBeNull();
   });
 
   it('uses a Solscan-specific fallback heading when no h1 is present', () => {

@@ -1,5 +1,14 @@
 import { GenericSolanaPlatform } from './generic-solana';
 
+const DEXSCREENER_TOKEN_LINK_SELECTORS = [
+  'a[href*="solscan.io/token/"]',
+  'a[href*="birdeye.so/token/"]',
+  'a[href*="/token/"]',
+  '[data-token-address]',
+  '[data-pair-base-token]',
+  '[data-base-token]',
+];
+
 export class DexScreenerPlatform extends GenericSolanaPlatform {
   constructor() {
     super({
@@ -8,9 +17,11 @@ export class DexScreenerPlatform extends GenericSolanaPlatform {
       hostPattern: ['*://dexscreener.com/*'],
       hostnames: ['dexscreener.com'],
       currentAddressExtractor: () => {
-        for (const anchor of Array.from(document.querySelectorAll<HTMLAnchorElement>('a[href]'))) {
+        for (const anchor of Array.from(document.querySelectorAll<HTMLAnchorElement>(
+          'a[href*="solscan.io/token/"], a[href*="birdeye.so/token/"]',
+        ))) {
           const href = anchor.href;
-          const match = href.match(/(?:solscan\.io|birdeye\.so)\/token\/([1-9A-HJ-NP-Za-km-z]{32,44})/i);
+          const match = href.match(/(?:solscan\.io|birdeye\.so(?:\/[a-z0-9_-]+)?)\/token\/([1-9A-HJ-NP-Za-km-z]{32,44})/i);
           if (match?.[1]) {
             return match[1];
           }
@@ -26,6 +37,7 @@ export class DexScreenerPlatform extends GenericSolanaPlatform {
         /[?&](?:tokenAddress|baseToken|mint)=([1-9A-HJ-NP-Za-km-z]{32,44})/i,
         /\/token\/([1-9A-HJ-NP-Za-km-z]{32,44})(?:[/?#]|$)/i,
       ],
+      anchorSelectors: DEXSCREENER_TOKEN_LINK_SELECTORS,
     });
   }
 

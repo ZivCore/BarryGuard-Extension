@@ -163,7 +163,8 @@ export class GenericSolanaPlatform implements IPlatform {
     }
 
     const colors = getRiskColors(score.risk);
-    const badge = this.getBadge(address) ?? createBadgeElement(address);
+    const existingBadge = this.getBadge(address);
+    const badge = existingBadge ?? createBadgeElement(address);
     badge.style.backgroundColor = colors.bg;
     badge.style.color = colors.text;
     badge.style.border = `1px solid ${colors.border}`;
@@ -175,7 +176,7 @@ export class GenericSolanaPlatform implements IPlatform {
       safeSendPopupMessage(this.buildSelectedToken(address, score));
     };
 
-    if (!this.getBadge(address)) {
+    if (!existingBadge || this.shouldReinsertBadge(address, existingBadge)) {
       this.insertBadge(address, target, badge);
     }
   }
@@ -186,7 +187,8 @@ export class GenericSolanaPlatform implements IPlatform {
       return;
     }
 
-    const badge = this.getBadge(address) ?? createBadgeElement(address);
+    const existingBadge = this.getBadge(address);
+    const badge = existingBadge ?? createBadgeElement(address);
     badge.style.backgroundColor = '#f3f4f6';
     badge.style.color = '#6b7280';
     badge.style.border = '1px solid #e5e7eb';
@@ -194,7 +196,7 @@ export class GenericSolanaPlatform implements IPlatform {
     badge.title = 'BarryGuard: Loading...';
     badge.onclick = null;
 
-    if (!this.getBadge(address)) {
+    if (!existingBadge || this.shouldReinsertBadge(address, existingBadge)) {
       this.insertBadge(address, target, badge);
     }
   }
@@ -424,8 +426,16 @@ export class GenericSolanaPlatform implements IPlatform {
     return undefined;
   }
 
+  protected getBadgeContext(address: string): string {
+    return this.isCurrentTokenPage(address) ? `${this.id}-detail` : `${this.id}-list`;
+  }
+
   private getBadge(address: string): HTMLDivElement | null {
     return document.querySelector(`[data-barryguard-badge="${address}"]`);
+  }
+
+  private shouldReinsertBadge(address: string, badge: HTMLDivElement): boolean {
+    return badge.getAttribute('data-barryguard-context') !== this.getBadgeContext(address);
   }
 
   private insertBadge(address: string, target: Element, badge: HTMLDivElement): void {

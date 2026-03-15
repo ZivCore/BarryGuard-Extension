@@ -42,12 +42,12 @@ export class BagsPlatform extends GenericSolanaPlatform {
   }
 
   protected override getDetailTarget(): Element | null {
-    const explicitTarget = super.getDetailTarget();
-    if (explicitTarget) {
-      return explicitTarget;
+    const heuristicTarget = this.findHeuristicDetailTarget();
+    if (heuristicTarget) {
+      return heuristicTarget;
     }
 
-    return this.findHeuristicDetailTarget();
+    return super.getDetailTarget();
   }
 
   override observeDOMChanges(callback: () => void): void {
