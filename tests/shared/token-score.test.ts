@@ -299,6 +299,39 @@ describe('extractTokenScores', () => {
     });
   });
 
+  it('infers tokenAge status from description text when backend omits status', () => {
+    const base = {
+      address: '7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU',
+      chain: 'solana',
+      score: 55,
+      risk: 'medium' as const,
+    };
+
+    // German "very new" description → warning
+    expect(sanitizeTokenScore({
+      ...base,
+      checks: { tokenAge: { value: 2, description: 'Token ist sehr neu.', tier: 'rescue_pass' } },
+    })?.checks.tokenAge?.status).toBe('warning');
+
+    // German "some history" description → warning
+    expect(sanitizeTokenScore({
+      ...base,
+      checks: { tokenAge: { value: 14, description: 'Token hat bereits etwas Historie.', tier: 'rescue_pass' } },
+    })?.checks.tokenAge?.status).toBe('warning');
+
+    // German "older tokens less risky" description → success
+    expect(sanitizeTokenScore({
+      ...base,
+      checks: { tokenAge: { value: 90, description: 'Ältere Tokens sind in der Regel weniger riskant.', tier: 'rescue_pass' } },
+    })?.checks.tokenAge?.status).toBe('success');
+
+    // Numeric value only, no description → warning fallback
+    expect(sanitizeTokenScore({
+      ...base,
+      checks: { tokenAge: { value: 5, tier: 'rescue_pass' } },
+    })?.checks.tokenAge?.status).toBe('warning');
+  });
+
   it('extracts canonical free checks from top-level legacy fields when checks are missing them', () => {
     expect(sanitizeTokenScore({
       address: '7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU',
