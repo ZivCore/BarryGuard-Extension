@@ -69,6 +69,7 @@ export class PumpFunPlatform implements IPlatform {
 
     const colors = this.getColors(score.risk);
     const badge = this.getBadge(address) ?? this.createBadge(address);
+    badge.removeAttribute('data-barryguard-locked');
     badge.style.backgroundColor = colors.bg;
     badge.style.color = colors.text;
     badge.style.border = `1px solid ${colors.border}`;
@@ -117,6 +118,31 @@ export class PumpFunPlatform implements IPlatform {
     badge.style.color = '#9ca3af';
     badge.style.border = '1px solid #e5e7eb';
     badge.onclick = null;
+  }
+
+  renderLockedBadge(address: string): void {
+    const target = this.getTargetElement(address);
+    if (!target) {
+      return;
+    }
+
+    const existingBadge = this.getBadge(address);
+    const badge = existingBadge ?? this.createBadge(address);
+    badge.style.backgroundColor = '#f3f4f6';
+    badge.style.color = '#6b7280';
+    badge.style.border = '1px solid #d1d5db';
+    setBadgeContent(badge, '🔒', false);
+    badge.title = 'BarryGuard: Upgrade for full analysis';
+    badge.setAttribute('data-barryguard-locked', 'true');
+    badge.onclick = (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      safeSendPopupMessage({ address, locked: true });
+    };
+
+    if (!existingBadge) {
+      this.insertBadge(address, target, badge);
+    }
   }
 
   observeDOMChanges(callback: () => void): void {
