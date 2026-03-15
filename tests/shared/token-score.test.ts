@@ -299,6 +299,58 @@ describe('extractTokenScores', () => {
     });
   });
 
+  it('maps "safe" status alias to success', () => {
+    const base = {
+      address: '7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU',
+      chain: 'solana',
+      score: 75,
+      risk: 'low' as const,
+    };
+
+    expect(sanitizeTokenScore({
+      ...base,
+      checks: {
+        holderCount: { status: 'safe', value: '1,000+', description: 'The token is currently held by 1,000+ wallets.', tier: 'rescue_pass' },
+      },
+    })?.checks.holderCount?.status).toBe('success');
+
+    expect(sanitizeTokenScore({
+      ...base,
+      checks: {
+        tokenAge: { status: 'safe', value: '62 d', description: 'The token has been live for 62 d. Older tokens usually carry less launch risk.', tier: 'rescue_pass' },
+      },
+    })?.checks.tokenAge?.status).toBe('success');
+  });
+
+  it('infers holderCount status from description text when backend omits status', () => {
+    const base = {
+      address: '7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU',
+      chain: 'solana',
+      score: 55,
+      risk: 'medium' as const,
+    };
+
+    expect(sanitizeTokenScore({
+      ...base,
+      checks: { holderCount: { value: 51, description: 'Es gibt bislang nur wenige Holder.', tier: 'rescue_pass' } },
+    })?.checks.holderCount?.status).toBe('warning');
+
+    expect(sanitizeTokenScore({
+      ...base,
+      checks: { holderCount: { value: 5000, description: 'Es gibt bereits viele Holder.', tier: 'rescue_pass' } },
+    })?.checks.holderCount?.status).toBe('success');
+
+    expect(sanitizeTokenScore({
+      ...base,
+      checks: { holderCount: { value: 51, tier: 'rescue_pass' } },
+    })?.checks.holderCount?.status).toBe('warning');
+
+    expect(sanitizeTokenScore({
+      ...base,
+      checks: { holderCount: { value: 1000, tier: 'rescue_pass' } },
+    })?.checks.holderCount?.status).toBe('success');
+  });
+
   it('infers tokenAge status from description text when backend omits status', () => {
     const base = {
       address: '7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU',

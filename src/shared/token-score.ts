@@ -16,6 +16,21 @@ type TokenScoreExtractionOptions = {
 
 const VALID_RISKS = new Set<RiskLevel>(['high', 'medium', 'low']);
 const VALID_CHECK_STATUSES = new Set<CheckResult['status']>(['success', 'warning', 'danger']);
+const CHECK_STATUS_ALIASES: Record<string, CheckResult['status']> = {
+  safe: 'success',
+  ok: 'success',
+  good: 'success',
+  pass: 'success',
+  passed: 'success',
+  risky: 'danger',
+  unsafe: 'danger',
+  bad: 'danger',
+  fail: 'danger',
+  failed: 'danger',
+  caution: 'warning',
+  warn: 'warning',
+  concerning: 'warning',
+};
 const VALID_TIERS = new Set<TierLevel>(['free', 'rescue_pass', 'pro']);
 const SOLANA_ADDRESS_RE = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
 const CHECK_FALLBACK_TIERS: Record<string, TierLevel> = {
@@ -160,6 +175,21 @@ function inferFallbackCheckStatus(
     }
   }
 
+  if (key === 'holderCount') {
+    if (text.includes('wenige holder') || text.includes('few holder')) {
+      return 'warning';
+    }
+
+    if (text.includes('viele holder') || text.includes('many holder')) {
+      return 'success';
+    }
+
+    // Numeric value fallback: few holders is risky
+    if (typeof value === 'number') {
+      return value < 500 ? 'warning' : 'success';
+    }
+  }
+
   if (key === 'tokenAge') {
     if (
       text.includes('sehr neu')
@@ -211,9 +241,11 @@ function sanitizeCheckResult(key: string, value: unknown): CheckResult | null {
   const label = sanitizeString(record.label);
   const description = sanitizeString(record.description);
   const fallbackTier = CHECK_FALLBACK_TIERS[key];
-  const status = VALID_CHECK_STATUSES.has(record.status as CheckResult['status'])
-    ? record.status as CheckResult['status']
-    : inferFallbackCheckStatus(key, record.value, label, description);
+  const rawStatus = typeof record.status === 'string' ? record.status.trim().toLowerCase() : '';
+  const normalizedStatus = VALID_CHECK_STATUSES.has(rawStatus as CheckResult['status'])
+    ? rawStatus as CheckResult['status']
+    : CHECK_STATUS_ALIASES[rawStatus] ?? null;
+  const status = normalizedStatus ?? inferFallbackCheckStatus(key, record.value, label, description);
   const tier = VALID_TIERS.has(record.tier as TierLevel) ? record.tier as TierLevel : fallbackTier;
 
   if (
