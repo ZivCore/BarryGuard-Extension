@@ -115,7 +115,13 @@ export function getCurrentPageAddress(pathOrUrl: string): string | null {
   return pathMatch?.[1] ?? null;
 }
 
-export function selectAddressesForTier(addresses: string[], currentAddress: string | null, tier: TierLevel): string[] {
+const FREE_LIST_SLOTS = 3;
+
+export function selectAddressesForTier(
+  addresses: string[],
+  currentAddress: string | null,
+  tier: TierLevel,
+): { active: string[]; locked: string[] } {
   return selectAddressesForContext(addresses, currentAddress, tier);
 }
 
@@ -123,16 +129,19 @@ export function selectAddressesForContext(
   addresses: string[],
   currentAddress: string | null,
   tier: TierLevel,
-): string[] {
+): { active: string[]; locked: string[] } {
+  if (currentAddress) {
+    return { active: addresses.filter((address) => address === currentAddress), locked: [] };
+  }
+
   if (tier !== 'free') {
-    return addresses;
+    return { active: addresses, locked: [] };
   }
 
-  if (!currentAddress) {
-    return [];
-  }
-
-  return addresses.filter((address) => address === currentAddress);
+  return {
+    active: addresses.slice(0, FREE_LIST_SLOTS),
+    locked: addresses.slice(FREE_LIST_SLOTS),
+  };
 }
 
 export function shouldRetryTokenScoreFetch(
@@ -431,18 +440,19 @@ export function initializeContentScript(): void {
 
   function scanAll(): void {
     const currentPageAddress = platform.getCurrentPageAddress();
-    const addresses = selectAddressesForContext(
+    const { active, locked } = selectAddressesForContext(
       platform.extractTokenAddresses(),
       currentPageAddress,
       currentTier,
     );
+    const visibleAddresses = [...active, ...locked];
 
-    syncVisibleBadges(addresses);
+    syncVisibleBadges(visibleAddresses);
     if (currentPageAddress) {
       scheduleStorageReconcile(currentPageAddress);
     }
 
-    addresses.forEach((address) => {
+    active.forEach((address) => {
       const resolvedScore = resolvedScores.get(address);
       if (resolvedScore) {
         platform.renderScoreBadge(address, resolvedScore);
