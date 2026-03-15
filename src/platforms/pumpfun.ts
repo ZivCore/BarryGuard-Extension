@@ -2,60 +2,40 @@ import type { IPlatform } from './platform.interface';
 import type { SelectedToken, TokenMetadata, TokenScore } from '../shared/types';
 import { extractPumpFunEmbeddedMetadata } from '../shared/pumpfun-metadata';
 import { PLATFORM_SELECTORS } from '../config/selectors';
+import { createBadgeElement, getRiskColors, safeSendPopupMessage, setBadgeContent } from './platform-utils';
 
 const SELECTORS = PLATFORM_SELECTORS.pumpfun;
 
-function isExtensionContextInvalidatedError(error: unknown): boolean {
-  const message =
-    typeof error === 'string'
-      ? error
-      : error instanceof Error
-        ? error.message
-        : '';
-
-  return message.toLowerCase().includes('extension context invalidated');
-}
-
-function safeSendMessage(message: { type: string; payload?: unknown }): void {
-  if (!chrome?.runtime?.id) {
-    return;
-  }
-
-  try {
-    chrome.runtime.sendMessage(message, () => {
-      const runtimeError = chrome.runtime.lastError?.message;
-      if (runtimeError && !isExtensionContextInvalidatedError(runtimeError)) {
-        console.error('[BarryGuard] Badge action failed:', runtimeError);
-      }
-    });
-  } catch (error) {
-    if (!isExtensionContextInvalidatedError(error)) {
-      throw error;
-    }
-  }
-}
-
 export class PumpFunPlatform implements IPlatform {
+  readonly id = 'pumpfun';
   readonly name = 'Pump.fun';
   readonly hostPattern = ['*://pump.fun/*'];
+
+  matchesLocation(location: Location): boolean {
+    if (location.hostname !== 'pump.fun') {
+      return false;
+    }
+
+    return !/(?:^|\/)(swap|advanced)(?:\/|$)/i.test(location.pathname);
+  }
 
   extractTokenAddresses(): string[] {
     const addresses: string[] = [];
     const seen = new Set<string>();
-    const currentAddress = this.getCurrentAddress();
+    const currentAddress = this.getCurrentPageAddress();
 
     if (currentAddress) {
       addresses.push(currentAddress);
       seen.add(currentAddress);
     }
 
-    document.querySelectorAll<HTMLAnchorElement>(SELECTORS.tokenLink).forEach((link) => {
+    document.querySelectorAll<HTMLAnchorElement>('a[href]').forEach((link) => {
       const href = link.getAttribute('href');
       if (!href) {
         return;
       }
 
-      const match = href.match(SELECTORS.addressPattern);
+      const match = href.match(/^\/(?:coin\/)?([1-9A-HJ-NP-Za-km-z]{32,44})(?:[/?#]|$)/);
       if (match?.[1] && !seen.has(match[1])) {
         addresses.push(match[1]);
         seen.add(match[1]);
@@ -66,7 +46,7 @@ export class PumpFunPlatform implements IPlatform {
   }
 
   isCurrentTokenPage(address: string): boolean {
-    return this.getCurrentAddress() === address;
+    return this.getCurrentPageAddress() === address;
   }
 
   buildSelectedToken(address: string, score: TokenScore): SelectedToken {
@@ -92,16 +72,13 @@ export class PumpFunPlatform implements IPlatform {
     badge.style.backgroundColor = colors.bg;
     badge.style.color = colors.text;
     badge.style.border = `1px solid ${colors.border}`;
-    this.setBadgeContent(badge, String(score.score));
+    setBadgeContent(badge, String(score.score));
     badge.title = `BarryGuard Score: ${score.score}/100 - Click for details`;
     badge.onclick = (event) => {
       event.preventDefault();
       event.stopPropagation();
 
-      safeSendMessage({
-        type: 'OPEN_POPUP_FOR_TOKEN',
-        payload: this.buildSelectedToken(address, score),
-      });
+      safeSendPopupMessage(this.buildSelectedToken(address, score));
     };
 
     if (!this.getBadge(address)) {
@@ -119,7 +96,7 @@ export class PumpFunPlatform implements IPlatform {
     badge.style.backgroundColor = '#f3f4f6';
     badge.style.color = '#6b7280';
     badge.style.border = '1px solid #e5e7eb';
-    this.setBadgeContent(badge, '...');
+    setBadgeContent(badge, '...');
     badge.title = 'BarryGuard: Loading...';
     badge.onclick = null;
 
@@ -134,7 +111,7 @@ export class PumpFunPlatform implements IPlatform {
       return;
     }
 
-    this.setBadgeContent(badge, '?');
+    setBadgeContent(badge, '?');
     badge.title = 'BarryGuard: Score unavailable';
     badge.style.backgroundColor = '#f3f4f6';
     badge.style.color = '#9ca3af';
@@ -144,7 +121,7 @@ export class PumpFunPlatform implements IPlatform {
 
   observeDOMChanges(callback: () => void): void {
     const observer = new MutationObserver((mutations) => {
-      const isDetailPage = Boolean(this.getCurrentAddress());
+      const isDetailPage = Boolean(this.getCurrentPageAddress());
 
       const hasRelevantNodes = mutations.some((mutation) =>
         Array.from(mutation.addedNodes).some((node) => {
@@ -159,7 +136,7 @@ export class PumpFunPlatform implements IPlatform {
             return element.matches('h1') || !!element.querySelector('h1');
           }
 
-          return element.matches(SELECTORS.tokenLink) || !!element.querySelector(SELECTORS.tokenLink);
+          return element.matches('a[href]') || !!element.querySelector('a[href]');
         }));
 
       if (hasRelevantNodes) {
@@ -171,11 +148,11 @@ export class PumpFunPlatform implements IPlatform {
   }
 
   private getLink(address: string): HTMLAnchorElement | null {
-    return document.querySelector(`a[href="/coin/${address}"]`);
+    return document.querySelector(`a[href="/coin/${address}"], a[href="/${address}"]`);
   }
 
-  private getCurrentAddress(): string | null {
-    const match = window.location.pathname.match(SELECTORS.addressPattern);
+  getCurrentPageAddress(): string | null {
+    const match = window.location.pathname.match(/^\/(?:coin\/)?([1-9A-HJ-NP-Za-km-z]{32,44})(?:[/?#]|$)/);
     return match?.[1] ?? null;
   }
 
@@ -196,28 +173,7 @@ export class PumpFunPlatform implements IPlatform {
   }
 
   private createBadge(address: string): HTMLDivElement {
-    const badge = document.createElement('div');
-    badge.setAttribute('data-barryguard-badge', address);
-    badge.setAttribute('data-barryguard', 'true');
-    badge.style.cssText = [
-      'display:inline-flex',
-      'align-items:center',
-      'justify-content:center',
-      'gap:6px',
-      'padding:4px 8px',
-      'border-radius:999px',
-      'font-size:11px',
-      'font-weight:700',
-      'font-family:system-ui,-apple-system,sans-serif',
-      'margin-left:6px',
-      'cursor:pointer',
-      'transition:all 0.2s ease',
-      'z-index:1000',
-      'white-space:nowrap',
-      'box-shadow:0 4px 10px rgba(15,23,42,0.08)',
-    ].join(';');
-
-    return badge;
+    return createBadgeElement(address);
   }
 
   private insertBadge(address: string, target: Element, badge: HTMLDivElement): void {
@@ -402,32 +358,6 @@ export class PumpFunPlatform implements IPlatform {
   }
 
   private getColors(risk: string): { bg: string; text: string; border: string } {
-    const map: Record<string, { bg: string; text: string; border: string }> = {
-      high: { bg: '#fee2e2', text: '#991b1b', border: '#fecaca' },
-      medium: { bg: '#fef3c7', text: '#92400e', border: '#fde68a' },
-      low: { bg: '#d1fae5', text: '#065f46', border: '#a7f3d0' },
-    };
-
-    return map[risk] ?? map.high;
-  }
-
-  private setBadgeContent(badge: HTMLDivElement, value: string, compact = false): void {
-    const label = compact ? 'BG' : 'BarryGuard';
-    const labelStyle = compact
-      ? 'font-size:9px;font-weight:800;letter-spacing:0.03em;text-transform:uppercase;line-height:1;'
-      : 'font-size:10px;font-weight:800;letter-spacing:0.04em;text-transform:uppercase;line-height:1;';
-    const valueStyle = compact
-      ? 'font-size:11px;font-weight:800;line-height:1;'
-      : 'font-size:12px;font-weight:800;line-height:1;';
-
-    const labelNode = document.createElement('span');
-    labelNode.style.cssText = labelStyle;
-    labelNode.textContent = label;
-
-    const valueNode = document.createElement('span');
-    valueNode.style.cssText = valueStyle;
-    valueNode.textContent = value;
-
-    badge.replaceChildren(labelNode, valueNode);
+    return getRiskColors(risk);
   }
 }

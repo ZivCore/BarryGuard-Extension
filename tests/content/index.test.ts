@@ -1,5 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { getCurrentPageAddress, selectAddressesForTier } from '../../src/content/index';
+import {
+  getCurrentPageAddress,
+  selectAddressesForTier,
+  shouldApplySelectedTokenScore,
+  shouldRetryTokenScoreFetch,
+} from '../../src/content/index';
 
 describe('content tier gating', () => {
   it('extracts the current token address from a coin pathname', () => {
@@ -8,11 +13,23 @@ describe('content tier gating', () => {
     );
   });
 
+  it('extracts the current token address from a root pathname', () => {
+    expect(getCurrentPageAddress('/Gur3msAr6KPmoFogSabvuAxe4ZzjtNwv5WudJ49Ppump')).toBe(
+      'Gur3msAr6KPmoFogSabvuAxe4ZzjtNwv5WudJ49Ppump',
+    );
+  });
+
+  it('extracts the current token address from swap query params', () => {
+    expect(
+      getCurrentPageAddress('/swap?inputMint=So11111111111111111111111111111111111111112&outputMint=Gur3msAr6KPmoFogSabvuAxe4ZzjtNwv5WudJ49Ppump'),
+    ).toBe('Gur3msAr6KPmoFogSabvuAxe4ZzjtNwv5WudJ49Ppump');
+  });
+
   it('returns no list addresses for the free tier on non-coin pages', () => {
     expect(
       selectAddressesForTier(
         ['7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU'],
-        '/',
+        null,
         'free',
       ),
     ).toEqual([]);
@@ -25,7 +42,7 @@ describe('content tier gating', () => {
           'Gur3msAr6KPmoFogSabvuAxe4ZzjtNwv5WudJ49Ppump',
           '7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU',
         ],
-        '/coin/Gur3msAr6KPmoFogSabvuAxe4ZzjtNwv5WudJ49Ppump',
+        'Gur3msAr6KPmoFogSabvuAxe4ZzjtNwv5WudJ49Ppump',
         'free',
       ),
     ).toEqual(['Gur3msAr6KPmoFogSabvuAxe4ZzjtNwv5WudJ49Ppump']);
@@ -37,7 +54,67 @@ describe('content tier gating', () => {
       '7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU',
     ];
 
-    expect(selectAddressesForTier(addresses, '/', 'rescue_pass')).toEqual(addresses);
-    expect(selectAddressesForTier(addresses, '/', 'pro')).toEqual(addresses);
+    expect(selectAddressesForTier(addresses, null, 'rescue_pass')).toEqual(addresses);
+    expect(selectAddressesForTier(addresses, null, 'pro')).toEqual(addresses);
+  });
+
+  it('retries transient score fetch failures on the current token page', () => {
+    expect(shouldRetryTokenScoreFetch(
+      'Gur3msAr6KPmoFogSabvuAxe4ZzjtNwv5WudJ49Ppump',
+      'Gur3msAr6KPmoFogSabvuAxe4ZzjtNwv5WudJ49Ppump',
+      { success: false, statusCode: 404, error: 'Token not found yet' },
+    )).toBe(true);
+  });
+
+  it('retries generic server failures on the current token page', () => {
+    expect(shouldRetryTokenScoreFetch(
+      'Gur3msAr6KPmoFogSabvuAxe4ZzjtNwv5WudJ49Ppump',
+      'Gur3msAr6KPmoFogSabvuAxe4ZzjtNwv5WudJ49Ppump',
+      { success: false, errorType: 'server', error: 'BarryGuard API returned malformed token score data.' },
+    )).toBe(true);
+  });
+
+  it('does not retry non-transient failures', () => {
+    expect(shouldRetryTokenScoreFetch(
+      'Gur3msAr6KPmoFogSabvuAxe4ZzjtNwv5WudJ49Ppump',
+      'Gur3msAr6KPmoFogSabvuAxe4ZzjtNwv5WudJ49Ppump',
+      { success: false, statusCode: 403, errorType: 'plan_gate', error: 'Forbidden' },
+    )).toBe(false);
+  });
+
+  it('applies a stored selected token score for the current token page', () => {
+    expect(shouldApplySelectedTokenScore(
+      'Gur3msAr6KPmoFogSabvuAxe4ZzjtNwv5WudJ49Ppump',
+      {
+        address: 'Gur3msAr6KPmoFogSabvuAxe4ZzjtNwv5WudJ49Ppump',
+        metadata: {},
+        score: {
+          address: 'Gur3msAr6KPmoFogSabvuAxe4ZzjtNwv5WudJ49Ppump',
+          chain: 'solana',
+          score: 72,
+          risk: 'low',
+          checks: {},
+          cached: false,
+        },
+      },
+    )).toBe(true);
+  });
+
+  it('ignores stored selected token updates for another token page', () => {
+    expect(shouldApplySelectedTokenScore(
+      'Gur3msAr6KPmoFogSabvuAxe4ZzjtNwv5WudJ49Ppump',
+      {
+        address: '7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU',
+        metadata: {},
+        score: {
+          address: '7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU',
+          chain: 'solana',
+          score: 18,
+          risk: 'high',
+          checks: {},
+          cached: false,
+        },
+      },
+    )).toBe(false);
   });
 });

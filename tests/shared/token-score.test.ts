@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { extractTokenScores, sanitizeTokenScore } from '../../src/shared/token-score';
+import { extractTokenScores, isTokenScoreLikelyIncomplete, sanitizeTokenScore } from '../../src/shared/token-score';
 
 describe('sanitizeTokenScore', () => {
   it('returns a normalized token score for valid payloads', () => {
@@ -405,5 +405,57 @@ describe('extractTokenScores', () => {
         tier: 'free',
       },
     });
+  });
+
+  it('marks free-tier scores with missing visible checks as incomplete', () => {
+    expect(isTokenScoreLikelyIncomplete({
+      address: '7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU',
+      chain: 'solana',
+      score: 84,
+      risk: 'low',
+      cached: false,
+      checks: {
+        mintAuthority: {
+          status: 'success',
+          value: false,
+          label: '',
+          description: '',
+          tier: 'free',
+        },
+      },
+    }, 'free')).toBe(true);
+  });
+
+  it('marks paid-tier scores with zero placeholder metrics as incomplete', () => {
+    expect(isTokenScoreLikelyIncomplete({
+      address: '7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU',
+      chain: 'solana',
+      score: 84,
+      risk: 'low',
+      cached: false,
+      checks: {
+        mintAuthority: { status: 'success', value: false, label: '', description: '', tier: 'free' },
+        freezeAuthority: { status: 'success', value: false, label: '', description: '', tier: 'free' },
+        liquidityLocked: { status: 'success', value: true, label: '', description: '', tier: 'free' },
+        topHolderConcentration: { status: 'warning', value: 0, label: '', description: '', tier: 'rescue_pass' },
+        tokenAge: { status: 'warning', value: 0, label: '', description: '', tier: 'rescue_pass' },
+        holderCount: { status: 'warning', value: 0, label: '', description: '', tier: 'rescue_pass' },
+      },
+    }, 'rescue_pass')).toBe(true);
+  });
+
+  it('marks complete visible checks as ready', () => {
+    expect(isTokenScoreLikelyIncomplete({
+      address: '7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU',
+      chain: 'solana',
+      score: 84,
+      risk: 'low',
+      cached: true,
+      checks: {
+        mintAuthority: { status: 'success', value: false, label: '', description: '', tier: 'free' },
+        freezeAuthority: { status: 'success', value: false, label: '', description: '', tier: 'free' },
+        liquidityLocked: { status: 'success', value: true, label: '', description: '', tier: 'free' },
+      },
+    }, 'free')).toBe(false);
   });
 });

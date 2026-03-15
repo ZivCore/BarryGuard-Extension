@@ -2,7 +2,7 @@
 
 export type RiskLevel = 'high' | 'medium' | 'low';
 export type TierLevel = 'free' | 'rescue_pass' | 'pro';
-export type ApiErrorType = 'plan_gate' | 'rate_limit' | 'cooldown' | 'server' | 'network';
+export type ApiErrorType = 'plan_gate' | 'rate_limit' | 'cooldown' | 'server' | 'network' | 'busy' | 'validation';
 
 export interface TierCapabilities {
   singleTokenAnalysis: boolean;

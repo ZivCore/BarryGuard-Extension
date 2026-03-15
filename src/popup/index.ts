@@ -20,6 +20,7 @@ import {
   sanitizeExternalNavigationUrl,
   sanitizeOAuthNavigationUrl,
 } from '../shared/runtime-config';
+import { isTokenScoreLikelyIncomplete } from '../shared/token-score';
 
 type ScreenName = 'loading' | 'token-detail' | 'login' | 'register' | 'account' | 'manual';
 
@@ -56,6 +57,8 @@ const CHECK_ORDER = [
   'tokenAge',
   'holderCount',
 ] as const;
+const SCORE_REFRESH_BASE_DELAY_MS = 1500;
+const MAX_SCORE_REFRESH_ATTEMPTS = 6;
 
 const CHECK_FALLBACK_TIERS: Record<string, TierLevel> = {
   mintAuthority: 'free',
@@ -138,6 +141,9 @@ const state: PopupState = {
 
 let isHydratingSelectedTokenMetadata = false;
 let copyToastTimeoutId: number | null = null;
+let scoreRefreshTimeoutId: number | null = null;
+let scoreRefreshAddress: string | null = null;
+let scoreRefreshAttempts = 0;
 
 const elements = {
   screens: {
@@ -721,7 +727,7 @@ function renderEmptyState(): void {
     <div class="check-item">
       <div class="check-content">
         <div class="check-label check-label-center">
-          Click a token badge on pump.fun or use manual entry
+          Click a token badge on a supported Solana site or use manual entry
         </div>
       </div>
     </div>
@@ -810,10 +816,6 @@ function renderChecks(score: TokenScore): void {
       ? metadata.teaser
       : normalizeCheckDescription(check?.description, checkKey);
 
-    if (!check && !locked) {
-      continue;
-    }
-
     const item = document.createElement('div');
     item.className = `check-item${locked ? ' locked' : ''}`;
 
@@ -837,6 +839,25 @@ function renderChecks(score: TokenScore): void {
       const content = document.createElement('div');
       content.className = 'check-content';
       content.append(labelEl, descEl, lockedEl);
+      item.append(icon, content);
+    } else if (!check) {
+      const icon = document.createElement('div');
+      icon.className = 'check-icon warning';
+      icon.textContent = '!';
+
+      const labelEl = document.createElement('div');
+      labelEl.className = 'check-label';
+      labelEl.textContent = label;
+
+      const descEl = document.createElement('div');
+      descEl.className = 'check-description';
+      descEl.textContent = score.cached === false
+        ? 'Still analyzing. This factor will update automatically.'
+        : 'This factor has not been returned yet.';
+
+      const content = document.createElement('div');
+      content.className = 'check-content';
+      content.append(labelEl, descEl);
       item.append(icon, content);
     } else {
       const displayStatus = getDisplayCheckStatus(checkKey, check!);
@@ -953,15 +974,83 @@ function updateAccountScreen(): void {
 }
 
 function handleSelectedTokenUpdate(selectedToken: SelectedToken | null): void {
+  if (scoreRefreshAddress !== selectedToken?.address) {
+    clearScheduledScoreRefresh();
+    scoreRefreshAddress = selectedToken?.address ?? null;
+    scoreRefreshAttempts = 0;
+  }
+
   state.selectedToken = selectedToken;
   renderPrimaryTokenState();
 
   if (selectedToken?.score) {
     void hydrateSelectedTokenMetadata(selectedToken);
+    scheduleSelectedTokenScoreRefresh();
   }
 }
 
+function clearScheduledScoreRefresh(): void {
+  if (scoreRefreshTimeoutId) {
+    window.clearTimeout(scoreRefreshTimeoutId);
+    scoreRefreshTimeoutId = null;
+  }
+}
+
+function shouldKeepRefreshingScore(score: TokenScore): boolean {
+  const viewerTier = getEffectiveViewerTier();
+  return score.cached === false || isTokenScoreLikelyIncomplete(score, viewerTier);
+}
+
+function shouldRetryScoreRefresh(response: ApiResponse<TokenScore>): boolean {
+  if (response.success) {
+    return false;
+  }
+
+  if (response.errorType === 'plan_gate') {
+    return false;
+  }
+
+  if (response.statusCode === 403) {
+    return false;
+  }
+
+  if (response.errorType === 'busy' || response.errorType === 'network') {
+    return true;
+  }
+
+  return response.statusCode === 404
+    || response.statusCode === 408
+    || response.statusCode === 425
+    || response.statusCode === 500
+    || response.statusCode === 502
+    || response.statusCode === 503
+    || response.statusCode === 504;
+}
+
+function scheduleSelectedTokenScoreRefresh(): void {
+  const selectedToken = state.selectedToken;
+  if (!selectedToken?.score || !shouldKeepRefreshingScore(selectedToken.score)) {
+    clearScheduledScoreRefresh();
+    return;
+  }
+
+  if (scoreRefreshTimeoutId || scoreRefreshAttempts >= MAX_SCORE_REFRESH_ATTEMPTS) {
+    return;
+  }
+
+  scoreRefreshAttempts += 1;
+  const delayMs = SCORE_REFRESH_BASE_DELAY_MS * scoreRefreshAttempts;
+  scoreRefreshTimeoutId = window.setTimeout(() => {
+    scoreRefreshTimeoutId = null;
+    void refreshSelectedTokenScore();
+  }, delayMs);
+}
+
 async function hydrateSelectedTokenMetadata(selectedToken: SelectedToken): Promise<void> {
+  if (selectedToken.metadata?.name && selectedToken.metadata?.symbol && selectedToken.metadata?.imageUrl) {
+    return;
+  }
+
   if (isHydratingSelectedTokenMetadata) {
     return;
   }
@@ -1106,16 +1195,26 @@ async function loadSelectedToken(): Promise<void> {
 
 async function refreshSelectedTokenScore(): Promise<void> {
   const selectedToken = state.selectedToken;
-  if (!selectedToken?.address || !state.userProfile) {
+  if (!selectedToken?.address) {
     return;
   }
 
+  const shouldBypassLocalCache = shouldKeepRefreshingScore(selectedToken.score);
   const response = await sendMessage<TokenScore>({
-    type: 'GET_TOKEN_SCORE',
-    payload: selectedToken.address,
+    type: shouldBypassLocalCache ? 'GET_TOKEN_SCORE_FRESH' : 'GET_TOKEN_SCORE',
+    payload: shouldBypassLocalCache
+      ? {
+          address: selectedToken.address,
+          skipLocalCache: true,
+          preferExistingOnly: true,
+        }
+      : selectedToken.address,
   }, 5000);
 
   if (!response.success || !response.data) {
+    if (shouldRetryScoreRefresh(response)) {
+      scheduleSelectedTokenScoreRefresh();
+    }
     return;
   }
 
@@ -1131,6 +1230,7 @@ async function refreshSelectedTokenScore(): Promise<void> {
   state.selectedToken = nextToken;
   renderTokenDetail(response.data);
   await chrome.storage.local.set({ selectedToken: nextToken });
+  scheduleSelectedTokenScoreRefresh();
 }
 
 async function handleLogin(): Promise<void> {

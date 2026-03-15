@@ -26,6 +26,15 @@ const CHECK_FALLBACK_TIERS: Record<string, TierLevel> = {
   tokenAge: 'rescue_pass',
   holderCount: 'rescue_pass',
 };
+const CHECK_ORDER = [
+  'mintAuthority',
+  'freezeAuthority',
+  'liquidityLocked',
+  'topHolderConcentration',
+  'tokenAge',
+  'holderCount',
+] as const;
+const FREE_VISIBLE_CHECKS = CHECK_ORDER.slice(0, 3);
 const CHECK_KEY_ALIASES: Record<string, string> = {
   mintauthority: 'mintAuthority',
   mint_authority: 'mintAuthority',
@@ -263,6 +272,36 @@ function sanitizeChecks(value: unknown, sourceRecord?: JsonRecord): Record<strin
   }
 
   return Object.fromEntries(normalizedChecks.entries());
+}
+
+function getExpectedVisibleChecks(tier: TierLevel): readonly string[] {
+  return tier === 'free' ? FREE_VISIBLE_CHECKS : CHECK_ORDER;
+}
+
+function hasPlaceholderNumericValue(key: string, value: unknown): boolean {
+  return typeof value === 'number'
+    && value === 0
+    && (key === 'topHolderConcentration' || key === 'holderCount');
+}
+
+export function isTokenScoreLikelyIncomplete(score: TokenScore, viewerTier: TierLevel = 'free'): boolean {
+  const expectedChecks = getExpectedVisibleChecks(viewerTier);
+  for (const key of expectedChecks) {
+    const check = score.checks[key];
+    if (!check || check.locked === true) {
+      return true;
+    }
+
+    if (check.value === null || check.value === undefined || check.value === '') {
+      return true;
+    }
+
+    if (hasPlaceholderNumericValue(key, check.value)) {
+      return true;
+    }
+  }
+
+  return false;
 }
 
 export function sanitizeTokenScore(value: unknown, options: TokenScoreSanitizationOptions = {}): TokenScore | null {
