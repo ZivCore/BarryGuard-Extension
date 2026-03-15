@@ -77,8 +77,9 @@ function sendRuntimeMessage(
 
 function persistSelectedToken(selectedToken: {
   address: string;
-  score: TokenScore;
-  metadata: TokenMetadata;
+  score?: TokenScore;
+  metadata?: TokenMetadata;
+  locked?: boolean;
 }): void {
   withSafeRuntime(() => {
     void chrome.storage.local.set({ selectedToken }).catch((error: unknown) => {
@@ -462,6 +463,12 @@ export function initializeContentScript(): void {
       }
 
       fetchAndRender(address);
+    });
+
+    locked.forEach((address) => {
+      if (!hasRenderedBadge(address)) {
+        platform.renderLockedBadge(address);
+      }
     });
   }
 
