@@ -84,8 +84,9 @@ export interface CacheEntry {
 
 export interface SelectedToken {
   address: string;
-  score: TokenScore;
+  score?: TokenScore;
   metadata?: TokenMetadata;
+  locked?: boolean;
 }
 
 export interface TokenListAnalysisData {
