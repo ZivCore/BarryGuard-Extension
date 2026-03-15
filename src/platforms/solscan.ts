@@ -44,9 +44,17 @@ export class SolscanPlatform extends GenericSolanaPlatform {
       return null;
     }
 
+    const titleTokenName = this.getTitleTokenName();
     const explicitTarget = super.getDetailTarget();
     if (explicitTarget) {
-      return explicitTarget;
+      if (!titleTokenName) {
+        return explicitTarget;
+      }
+      const text = explicitTarget.textContent?.trim() ?? '';
+      if (text.toLowerCase().includes(titleTokenName.toLowerCase())) {
+        return explicitTarget;
+      }
+      // Explicit target doesn't contain the title token name — try heuristic
     }
 
     return this.findHeuristicDetailTarget();
@@ -105,9 +113,27 @@ export class SolscanPlatform extends GenericSolanaPlatform {
       return null;
     }
 
+    const titleTokenName = this.getTitleTokenName();
     const candidates = Array.from(main.querySelectorAll(
       'h1, h2, h3, h4, [class*="title"], [class*="Title"], [class*="name"], [class*="Name"], strong, header span, header div',
     ));
+
+    if (titleTokenName) {
+      for (const candidate of candidates) {
+        if (candidate.closest('[data-barryguard="true"]')) {
+          continue;
+        }
+
+        const text = candidate.textContent?.trim() ?? '';
+        if (!text) {
+          continue;
+        }
+
+        if (text.toLowerCase().includes(titleTokenName.toLowerCase())) {
+          return candidate;
+        }
+      }
+    }
 
     for (const candidate of candidates) {
       if (candidate.closest('[data-barryguard="true"]')) {
@@ -125,6 +151,24 @@ export class SolscanPlatform extends GenericSolanaPlatform {
     return null;
   }
 
+  private getTitleTokenName(): string | null {
+    const rawTitle = document.title.trim();
+    if (!rawTitle) {
+      return null;
+    }
+
+    const primary = rawTitle.split('|')[0]?.trim() ?? rawTitle;
+    // Strip symbol in parentheses: "Moonbirds (MOON)" → "Moonbirds"
+    const withoutSymbol = primary.split('(')[0]?.trim() ?? primary;
+
+    // Ignore loading-state titles that show the raw address
+    if (/^(?:Token\s+)?[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(withoutSymbol)) {
+      return null;
+    }
+
+    return withoutSymbol.length >= 2 && withoutSymbol.length <= 80 ? withoutSymbol : null;
+  }
+
   private isLikelyTokenName(value: string): boolean {
     if (!value || value.length < 2 || value.length > 80) {
       return false;
@@ -133,6 +177,12 @@ export class SolscanPlatform extends GenericSolanaPlatform {
     const normalized = value.trim().toLowerCase();
     if (
       normalized === 'solscan.io'
+      || normalized === 'overview'
+      || normalized === 'markets'
+      || normalized === 'holders'
+      || normalized === 'transfers'
+      || normalized === 'defi activities'
+      || normalized === 'analytics'
       || normalized.includes('security verification')
       || normalized.includes('checking your browser')
       || normalized.includes('verify you are human')

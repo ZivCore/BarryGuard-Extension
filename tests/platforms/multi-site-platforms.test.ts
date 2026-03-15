@@ -525,6 +525,36 @@ describe('additional Solana platforms', () => {
     expect(document.querySelector('header [data-barryguard-badge]')).toBeNull();
   });
 
+  it('skips earlier h4 section headers and badges the token name h4', () => {
+    const platform = new SolscanPlatform();
+    window.history.replaceState({}, '', `/token/${TOKEN_A}`);
+    document.body.innerHTML = `
+      <main>
+        <h4>Overview</h4>
+        <div>
+          <h4 class="not-italic text-neutral8 text-[22px] leading-[28px] font-medium truncate">Token <span class="text-neutral6">Moonbirds</span></h4>
+        </div>
+      </main>
+    `;
+    document.title = 'Moonbirds (MOON) | Solscan';
+
+    platform.renderScoreBadge(TOKEN_A, {
+      address: TOKEN_A,
+      chain: 'solana',
+      score: 70,
+      risk: 'low',
+      checks: {},
+      cached: false,
+    });
+
+    const overviewH4 = document.querySelector('h4');
+    const tokenNameH4 = document.querySelectorAll('h4')[1];
+    const badge = document.querySelector(`[data-barryguard-badge="${TOKEN_A}"]`);
+
+    expect(tokenNameH4?.nextElementSibling).toBe(badge);
+    expect(overviewH4?.nextElementSibling).not.toBe(badge);
+  });
+
   it('uses a Solscan-specific fallback heading when no h1 is present', () => {
     const platform = new SolscanPlatform();
     window.history.replaceState({}, '', `/token/${TOKEN_A}`);
