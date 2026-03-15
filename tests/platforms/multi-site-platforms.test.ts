@@ -525,6 +525,48 @@ describe('additional Solana platforms', () => {
     expect(document.querySelector('header [data-barryguard-badge]')).toBeNull();
   });
 
+  it('does not insert a Solscan badge into document.body during SSR skeleton load', () => {
+    const platform = new SolscanPlatform();
+    window.history.replaceState({}, '', `/token/${TOKEN_A}`);
+    // SSR state: no heading elements, no <main>, address in __NEXT_DATA__ script
+    document.body.innerHTML = `
+      <div class="flex flex-col min-h-screen">
+        <div class="animate-pulse rounded-md bg-muted h-6 w-full"></div>
+      </div>
+      <script id="__NEXT_DATA__" type="application/json">{"props":{"pageProps":{"address":"${TOKEN_A}"}}}</script>
+    `;
+    document.title = `Token ${TOKEN_A} | Solscan`;
+
+    platform.renderLoadingBadge(TOKEN_A);
+
+    // Badge must NOT be in the DOM — inserting after body is invisible and blocks later reinsertion
+    expect(document.querySelector(`[data-barryguard-badge="${TOKEN_A}"]`)).toBeNull();
+
+    // Simulate React hydration: real content renders with the token name h4
+    document.body.innerHTML = `
+      <div class="flex flex-col min-h-screen">
+        <div>
+          <h4 class="not-italic text-neutral8 text-[22px] leading-[28px] font-medium truncate">Token <span>GasStation</span></h4>
+        </div>
+      </div>
+    `;
+    document.title = 'GasStation (GAS) | Solscan';
+
+    platform.renderScoreBadge(TOKEN_A, {
+      address: TOKEN_A,
+      chain: 'solana',
+      score: 72,
+      risk: 'low',
+      checks: {},
+      cached: false,
+    });
+
+    const h4 = document.querySelector('h4');
+    const badge = document.querySelector(`[data-barryguard-badge="${TOKEN_A}"]`);
+
+    expect(h4?.nextElementSibling).toBe(badge);
+  });
+
   it('skips earlier h4 section headers and badges the token name h4', () => {
     const platform = new SolscanPlatform();
     window.history.replaceState({}, '', `/token/${TOKEN_A}`);

@@ -46,7 +46,10 @@ export class SolscanPlatform extends GenericSolanaPlatform {
 
     const titleTokenName = this.getTitleTokenName();
     const explicitTarget = super.getDetailTarget();
-    if (explicitTarget) {
+    // Reject body/html fallbacks — Solscan has no <main>, so the base class falls back to
+    // document.body when the page is still a React skeleton. Inserting there hides the badge
+    // and prevents reinsertion once the real h4 renders.
+    if (explicitTarget && explicitTarget !== document.body && explicitTarget !== document.documentElement) {
       if (!titleTokenName) {
         return explicitTarget;
       }
