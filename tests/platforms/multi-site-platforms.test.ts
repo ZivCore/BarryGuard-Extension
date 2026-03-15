@@ -142,6 +142,57 @@ describe('additional Solana platforms', () => {
     expect(platform.extractTokenAddresses()).toEqual([TOKEN_A]);
   });
 
+  it('resolves DexScreener list pair addresses via API and renders list badges inline', async () => {
+    const pairAddress = TOKEN_B; // use TOKEN_B as a stand-in pair address
+    const platform = new DexScreenerPlatform();
+    window.history.replaceState({}, '', '/solana/moonit');
+    document.body.innerHTML = `
+      <main>
+        <a class="ds-dex-table-row" href="/solana/${pairAddress}">
+          <div class="ds-dex-table-row-base-token-name">
+            <span class="ds-dex-table-row-base-token-name-text">Token A</span>
+          </div>
+        </a>
+      </main>
+    `;
+
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok: true,
+      json: vi.fn().mockResolvedValue({
+        pairs: [{ pairAddress, baseToken: { address: TOKEN_A } }],
+      }),
+    }));
+
+    // First call triggers async resolution — returns empty while pending
+    expect(platform.extractTokenAddresses()).toEqual([]);
+
+    // Wait for the async fetch + json() promise chain to complete
+    await new Promise<void>((resolve) => setTimeout(resolve, 0));
+
+    // Second call returns the resolved token address
+    expect(platform.extractTokenAddresses()).toContain(TOKEN_A);
+
+    platform.renderScoreBadge(TOKEN_A, {
+      address: TOKEN_A,
+      chain: 'solana',
+      score: 88,
+      risk: 'low',
+      checks: {},
+      cached: false,
+    });
+
+    const nameEl = document.querySelector('.ds-dex-table-row-base-token-name-text');
+    const badge = document.querySelector(`[data-barryguard-badge="${TOKEN_A}"]`);
+
+    expect(nameEl?.nextElementSibling).toBe(badge);
+    expect(badge?.textContent).toContain('BarryGuard');
+
+    vi.unstubAllGlobals();
+    vi.stubGlobal('chrome', {
+      runtime: { id: 'test-extension-id', sendMessage: vi.fn() },
+    });
+  });
+
   it('extracts Birdeye token addresses from token routes', () => {
     const platform = new BirdeyePlatform();
     window.history.replaceState({}, '', `/token/${TOKEN_A}?chain=solana`);
