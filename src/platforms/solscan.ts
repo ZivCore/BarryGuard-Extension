@@ -14,6 +14,9 @@ export class SolscanPlatform extends GenericSolanaPlatform {
         '[class*="tokenInfo"] h1',
         '[class*="token-info"] h1',
         'h1',
+        'h2',
+        'h3',
+        'h4',
       ],
       nameSelectors: [
         '[data-testid="token-name"]',
@@ -21,6 +24,8 @@ export class SolscanPlatform extends GenericSolanaPlatform {
         '[class*="TokenName"]',
         'h1',
         'h2',
+        'h3',
+        'h4',
         'strong',
       ],
       currentAddressPatterns: [
@@ -101,7 +106,7 @@ export class SolscanPlatform extends GenericSolanaPlatform {
     }
 
     const candidates = Array.from(main.querySelectorAll(
-      'h1, h2, [class*="title"], [class*="Title"], [class*="name"], [class*="Name"], strong, header span, header div',
+      'h1, h2, h3, h4, [class*="title"], [class*="Title"], [class*="name"], [class*="Name"], strong, header span, header div',
     ));
 
     for (const candidate of candidates) {

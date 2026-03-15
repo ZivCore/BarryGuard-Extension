@@ -23,6 +23,7 @@ export default defineContentScript({
     '*://moonshot.money/*',
     '*://dexscreener.com/*',
     '*://birdeye.so/*',
+    '*://bags.fm/*',
     '*://solscan.io/*',
     '*://*.solscan.io/*',
   ],

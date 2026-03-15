@@ -1,42 +1,41 @@
 import { GenericSolanaPlatform } from './generic-solana';
 
-export class BirdeyePlatform extends GenericSolanaPlatform {
+export class BagsPlatform extends GenericSolanaPlatform {
   constructor() {
-    const tokenRoutePattern = /\/(?:[a-z0-9_-]+\/)?token\/([1-9A-HJ-NP-Za-km-z]{32,44})(?:[/?#]|$)/i;
-
     super({
-      id: 'birdeye',
-      name: 'Birdeye',
-      hostPattern: ['*://birdeye.so/*'],
-      hostnames: ['birdeye.so'],
+      id: 'bags',
+      name: 'Bags',
+      hostPattern: ['*://bags.fm/*'],
+      hostnames: ['bags.fm'],
       detailTargetSelectors: [
-        '[data-testid="token-name"]',
-        '[data-testid*="token-name"]',
-        '[data-testid*="name"]',
-        '[class*="tokenName"]',
-        '[class*="token-name"]',
-        '[class*="tokenInfo"] h1',
-        '[class*="token-info"] h1',
         'h1',
         'h2',
+        '[data-testid="token-name"]',
+        '[data-testid*="token-name"]',
+        '[class*="tokenName"]',
+        '[class*="token-name"]',
+        '[class*="title"]',
+        '[class*="name"]',
       ],
       nameSelectors: [
-        '[data-testid="token-name"]',
-        '[data-testid*="token-name"]',
-        '[data-testid*="name"]',
-        '[class*="tokenName"]',
-        '[class*="token-name"]',
         'h1',
         'h2',
+        '[data-testid="token-name"]',
+        '[data-testid*="token-name"]',
+        '[class*="tokenName"]',
+        '[class*="token-name"]',
+        '[class*="title"]',
+        '[class*="name"]',
         'strong',
-        'span',
       ],
       currentAddressPatterns: [
-        tokenRoutePattern,
+        /^\/([1-9A-HJ-NP-Za-km-z]{32,44})(?:[/?#]|$)/i,
+        /\/token\/([1-9A-HJ-NP-Za-km-z]{32,44})(?:[/?#]|$)/i,
         /[?&](?:address|tokenAddress|mint)=([1-9A-HJ-NP-Za-km-z]{32,44})/i,
       ],
       linkAddressPatterns: [
-        tokenRoutePattern,
+        /^\/([1-9A-HJ-NP-Za-km-z]{32,44})(?:[/?#]|$)/i,
+        /\/token\/([1-9A-HJ-NP-Za-km-z]{32,44})(?:[/?#]|$)/i,
         /[?&](?:address|tokenAddress|mint)=([1-9A-HJ-NP-Za-km-z]{32,44})/i,
       ],
     });
@@ -128,11 +127,7 @@ export class BirdeyePlatform extends GenericSolanaPlatform {
     }
 
     const primary = rawTitle.split('|')[0]?.trim() ?? rawTitle;
-    const normalized = primary
-      .replace(/\bprice\b.*$/i, '')
-      .replace(/\bon birdeye\b/i, '')
-      .trim();
-
+    const normalized = primary.replace(/\son bags$/i, '').trim();
     return this.isLikelyTokenName(normalized) ? normalized : null;
   }
 
@@ -144,19 +139,16 @@ export class BirdeyePlatform extends GenericSolanaPlatform {
     const normalized = value.trim().toLowerCase();
     if (
       /^[1-9a-hj-np-z]{32,44}$/i.test(value)
-      || normalized === 'birdeye'
-      || normalized.includes('price')
+      || normalized === 'bags'
       || normalized.includes('market cap')
       || normalized.includes('holders')
-      || normalized.includes('watchlist')
-      || normalized.includes('trending')
+      || normalized.includes('comments')
+      || normalized.includes('transactions')
       || normalized.includes('trade')
       || normalized.includes('buy')
       || normalized.includes('sell')
-      || normalized.includes('liquidity')
-      || normalized.includes('volume')
-      || normalized.includes('security')
-      || normalized.includes('verify')
+      || normalized.includes('secure')
+      || normalized.includes('launch')
       || normalized.includes('connect wallet')
     ) {
       return false;
