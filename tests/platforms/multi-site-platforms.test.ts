@@ -283,6 +283,58 @@ describe('additional Solana platforms', () => {
     expect(tokenName?.nextElementSibling).toBe(badge);
   });
 
+  it('Birdeye on a token detail page only returns the current token address', () => {
+    const platform = new BirdeyePlatform();
+    window.history.replaceState({}, '', `/solana/token/${TOKEN_A}`);
+    document.body.innerHTML = `
+      <a href="/solana/token/${TOKEN_B}">Trending token</a>
+      <a href="/solana/token/${TOKEN_A}">Current token</a>
+    `;
+
+    expect(platform.extractTokenAddresses()).toEqual([TOKEN_A]);
+  });
+
+  it('Birdeye skips wallet address links in holder sections', () => {
+    const platform = new BirdeyePlatform();
+    window.history.replaceState({}, '', `/solana/token/${TOKEN_A}`);
+    const walletAddr = 'So11111111111111111111111111111111111111112';
+    document.body.innerHTML = `
+      <a href="/address/${walletAddr}">Holder 1</a>
+      <a href="/solana/token/${TOKEN_B}">Token B</a>
+    `;
+
+    const addresses = platform.extractTokenAddresses();
+    expect(addresses).not.toContain(walletAddr);
+  });
+
+  it('renders a Dexscreener detail badge below the token name h2', () => {
+    const platform = new DexScreenerPlatform();
+    window.history.replaceState({}, '', '/solana/BGxJ6fDcfwC3h7K4Y3DEj7S2xKz5b3jQzL2p8sY3pair');
+    document.body.innerHTML = `
+      <nav><h1>DEX SCREENER</h1></nav>
+      <main>
+        <a href="https://solscan.io/token/${TOKEN_A}">Solscan</a>
+        <h2>muddafudda Copy token address</h2>
+      </main>
+    `;
+    document.title = 'muddafudda $0.001 - First ever meme - DEX Screener';
+
+    platform.renderScoreBadge(TOKEN_A, {
+      address: TOKEN_A,
+      chain: 'solana',
+      score: 55,
+      risk: 'medium',
+      checks: {},
+      cached: false,
+    });
+
+    const tokenH2 = document.querySelector('main h2');
+    const badge = document.querySelector(`[data-barryguard-badge="${TOKEN_A}"]`);
+
+    expect(tokenH2?.nextElementSibling).toBe(badge);
+    expect(badge?.textContent).toContain('BarryGuard');
+  });
+
   it('uses a Solscan-specific fallback heading when no h1 is present', () => {
     const platform = new SolscanPlatform();
     window.history.replaceState({}, '', `/token/${TOKEN_A}`);

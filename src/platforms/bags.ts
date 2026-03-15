@@ -8,8 +8,8 @@ export class BagsPlatform extends GenericSolanaPlatform {
       hostPattern: ['*://bags.fm/*'],
       hostnames: ['bags.fm'],
       detailTargetSelectors: [
-        'h1',
         'h2',
+        'h1',
         '[data-testid="token-name"]',
         '[data-testid*="token-name"]',
         '[class*="tokenName"]',

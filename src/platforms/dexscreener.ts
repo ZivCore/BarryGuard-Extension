@@ -28,4 +28,42 @@ export class DexScreenerPlatform extends GenericSolanaPlatform {
       ],
     });
   }
+
+  protected override getDetailTarget(): Element | null {
+    const tokenName = this.getTokenNameFromTitle();
+    if (tokenName) {
+      const h2s = Array.from(document.querySelectorAll('h2'));
+      for (const h2 of h2s) {
+        if (h2.closest('[data-barryguard="true"]')) {
+          continue;
+        }
+
+        const text = h2.textContent?.trim() ?? '';
+        if (text.toLowerCase().startsWith(tokenName.toLowerCase())) {
+          return h2;
+        }
+      }
+    }
+
+    const mainH2 = document.querySelector('main h2');
+    if (mainH2 && !mainH2.closest('[data-barryguard="true"]')) {
+      return mainH2;
+    }
+
+    return null;
+  }
+
+  private getTokenNameFromTitle(): string | null {
+    const title = document.title;
+    if (!title) {
+      return null;
+    }
+
+    const beforePrice = title.split(' $')[0]?.trim();
+    if (beforePrice && beforePrice.length > 0 && beforePrice.length < 60) {
+      return beforePrice;
+    }
+
+    return null;
+  }
 }
