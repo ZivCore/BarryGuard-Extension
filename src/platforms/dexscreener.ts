@@ -1,4 +1,5 @@
 import { GenericSolanaPlatform } from './generic-solana';
+import type { SelectedToken, TokenScore } from '../shared/types';
 
 const DEXSCREENER_TOKEN_LINK_SELECTORS = [
   'a[href*="solscan.io/token/"]',
@@ -39,6 +40,19 @@ export class DexScreenerPlatform extends GenericSolanaPlatform {
       ],
       anchorSelectors: DEXSCREENER_TOKEN_LINK_SELECTORS,
     });
+  }
+
+  override buildSelectedToken(address: string, score: TokenScore): SelectedToken {
+    // Scope metadata to <main> so nameSelectors don't match "DEX SCREENER" in the nav h1
+    const metadataRoot = this.isCurrentTokenPage(address)
+      ? (document.querySelector('main') ?? document)
+      : this.findListContext(address) ?? document;
+
+    return {
+      address,
+      score,
+      metadata: this.extractTokenMetadata(metadataRoot),
+    };
   }
 
   protected override getDetailTarget(): Element | null {

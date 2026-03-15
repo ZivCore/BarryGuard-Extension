@@ -448,6 +448,29 @@ describe('additional Solana platforms', () => {
     expect(addresses).not.toContain(walletAddr);
   });
 
+  it('extracts DexScreener token metadata from main, not the nav brand', () => {
+    const platform = new DexScreenerPlatform();
+    window.history.replaceState({}, '', '/solana/BGxJ6fDcfwC3h7K4Y3DEj7S2xKz5b3jQzL2p8sY3pair');
+    document.body.innerHTML = `
+      <nav>
+        <span class="siteName">DexScreener</span>
+        <h1>DEX SCREENER</h1>
+      </nav>
+      <main>
+        <a href="https://solscan.io/token/${TOKEN_A}">Solscan</a>
+        <h2>muddafudda</h2>
+      </main>
+    `;
+    document.title = 'muddafudda $0.001 - First ever meme - DEX Screener';
+
+    const score = { address: TOKEN_A, chain: 'solana', score: 55, risk: 'medium' as const, checks: {}, cached: false };
+    const selected = platform.buildSelectedToken(TOKEN_A, score);
+
+    expect(selected.metadata.name).not.toContain('SCREENER');
+    expect(selected.metadata.name).not.toContain('DexScreener');
+    expect(selected.metadata.name).toBe('muddafudda');
+  });
+
   it('renders a Dexscreener detail badge below the token name h2', () => {
     const platform = new DexScreenerPlatform();
     window.history.replaceState({}, '', '/solana/BGxJ6fDcfwC3h7K4Y3DEj7S2xKz5b3jQzL2p8sY3pair');
