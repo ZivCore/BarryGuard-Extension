@@ -176,7 +176,39 @@ describe('additional Solana platforms', () => {
     const badge = document.querySelector(`[data-barryguard-badge="${TOKEN_A}"]`);
 
     expect(tokenName?.nextElementSibling).toBe(badge);
-    expect(badge?.textContent).toContain('BarryGuard');
+    // Birdeye uses compact badge ('BG' label instead of 'BarryGuard')
+    expect(badge?.textContent).toContain('BG');
+  });
+
+  it('renders a Birdeye detail badge inline inside h1 (to the right of the token name)', () => {
+    const platform = new BirdeyePlatform();
+    window.history.replaceState({}, '', `/solana/token/${TOKEN_A}`);
+    document.body.innerHTML = `
+      <main>
+        <h1 class="flex items-baseline gap-1">
+          <span class="shrink-0 truncate">TokenName</span>
+          <span class="truncate">SYMBOL</span>
+        </h1>
+      </main>
+    `;
+    document.title = 'TokenName $0.01 | Birdeye';
+
+    platform.renderScoreBadge(TOKEN_A, {
+      address: TOKEN_A,
+      chain: 'solana',
+      score: 81,
+      risk: 'low',
+      checks: {},
+      cached: false,
+    });
+
+    const h1 = document.querySelector('h1');
+    const symbolSpan = h1?.querySelector('span:last-of-type');
+    const badge = document.querySelector(`[data-barryguard-badge="${TOKEN_A}"]`);
+
+    // Badge is inserted after the last span — inside h1, to the right of the symbol
+    expect(symbolSpan?.nextElementSibling).toBe(badge);
+    expect(badge?.textContent).toContain('BG');
   });
 
   it('renders a Bags detail badge directly below the token name', () => {
@@ -240,6 +272,47 @@ describe('additional Solana platforms', () => {
 
     expect(tokenName?.nextElementSibling).toBe(badge);
     expect(document.querySelector('.stats [data-barryguard-badge]')).toBeNull();
+  });
+
+  it('prefers the smallest Bags title match instead of a wrapper containing buy actions', () => {
+    const platform = new BagsPlatform();
+    const bagsToken = 'ESBCnCXtEZDmX8QnHU6qMZXd9mvjSAZVoYaLKKADBAGS';
+    window.history.replaceState({}, '', `/${bagsToken}`);
+    document.body.innerHTML = `
+      <main>
+        <section class="hero">
+          <div class="tokenPanel">
+            <div class="tokenHeader">
+              <div class="titleGroup">
+                <div class="tokenTitle">BUY THE HAT</div>
+                <div class="tokenSymbol">BUY THE HAT</div>
+              </div>
+              <div class="actions">
+                <a href="/buy/bags">Buy on Bags</a>
+                <a href="/buy/axiom">Buy on Axiom</a>
+                <a href="/buy/jupiter">Buy on Jupiter</a>
+              </div>
+            </div>
+          </div>
+        </section>
+      </main>
+    `;
+    document.title = 'BUY THE HAT on Bags | Bags';
+
+    platform.renderScoreBadge(bagsToken, {
+      address: bagsToken,
+      chain: 'solana',
+      score: 88,
+      risk: 'low',
+      checks: {},
+      cached: false,
+    });
+
+    const titleGroup = document.querySelector('.titleGroup');
+    const badge = document.querySelector(`[data-barryguard-badge="${bagsToken}"]`);
+
+    expect(titleGroup?.nextElementSibling).toBe(badge);
+    expect(document.querySelector('.actions [data-barryguard-badge]')).toBeNull();
   });
 
   it('extracts Solscan token addresses from token routes and token links', () => {

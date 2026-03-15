@@ -9,6 +9,7 @@ export class BirdeyePlatform extends GenericSolanaPlatform {
       name: 'Birdeye',
       hostPattern: ['*://birdeye.so/*'],
       hostnames: ['birdeye.so'],
+      compactBadge: true,
       detailTargetSelectors: [
         '[data-testid="token-name"]',
         '[data-testid*="token-name"]',
@@ -45,10 +46,40 @@ export class BirdeyePlatform extends GenericSolanaPlatform {
   protected override getDetailTarget(): Element | null {
     const explicitTarget = super.getDetailTarget();
     if (explicitTarget) {
+      // If target is an h1 flex container, return its last child span so the
+      // badge is inserted inline (to the right of the token name/symbol).
+      if (explicitTarget.tagName === 'H1' && explicitTarget.lastElementChild?.tagName === 'SPAN') {
+        return explicitTarget.lastElementChild;
+      }
+
       return explicitTarget;
     }
 
     return this.findHeuristicDetailTarget();
+  }
+
+  protected override insertBadge(address: string, target: Element, badge: HTMLDivElement): void {
+    // When the target is a span inside h1, insert the badge as an inline flex
+    // item to the right of the token name rather than as a block below it.
+    if (target.tagName === 'SPAN' && target.parentElement?.tagName === 'H1') {
+      if (this.isCurrentTokenPage(address)) {
+        document
+          .querySelectorAll(`[data-barryguard-context="${this.id}-detail"]`)
+          .forEach((element) => element.remove());
+        badge.setAttribute('data-barryguard-context', `${this.id}-detail`);
+      } else {
+        badge.setAttribute('data-barryguard-context', `${this.id}-list`);
+      }
+
+      badge.style.marginTop = '0';
+      badge.style.marginLeft = '4px';
+      badge.style.flexShrink = '0';
+      badge.style.alignSelf = 'center';
+      target.insertAdjacentElement('afterend', badge);
+      return;
+    }
+
+    super.insertBadge(address, target, badge);
   }
 
   override extractTokenAddresses(): string[] {

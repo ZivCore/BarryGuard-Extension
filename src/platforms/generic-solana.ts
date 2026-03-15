@@ -438,7 +438,7 @@ export class GenericSolanaPlatform implements IPlatform {
     return badge.getAttribute('data-barryguard-context') !== this.getBadgeContext(address);
   }
 
-  private insertBadge(address: string, target: Element, badge: HTMLDivElement): void {
+  protected insertBadge(address: string, target: Element, badge: HTMLDivElement): void {
     if (this.isCurrentTokenPage(address)) {
       document
         .querySelectorAll(`[data-barryguard-context="${this.id}-detail"]`)
