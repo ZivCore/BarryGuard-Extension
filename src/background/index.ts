@@ -892,23 +892,27 @@ async function analyzeTokenList(addresses: string[]): Promise<ApiResponse<TokenL
 }
 
 async function openPopupForToken(selectedToken: SelectedToken) {
-  const hasMetadata = Boolean(
-    selectedToken.metadata?.name
-    || selectedToken.metadata?.symbol
-    || selectedToken.metadata?.imageUrl,
-  );
-  const metadataResult = hasMetadata
-    ? { success: false as const }
-    : await getPumpFunMetadata(selectedToken.address);
-  const enrichedToken: SelectedToken = {
-    ...selectedToken,
-    metadata: {
-      ...(selectedToken.metadata ?? {}),
-      ...(metadataResult.success ? metadataResult.data : {}),
-    },
-  };
+  if (selectedToken.locked) {
+    await chrome.storage.local.set({ selectedToken });
+  } else {
+    const hasMetadata = Boolean(
+      selectedToken.metadata?.name
+      || selectedToken.metadata?.symbol
+      || selectedToken.metadata?.imageUrl,
+    );
+    const metadataResult = hasMetadata
+      ? { success: false as const }
+      : await getPumpFunMetadata(selectedToken.address);
+    const enrichedToken: SelectedToken = {
+      ...selectedToken,
+      metadata: {
+        ...(selectedToken.metadata ?? {}),
+        ...(metadataResult.success ? metadataResult.data : {}),
+      },
+    };
 
-  await chrome.storage.local.set({ selectedToken: enrichedToken });
+    await chrome.storage.local.set({ selectedToken: enrichedToken });
+  }
 
   try {
     await chrome.action.openPopup();
