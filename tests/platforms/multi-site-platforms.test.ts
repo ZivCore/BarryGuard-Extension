@@ -315,6 +315,26 @@ describe('additional Solana platforms', () => {
     expect(document.querySelector('.actions [data-barryguard-badge]')).toBeNull();
   });
 
+  it('ignores Solscan wallet account links when extracting token addresses', () => {
+    const platform = new SolscanPlatform();
+    const walletAddr = 'So11111111111111111111111111111111111111112';
+    window.history.replaceState({}, '', `/token/${TOKEN_A}`);
+    document.body.innerHTML = `
+      <main>
+        <a href="/token/${TOKEN_B}">Token B</a>
+        <section aria-label="Transactions">
+          <a href="/account/${walletAddr}">From</a>
+          <a href="/account/${TOKEN_B}">To</a>
+        </section>
+      </main>
+    `;
+
+    const addresses = platform.extractTokenAddresses();
+    expect(addresses).not.toContain(walletAddr);
+    // TOKEN_B appears as both a token link and a wallet link; the token link should win
+    expect(addresses).toContain(TOKEN_B);
+  });
+
   it('extracts Solscan token addresses from token routes and token links', () => {
     const platform = new SolscanPlatform();
     window.history.replaceState({}, '', `/token/${TOKEN_A}`);

@@ -247,6 +247,12 @@ export class GenericSolanaPlatform implements IPlatform {
   }
 
   protected extractAddressFromNode(node: Element): string | null {
+    const href = node.getAttribute('href') ?? '';
+    // Skip links to wallet/account pages – those are never token mint addresses
+    if (href && /\/(?:account|address)\/[1-9A-HJ-NP-Za-km-z]{32,44}/.test(href)) {
+      return null;
+    }
+
     const hrefLikeValues = [
       node.getAttribute('href'),
       node.getAttribute('data-address'),
