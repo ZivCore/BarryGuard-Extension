@@ -87,13 +87,12 @@ export class PumpFunPlatform implements IPlatform {
       return;
     }
 
-    const isDetailPage = this.isCurrentTokenPage(address);
     const colors = this.getColors(score.risk);
     const badge = this.getBadge(address) ?? this.createBadge(address);
     badge.style.backgroundColor = colors.bg;
     badge.style.color = colors.text;
     badge.style.border = `1px solid ${colors.border}`;
-    this.setBadgeContent(badge, String(score.score), !isDetailPage);
+    this.setBadgeContent(badge, String(score.score));
     badge.title = `BarryGuard Score: ${score.score}/100 - Click for details`;
     badge.onclick = (event) => {
       event.preventDefault();
@@ -116,12 +115,11 @@ export class PumpFunPlatform implements IPlatform {
       return;
     }
 
-    const isDetailPage = this.isCurrentTokenPage(address);
     const badge = this.getBadge(address) ?? this.createBadge(address);
     badge.style.backgroundColor = '#f3f4f6';
     badge.style.color = '#6b7280';
     badge.style.border = '1px solid #e5e7eb';
-    this.setBadgeContent(badge, '...', !isDetailPage);
+    this.setBadgeContent(badge, '...');
     badge.title = 'BarryGuard: Loading...';
     badge.onclick = null;
 
@@ -136,7 +134,7 @@ export class PumpFunPlatform implements IPlatform {
       return;
     }
 
-    this.setBadgeContent(badge, '?', !this.isCurrentTokenPage(address));
+    this.setBadgeContent(badge, '?');
     badge.title = 'BarryGuard: Score unavailable';
     badge.style.backgroundColor = '#f3f4f6';
     badge.style.color = '#9ca3af';
@@ -146,17 +144,25 @@ export class PumpFunPlatform implements IPlatform {
 
   observeDOMChanges(callback: () => void): void {
     const observer = new MutationObserver((mutations) => {
-      const hasNewTokenNodes = mutations.some((mutation) =>
+      const isDetailPage = Boolean(this.getCurrentAddress());
+
+      const hasRelevantNodes = mutations.some((mutation) =>
         Array.from(mutation.addedNodes).some((node) => {
           if (node.nodeType !== Node.ELEMENT_NODE) {
             return false;
           }
 
           const element = node as Element;
+
+          if (isDetailPage) {
+            // On coin pages, re-scan when h1 appears (page hydrated after SPA nav or initial load)
+            return element.matches('h1') || !!element.querySelector('h1');
+          }
+
           return element.matches(SELECTORS.tokenLink) || !!element.querySelector(SELECTORS.tokenLink);
         }));
 
-      if (hasNewTokenNodes) {
+      if (hasRelevantNodes) {
         setTimeout(callback, 100);
       }
     });
@@ -228,11 +234,18 @@ export class PumpFunPlatform implements IPlatform {
 
     const link = target as HTMLAnchorElement;
     const cardRoot = this.findCardRoot(link);
-    const nameNode = this.findNameNode(cardRoot ?? link);
+    const mcNode = this.findMcNode(cardRoot ?? link);
     badge.setAttribute('data-barryguard-context', 'list');
     badge.style.marginLeft = '0';
     badge.style.marginTop = '4px';
+    badge.style.display = 'flex';
 
+    if (mcNode) {
+      mcNode.insertAdjacentElement('afterend', badge);
+      return;
+    }
+
+    const nameNode = this.findNameNode(cardRoot ?? link);
     if (nameNode) {
       nameNode.insertAdjacentElement('afterend', badge);
       return;
@@ -281,6 +294,25 @@ export class PumpFunPlatform implements IPlatform {
         if (value && value.length > 2 && value.length < 64) {
           return match;
         }
+      }
+    }
+
+    return null;
+  }
+
+  private findMcNode(root: Element): Element | null {
+    // pump.fun renders the label and value as separate nodes:
+    //   <span>MC</span><div>$5.6K</div>
+    // both inside a flex row. We find the "MC" label span and return
+    // its grandparent (the row container) so the badge inserts after the row.
+    const candidates = Array.from(root.querySelectorAll('span, p'));
+    for (const el of candidates) {
+      if (el.closest('[data-barryguard="true"]')) {
+        continue;
+      }
+
+      if (el.textContent?.trim() === 'MC') {
+        return el.parentElement?.parentElement ?? el.parentElement ?? el;
       }
     }
 

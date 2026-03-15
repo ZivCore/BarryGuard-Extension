@@ -218,6 +218,18 @@ export function initializeContentScript(): void {
   window.addEventListener('popstate', handleUrlChange);
   window.addEventListener('hashchange', handleUrlChange);
 
+  // Intercept SPA navigation (pushState/replaceState do not fire popstate)
+  const originalPushState = history.pushState.bind(history);
+  const originalReplaceState = history.replaceState.bind(history);
+  history.pushState = (...args) => {
+    originalPushState(...args);
+    setTimeout(handleUrlChange, 0);
+  };
+  history.replaceState = (...args) => {
+    originalReplaceState(...args);
+    setTimeout(handleUrlChange, 0);
+  };
+
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', () => {
       scanAll();

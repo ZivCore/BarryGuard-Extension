@@ -12,3 +12,6 @@ test-results/
 .env.local
 .env.*.local
 coverage/
+.superpowers
+.playwright-mcp/
+*.png

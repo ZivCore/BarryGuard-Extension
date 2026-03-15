@@ -109,9 +109,23 @@ const CHECK_DESCRIPTION_TRANSLATIONS: Record<string, string> = {
   'Die Verteilung auf Wallets wirkt gesund.': 'The wallet distribution looks healthy.',
   'Token ist sehr neu.': 'The token is very new.',
   'Token hat bereits etwas Historie.': 'The token already has some trading history.',
+  'Aeltere Tokens sind in der Regel weniger riskant.': 'Older tokens are generally less risky.',
+  'Ältere Tokens sind in der Regel weniger riskant.': 'Older tokens are generally less risky.',
   'Es gibt bislang nur wenige Holder.': 'There are still only a few holders.',
   'Es gibt bereits viele Holder.': 'There are already many holders.',
 };
+
+// Pattern-based translations for German strings that contain dynamic values (numbers, percentages).
+const CHECK_DESCRIPTION_PATTERNS: Array<{ pattern: RegExp; translate: (m: RegExpMatchArray) => string }> = [
+  {
+    pattern: /^Eine einzelne Wallet h[äa]lt ([\d.,]+)% des Supply\.$/,
+    translate: (m) => `A single wallet holds ${m[1]}% of the supply.`,
+  },
+  {
+    pattern: /^Der Token wird von (\d+) Wallets gehalten\.$/,
+    translate: (m) => `The token is held by ${m[1]} wallets.`,
+  },
+];
 
 const state: PopupState = {
   currentScreen: 'loading',
@@ -428,7 +442,18 @@ function normalizeCheckDescription(description: string | undefined, checkKey: st
     return CHECK_METADATA[checkKey]?.teaser ?? '';
   }
 
-  return CHECK_DESCRIPTION_TRANSLATIONS[description] ?? description;
+  if (CHECK_DESCRIPTION_TRANSLATIONS[description]) {
+    return CHECK_DESCRIPTION_TRANSLATIONS[description];
+  }
+
+  for (const { pattern, translate } of CHECK_DESCRIPTION_PATTERNS) {
+    const match = description.match(pattern);
+    if (match) {
+      return translate(match);
+    }
+  }
+
+  return description;
 }
 
 function normalizeCheckText(value: unknown): string {
