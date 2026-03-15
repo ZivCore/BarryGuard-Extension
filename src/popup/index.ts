@@ -781,11 +781,52 @@ function renderUsageLimitState(): void {
   }
 }
 
+function renderLockedTokenUpgradeBanner(): void {
+  const branding = getPlanBranding(state.userProfile?.tier);
+  const address = state.selectedToken?.address ?? '';
+
+  if (elements.tokenDetail.tokenLogo) {
+    elements.tokenDetail.tokenLogo.src = branding.tokenFallbackLogo;
+    elements.tokenDetail.tokenLogo.alt = 'BarryGuard locked token';
+  }
+
+  elements.tokenDetail.tokenName!.textContent = address ? truncateAddress(address) : 'Token';
+  elements.tokenDetail.tokenSymbol!.textContent = '';
+  updateTokenAddressButton(address ? truncateAddress(address) : '—', address || null);
+  elements.tokenDetail.scoreValue!.textContent = '🔒';
+  elements.tokenDetail.scoreCircle!.className = 'score-circle';
+  elements.tokenDetail.riskLabel!.textContent = 'ANALYZING...';
+  elements.tokenDetail.checksList!.innerHTML = `
+    <div class="check-item">
+      <div class="check-icon warning">🔒</div>
+      <div class="check-content">
+        <div class="check-label">List scanning locked</div>
+        <div class="check-description">Upgrade to Rescue Pass to see scores for all tokens in list views.</div>
+      </div>
+    </div>
+  `;
+  renderUsageIndicator();
+  updateUpgradeBanner(true, {
+    title: 'Upgrade to Rescue Pass',
+    body: 'Unlock full list scanning — see scores for all tokens at once.',
+    buttonLabel: 'Upgrade',
+  });
+
+  if (elements.tokenDetail.viewExplorer instanceof HTMLAnchorElement) {
+    elements.tokenDetail.viewExplorer.dataset.address = address;
+  }
+}
+
 function renderPrimaryTokenState(): void {
   renderUsageIndicator();
 
   if (state.selectedToken?.score) {
     renderTokenDetail(state.selectedToken.score);
+    return;
+  }
+
+  if (state.selectedToken?.locked) {
+    renderLockedTokenUpgradeBanner();
     return;
   }
 
@@ -983,7 +1024,9 @@ function handleSelectedTokenUpdate(selectedToken: SelectedToken | null): void {
   state.selectedToken = selectedToken;
   renderPrimaryTokenState();
 
-  if (selectedToken?.score) {
+  if (selectedToken?.locked && !selectedToken?.score) {
+    void fetchLockedTokenScore(selectedToken.address);
+  } else if (selectedToken?.score) {
     void hydrateSelectedTokenMetadata(selectedToken);
     scheduleSelectedTokenScoreRefresh();
   }
@@ -1082,7 +1125,9 @@ async function hydrateSelectedTokenMetadata(selectedToken: SelectedToken): Promi
     }
 
     state.selectedToken = mergedToken;
-    renderTokenDetail(mergedToken.score);
+    if (mergedToken.score) {
+      renderTokenDetail(mergedToken.score);
+    }
     await chrome.storage.local.set({ selectedToken: mergedToken });
   } finally {
     isHydratingSelectedTokenMetadata = false;
@@ -1225,6 +1270,32 @@ async function refreshSelectedTokenScore(): Promise<void> {
   const nextToken: SelectedToken = {
     ...selectedToken,
     score: response.data,
+  };
+
+  state.selectedToken = nextToken;
+  renderTokenDetail(response.data);
+  await chrome.storage.local.set({ selectedToken: nextToken });
+  scheduleSelectedTokenScoreRefresh();
+}
+
+async function fetchLockedTokenScore(address: string): Promise<void> {
+  const response = await sendMessage<TokenScore>(
+    { type: 'GET_TOKEN_SCORE', payload: address },
+    5000,
+  );
+
+  if (!response.success || !response.data) {
+    return;
+  }
+
+  if (state.selectedToken?.address !== address) {
+    return;
+  }
+
+  const nextToken: SelectedToken = {
+    ...state.selectedToken,
+    score: response.data,
+    locked: true,
   };
 
   state.selectedToken = nextToken;
