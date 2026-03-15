@@ -5,6 +5,7 @@ import { LetsBonkPlatform } from '../../src/platforms/letsbonk';
 import { MoonshotPlatform } from '../../src/platforms/moonshot';
 import { DexScreenerPlatform } from '../../src/platforms/dexscreener';
 import { BirdeyePlatform } from '../../src/platforms/birdeye';
+import { BagsPlatform } from '../../src/platforms/bags';
 import { SolscanPlatform } from '../../src/platforms/solscan';
 
 const TOKEN_A = 'Gur3msAr6KPmoFogSabvuAxe4ZzjtNwv5WudJ49Ppump';
@@ -132,6 +133,67 @@ describe('additional Solana platforms', () => {
     expect(platform.getCurrentPageAddress()).toBe(TOKEN_A);
   });
 
+  it('extracts Birdeye token addresses from chain-prefixed token routes', () => {
+    const platform = new BirdeyePlatform();
+    window.history.replaceState({}, '', `/solana/token/${TOKEN_A}`);
+    document.body.innerHTML = `
+      <main>
+        <section class="token-shell">
+          <div class="tokenName">Token A</div>
+        </section>
+      </main>
+    `;
+    document.title = 'Token A price today | Birdeye';
+
+    expect(platform.getCurrentPageAddress()).toBe(TOKEN_A);
+
+    platform.renderScoreBadge(TOKEN_A, {
+      address: TOKEN_A,
+      chain: 'solana',
+      score: 81,
+      risk: 'low',
+      checks: {},
+      cached: false,
+    });
+
+    const tokenName = document.querySelector('.tokenName');
+    const badge = document.querySelector(`[data-barryguard-badge="${TOKEN_A}"]`);
+
+    expect(tokenName?.nextElementSibling).toBe(badge);
+    expect(badge?.textContent).toContain('BarryGuard');
+  });
+
+  it('renders a Bags detail badge directly below the token name', () => {
+    const platform = new BagsPlatform();
+    const bagsToken = '7pskt3A1Zsjhngazam7vHWjWHnfgiRump916Xj7ABAGS';
+    window.history.replaceState({}, '', `/${bagsToken}`);
+    document.body.innerHTML = `
+      <main>
+        <section class="hero">
+          <div class="tokenTitle">$$GAS</div>
+        </section>
+      </main>
+    `;
+    document.title = '$$GAS on Bags | Bags';
+
+    expect(platform.getCurrentPageAddress()).toBe(bagsToken);
+
+    platform.renderScoreBadge(bagsToken, {
+      address: bagsToken,
+      chain: 'solana',
+      score: 88,
+      risk: 'low',
+      checks: {},
+      cached: false,
+    });
+
+    const tokenName = document.querySelector('.tokenTitle');
+    const badge = document.querySelector(`[data-barryguard-badge="${bagsToken}"]`);
+
+    expect(tokenName?.nextElementSibling).toBe(badge);
+    expect(badge?.textContent).toContain('BarryGuard');
+  });
+
   it('extracts Solscan token addresses from token routes and token links', () => {
     const platform = new SolscanPlatform();
     window.history.replaceState({}, '', `/token/${TOKEN_A}`);
@@ -189,6 +251,33 @@ describe('additional Solana platforms', () => {
     });
 
     const tokenName = document.querySelector('h1');
+    const badge = document.querySelector(`[data-barryguard-badge="${TOKEN_A}"]`);
+
+    expect(tokenName?.nextElementSibling).toBe(badge);
+  });
+
+  it('renders a Solscan detail badge when token name is in an h4', () => {
+    const platform = new SolscanPlatform();
+    window.history.replaceState({}, '', `/token/${TOKEN_A}`);
+    document.body.innerHTML = `
+      <main>
+        <div>
+          <h4 class="not-italic text-neutral8 truncate">Token <span>Would</span></h4>
+        </div>
+      </main>
+    `;
+    document.title = 'would (WOULD) | Solscan';
+
+    platform.renderScoreBadge(TOKEN_A, {
+      address: TOKEN_A,
+      chain: 'solana',
+      score: 70,
+      risk: 'low',
+      checks: {},
+      cached: false,
+    });
+
+    const tokenName = document.querySelector('h4');
     const badge = document.querySelector(`[data-barryguard-badge="${TOKEN_A}"]`);
 
     expect(tokenName?.nextElementSibling).toBe(badge);

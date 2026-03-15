@@ -5,6 +5,7 @@ import { LetsBonkPlatform } from '../platforms/letsbonk';
 import { MoonshotPlatform } from '../platforms/moonshot';
 import { DexScreenerPlatform } from '../platforms/dexscreener';
 import { BirdeyePlatform } from '../platforms/birdeye';
+import { BagsPlatform } from '../platforms/bags';
 import { SolscanPlatform } from '../platforms/solscan';
 import type { IPlatform } from '../platforms/platform.interface';
 import type { ApiResponse, SelectedToken, TierLevel, TokenMetadata, TokenScore } from '../shared/types';
@@ -17,6 +18,7 @@ const PLATFORMS: IPlatform[] = [
   new MoonshotPlatform(),
   new DexScreenerPlatform(),
   new BirdeyePlatform(),
+  new BagsPlatform(),
   new SolscanPlatform(),
 ];
 const PROFILE_STORAGE_KEY = 'user_profile';
@@ -107,6 +109,7 @@ export function getCurrentPageAddress(pathOrUrl: string): string | null {
   }
 
   const pathMatch = pathOrUrl.match(/\/(?:coin|token|trade|swap|coins?)\/([1-9A-HJ-NP-Za-km-z]{32,44})(?:[/?#]|$)/i)
+    ?? pathOrUrl.match(/(?:^|\/)([1-9A-HJ-NP-Za-km-z]{32,44})(?:[/?#]|$)/)
     ?? pathOrUrl.match(/^\/([1-9A-HJ-NP-Za-km-z]{32,44})(?:[/?#]|$)/);
 
   return pathMatch?.[1] ?? null;

@@ -47,6 +47,8 @@ const DEFAULT_ANCHOR_SELECTORS = ['a[href]', '[data-address]', '[data-token-addr
 const EXPLORER_ADDRESS_PATTERNS = [
   /solscan\.io\/token\/([1-9A-HJ-NP-Za-km-z]{32,44})/i,
   /birdeye\.so\/token\/([1-9A-HJ-NP-Za-km-z]{32,44})/i,
+  /birdeye\.so\/[a-z0-9_-]+\/token\/([1-9A-HJ-NP-Za-km-z]{32,44})/i,
+  /bags\.fm\/([1-9A-HJ-NP-Za-km-z]{32,44})(?:[/?#]|$)/i,
 ];
 
 type AddressExtractor = (location: Location) => string | null;
