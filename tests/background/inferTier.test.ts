@@ -148,4 +148,39 @@ describe('normalizeProfile', () => {
     expect(result.hourlyAnalysesRemaining).toBe(993);
     expect(result.hourlyAnalysesLimit).toBe(1000);
   });
+
+  it('reads hourly usage values from nested usage objects and derives the limit', () => {
+    const result = normalizeProfile({
+      email: 'paid@barryguard.com',
+      tier: 'pro',
+      usage: {
+        used_in_last_hour: 7,
+        analyses_remaining_this_hour: 993,
+      },
+    });
+
+    expect(result.hourlyAnalysesUsed).toBe(7);
+    expect(result.hourlyAnalysesRemaining).toBe(993);
+    expect(result.hourlyAnalysesLimit).toBe(1000);
+  });
+
+  it('reads hourly usage values from nested data.limits.hourly objects', () => {
+    const result = normalizeProfile({
+      email: 'paid@barryguard.com',
+      tier: 'pro',
+      data: {
+        limits: {
+          hourly: {
+            used: 7,
+            remaining: 993,
+            max: 1000,
+          },
+        },
+      },
+    });
+
+    expect(result.hourlyAnalysesUsed).toBe(7);
+    expect(result.hourlyAnalysesRemaining).toBe(993);
+    expect(result.hourlyAnalysesLimit).toBe(1000);
+  });
 });

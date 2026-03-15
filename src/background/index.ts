@@ -94,6 +94,10 @@ function pickNumber(record: JsonRecord, keys: string[]): number | undefined {
   return undefined;
 }
 
+function mergeRecords(...records: Array<JsonRecord | null>): JsonRecord {
+  return records.reduce<JsonRecord>((acc, record) => (record ? { ...acc, ...record } : acc), {});
+}
+
 function normalizeTierValue(value: unknown): TierLevel | null {
   if (typeof value !== 'string') {
     return null;
@@ -403,11 +407,46 @@ function normalizeProfile(profile: UserProfile | JsonRecord): UserProfile {
   const nestedUser = asRecord(profileRecord.user) ?? {};
   const nestedProfile = asRecord(profileRecord.profile) ?? {};
   const nestedSubscription = asRecord(profileRecord.subscription) ?? {};
+  const nestedUsage = mergeRecords(
+    asRecord(profileRecord.usage),
+    asRecord(nestedData.usage),
+    asRecord(nestedUser.usage),
+    asRecord(nestedProfile.usage),
+    asRecord(nestedSubscription.usage),
+  );
+  const nestedQuota = mergeRecords(
+    asRecord(profileRecord.quota),
+    asRecord(nestedData.quota),
+    asRecord(nestedUser.quota),
+    asRecord(nestedProfile.quota),
+    asRecord(nestedSubscription.quota),
+  );
+  const nestedLimits = mergeRecords(
+    asRecord(profileRecord.limits),
+    asRecord(nestedData.limits),
+    asRecord(nestedUser.limits),
+    asRecord(nestedProfile.limits),
+    asRecord(nestedSubscription.limits),
+  );
+  const nestedHourly = mergeRecords(
+    asRecord(profileRecord.hourly),
+    asRecord(nestedData.hourly),
+    asRecord(nestedUser.hourly),
+    asRecord(nestedProfile.hourly),
+    asRecord(nestedSubscription.hourly),
+    asRecord(nestedUsage.hourly),
+    asRecord(nestedQuota.hourly),
+    asRecord(nestedLimits.hourly),
+  );
   const merged = {
     ...nestedData,
     ...nestedUser,
     ...nestedProfile,
     ...nestedSubscription,
+    ...nestedUsage,
+    ...nestedQuota,
+    ...nestedLimits,
+    ...nestedHourly,
     ...profileRecord,
   } as JsonRecord;
   const typedProfile = merged as Partial<UserProfile>;
@@ -421,26 +460,62 @@ function normalizeProfile(profile: UserProfile | JsonRecord): UserProfile {
   const customerPortalUrl =
     pickString(merged, ['customerPortalUrl', 'customer_portal_url']) ?? typedProfile.customerPortalUrl;
   const hourlyAnalysesUsed =
-    pickNumber(merged, ['hourlyAnalysesUsed', 'hourly_analyses_used', 'analysesThisHour', 'analyses_this_hour'])
+    pickNumber(merged, [
+      'hourlyAnalysesUsed',
+      'hourly_analyses_used',
+      'analysesThisHour',
+      'analyses_this_hour',
+      'usedThisHour',
+      'used_this_hour',
+      'usedInLastHour',
+      'used_in_last_hour',
+      'analysesUsedLastHour',
+      'analyses_used_last_hour',
+      'usage',
+      'used',
+    ])
     ?? typedProfile.hourlyAnalysesUsed;
   const hourlyAnalysesRemaining =
     pickNumber(merged, [
       'hourlyAnalysesRemaining',
       'hourly_analyses_remaining',
+      'analysesRemainingThisHour',
+      'analyses_remaining_this_hour',
       'remainingAnalysesThisHour',
       'remaining_analyses_this_hour',
+      'remainingThisHour',
+      'remaining_this_hour',
       'analysesRemaining',
       'analyses_remaining',
+      'remaining',
     ]) ?? typedProfile.hourlyAnalysesRemaining;
-  const hourlyAnalysesLimit =
+  const explicitHourlyAnalysesLimit =
     pickNumber(merged, [
       'hourlyAnalysesLimit',
       'hourly_analyses_limit',
       'maxAnalysesPerHour',
       'max_analyses_per_hour',
+      'maximumAnalysesPerHour',
+      'maximum_analyses_per_hour',
+      'maximumPerHour',
+      'maximum_per_hour',
+      'maxPerHour',
+      'max_per_hour',
       'hourlyLimit',
       'hourly_limit',
+      'limit',
+      'max',
     ]) ?? typedProfile.hourlyAnalysesLimit;
+  const hourlyAnalysesLimit =
+    explicitHourlyAnalysesLimit
+    ?? (
+      typeof hourlyAnalysesUsed === 'number'
+      && Number.isFinite(hourlyAnalysesUsed)
+      && typeof hourlyAnalysesRemaining === 'number'
+      && Number.isFinite(hourlyAnalysesRemaining)
+        ? Math.max(0, hourlyAnalysesUsed) + Math.max(0, hourlyAnalysesRemaining)
+        : undefined
+    );
   const email = pickString(merged, ['email']) ?? typedProfile.email ?? '';
   const id = pickString(merged, ['id']) ?? typedProfile.id ?? email;
 
