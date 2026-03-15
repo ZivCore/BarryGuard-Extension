@@ -160,6 +160,32 @@ function inferFallbackCheckStatus(
     }
   }
 
+  if (key === 'tokenAge') {
+    if (
+      text.includes('sehr neu')
+      || text.includes('very new')
+      || text.includes('etwas historie')
+      || text.includes('some trading history')
+    ) {
+      return 'warning';
+    }
+
+    if (
+      text.includes('weniger riskant')
+      || text.includes('less risky')
+      || text.includes('ältere')
+      || text.includes('aeltere')
+      || text.includes('older token')
+    ) {
+      return 'success';
+    }
+
+    // Numeric value fallback: any age value present means the check was evaluated
+    if (typeof value === 'number' && value >= 0) {
+      return 'warning';
+    }
+  }
+
   return null;
 }
 
