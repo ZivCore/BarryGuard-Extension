@@ -91,15 +91,6 @@ export class BirdeyePlatform extends GenericSolanaPlatform {
     return super.extractTokenAddresses();
   }
 
-  protected override extractAddressFromNode(node: Element): string | null {
-    const href = node.getAttribute('href') ?? '';
-    if (href && /\/address\/[1-9A-HJ-NP-Za-km-z]{32,44}/.test(href)) {
-      return null;
-    }
-
-    return super.extractAddressFromNode(node);
-  }
-
   override observeDOMChanges(callback: () => void): void {
     let scheduled = false;
     const schedule = () => {
