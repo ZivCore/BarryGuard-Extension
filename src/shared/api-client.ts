@@ -37,11 +37,17 @@ export class BarryGuardApiClient {
         return { success: true, data: await res.json() as T, statusCode: res.status };
       }
 
-      const err = await res.json().catch(() => ({ message: `HTTP ${res.status}` }));
+      const err = await res.json().catch(() => ({ message: `HTTP ${res.status}` })) as {
+        message?: string;
+        code?: string;
+        errorCode?: string;
+      };
+      const errorCode = err.code ?? err.errorCode;
       return {
         success: false,
-        error: (err as { message?: string }).message ?? `HTTP ${res.status}`,
+        error: err.message ?? `HTTP ${res.status}`,
         statusCode: res.status,
+        ...(errorCode ? { errorCode } : {}),
       };
     } catch (e) {
       return {

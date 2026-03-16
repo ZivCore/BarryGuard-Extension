@@ -25,14 +25,14 @@ describe('content tier gating', () => {
     ).toBe('Gur3msAr6KPmoFogSabvuAxe4ZzjtNwv5WudJ49Ppump');
   });
 
-  it('returns first 3 as active and rest as locked for the free tier on list pages', () => {
+  it('returns all addresses as active for the free tier on list pages (v2: no locked)', () => {
     expect(
       selectAddressesForTier(
         ['7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU'],
         null,
         'free',
       ),
-    ).toEqual({ active: ['7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU'], locked: [] });
+    ).toEqual({ active: ['7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU'] });
   });
 
   it('returns only the current coin for the free tier on detail pages', () => {
@@ -45,7 +45,7 @@ describe('content tier gating', () => {
         'Gur3msAr6KPmoFogSabvuAxe4ZzjtNwv5WudJ49Ppump',
         'free',
       ),
-    ).toEqual({ active: ['Gur3msAr6KPmoFogSabvuAxe4ZzjtNwv5WudJ49Ppump'], locked: [] });
+    ).toEqual({ active: ['Gur3msAr6KPmoFogSabvuAxe4ZzjtNwv5WudJ49Ppump'] });
   });
 
   it('keeps full list scoring for paid tiers', () => {
@@ -54,21 +54,19 @@ describe('content tier gating', () => {
       '7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU',
     ];
 
-    expect(selectAddressesForTier(addresses, null, 'rescue_pass')).toEqual({ active: addresses, locked: [] });
-    expect(selectAddressesForTier(addresses, null, 'pro')).toEqual({ active: addresses, locked: [] });
+    expect(selectAddressesForTier(addresses, null, 'rescue_pass')).toEqual({ active: addresses });
+    expect(selectAddressesForTier(addresses, null, 'pro')).toEqual({ active: addresses });
   });
 
-  it('returns first 3 as active and the rest as locked for free tier with many tokens', () => {
+  it('returns all addresses as active for free tier with many tokens (v2: no slot limit)', () => {
     const addresses = Array.from({ length: 7 }, (_, i) => `Addr${i}${'x'.repeat(38 - String(i).length)}`);
     const result = selectAddressesForTier(addresses, null, 'free');
-    expect(result.active).toHaveLength(3);
-    expect(result.locked).toHaveLength(4);
-    expect(result.active).toEqual(addresses.slice(0, 3));
-    expect(result.locked).toEqual(addresses.slice(3));
+    expect(result.active).toHaveLength(7);
+    expect(result.active).toEqual(addresses);
   });
 
-  it('returns empty active and locked when no addresses (free tier, list page)', () => {
-    expect(selectAddressesForTier([], null, 'free')).toEqual({ active: [], locked: [] });
+  it('returns empty active when no addresses (free tier, list page)', () => {
+    expect(selectAddressesForTier([], null, 'free')).toEqual({ active: [] });
   });
 
   it('retries transient score fetch failures on the current token page', () => {

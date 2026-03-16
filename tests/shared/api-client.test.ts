@@ -93,6 +93,30 @@ describe('BarryGuardApiClient', () => {
     expect(client.getAuthToken()).toBeNull();
   });
 
+  it('includes errorCode from error body when ANON_DAILY_LIMIT is present', async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: false,
+      status: 429,
+      json: async () => ({
+        message: 'Daily limit reached',
+        code: 'ANON_DAILY_LIMIT',
+        limit: 10,
+        retryAfter: 'tomorrow',
+      }),
+    });
+    const res = await client.getTokenScore('abc');
+    expect(res.success).toBe(false);
+    expect(res.statusCode).toBe(429);
+    expect(res.errorCode).toBe('ANON_DAILY_LIMIT');
+  });
+
+  it('does not set errorCode when error body has no code field', async () => {
+    mockError(500);
+    const res = await client.getTokenScore('abc');
+    expect(res.success).toBe(false);
+    expect(res.errorCode).toBeUndefined();
+  });
+
   describe('refreshToken', () => {
     it('returns error if no refresh_token is stored', async () => {
       client.setAuthToken({ access_token: 'old' }); // no refresh_token

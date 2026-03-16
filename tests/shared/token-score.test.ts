@@ -28,6 +28,9 @@ describe('sanitizeTokenScore', () => {
       score: 84,
       risk: 'low',
       cached: true,
+      subscores: { contract: 0, marketStructure: 0, behavior: 0 },
+      reasons: [],
+      confidence: 'medium',
       token: {
         name: 'Token A',
         symbol: '$TKNA',
@@ -100,6 +103,9 @@ describe('sanitizeTokenScore', () => {
       score: 84,
       risk: 'low',
       cached: false,
+      subscores: { contract: 0, marketStructure: 0, behavior: 0 },
+      reasons: [],
+      confidence: 'medium',
       checks: {
         mintAuthority: {
           status: 'danger',
@@ -148,6 +154,9 @@ describe('extractTokenScores', () => {
         score: 84,
         risk: 'low',
         cached: false,
+        subscores: { contract: 0, marketStructure: 0, behavior: 0 },
+        reasons: [],
+        confidence: 'medium',
         checks: {},
       },
     ]);
@@ -180,6 +189,9 @@ describe('extractTokenScores', () => {
         score: 65,
         risk: 'medium',
         cached: false,
+        subscores: { contract: 0, marketStructure: 0, behavior: 0 },
+        reasons: [],
+        confidence: 'medium',
         checks: {},
       },
     ]);
@@ -540,7 +552,12 @@ describe('extractTokenScores', () => {
         mintAuthority: { status: 'success', value: false, label: '', description: '', tier: 'free' },
         freezeAuthority: { status: 'success', value: false, label: '', description: '', tier: 'free' },
         liquidityLocked: { status: 'success', value: true, label: '', description: '', tier: 'free' },
+        topHolderConcentration: { status: 'warning', value: 14.2, label: '', description: '', tier: 'free' },
+        tokenAge: { status: 'warning', value: 90, label: '', description: '', tier: 'free' },
+        holderCount: { status: 'warning', value: 87, label: '', description: '', tier: 'free' },
+        developerHistory: { status: 'danger', value: 'bad', label: '', description: '', tier: 'free' },
+        clusterControl: { status: 'danger', value: 38.4, label: '', description: '', tier: 'free' },
       },
-    }, 'free')).toBe(false);
+    })).toBe(false);
   });
 });

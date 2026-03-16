@@ -1,6 +1,5 @@
 import type {
   ApiResponse,
-  CheckResult,
   HourlyUsageState,
   SelectedToken,
   TierLevel,
@@ -21,6 +20,13 @@ import {
   sanitizeOAuthNavigationUrl,
 } from '../shared/runtime-config';
 import { isTokenScoreLikelyIncomplete } from '../shared/token-score';
+import {
+  getRiskLevel,
+  renderChecks,
+  renderReasons,
+  renderSubscores,
+  renderAnalysisFooter,
+} from './render';
 
 type ScreenName = 'loading' | 'token-detail' | 'login' | 'register' | 'account' | 'manual';
 
@@ -44,103 +50,10 @@ interface PlanBranding {
   tierLogo: string;
 }
 
-const SCORE_THRESHOLDS = {
-  high: 30,
-  medium: 60,
-} as const;
 
-const CHECK_ORDER = [
-  'mintAuthority',
-  'freezeAuthority',
-  'liquidityLocked',
-  'topHolderConcentration',
-  'tokenAge',
-  'holderCount',
-  'developerHistory',
-  'clusterControl',
-] as const;
 const SCORE_REFRESH_BASE_DELAY_MS = 1500;
 const MAX_SCORE_REFRESH_ATTEMPTS = 6;
 
-const CHECK_FALLBACK_TIERS: Record<string, TierLevel> = {
-  mintAuthority: 'free',
-  freezeAuthority: 'free',
-  liquidityLocked: 'free',
-  topHolderConcentration: 'free',
-  tokenAge: 'free',
-  holderCount: 'free',
-  developerHistory: 'free',
-  clusterControl: 'free',
-};
-
-const CHECK_METADATA: Record<string, { label: string; teaser: string }> = {
-  mintAuthority: {
-    label: 'Mint Authority',
-    teaser: 'Checks whether new tokens can still be minted after launch.',
-  },
-  freezeAuthority: {
-    label: 'Freeze Authority',
-    teaser: 'Checks whether token transfers can still be frozen by an authority.',
-  },
-  liquidityLocked: {
-    label: 'Liquidity Lock',
-    teaser: 'Checks whether liquidity appears locked or can still be removed.',
-  },
-  topHolderConcentration: {
-    label: 'Top Holder Concentration',
-    teaser: 'Checks whether a small number of wallets control too much supply.',
-  },
-  tokenAge: {
-    label: 'Token Age',
-    teaser: 'Checks how new the token is and whether it lacks trading history.',
-  },
-  holderCount: {
-    label: 'Holder Count',
-    teaser: 'Checks how widely the token is distributed across wallet holders.',
-  },
-  developerHistory: {
-    label: 'Developer History',
-    teaser: 'Checks if the developer has a history of rug pulls or suspicious activity.',
-  },
-  clusterControl: {
-    label: 'Cluster Control',
-    teaser: 'Detects if wallets are controlled by a single entity (cluster).',
-  },
-};
-
-const CHECK_DESCRIPTION_TRANSLATIONS: Record<string, string> = {
-  'Niemand kann neue Tokens drucken.': 'No one can mint additional tokens.',
-  'Neue Tokens koennen weiterhin gedruckt werden.': 'New tokens can still be minted.',
-  'Neue Tokens können weiterhin gedruckt werden.': 'New tokens can still be minted.',
-  'Keine Wallet kann eingefroren werden.': 'No wallet can be frozen.',
-  'Wallets koennen weiterhin eingefroren werden.': 'Wallets can still be frozen.',
-  'Wallets können weiterhin eingefroren werden.': 'Wallets can still be frozen.',
-  'Die Liquiditaet ist gelockt.': 'Liquidity appears to be locked.',
-  'Die Liquidität ist gelockt.': 'Liquidity appears to be locked.',
-  'Die Liquiditaet kann jederzeit abgezogen werden.': 'Liquidity can be removed at any time.',
-  'Die Liquidität kann jederzeit abgezogen werden.': 'Liquidity can be removed at any time.',
-  'Wenige Wallets halten einen grossen Teil des Angebots.': 'A small number of wallets hold a large share of the supply.',
-  'Wenige Wallets halten einen großen Teil des Angebots.': 'A small number of wallets hold a large share of the supply.',
-  'Die Verteilung auf Wallets wirkt gesund.': 'The wallet distribution looks healthy.',
-  'Token ist sehr neu.': 'The token is very new.',
-  'Token hat bereits etwas Historie.': 'The token already has some trading history.',
-  'Aeltere Tokens sind in der Regel weniger riskant.': 'Older tokens are generally less risky.',
-  'Ältere Tokens sind in der Regel weniger riskant.': 'Older tokens are generally less risky.',
-  'Es gibt bislang nur wenige Holder.': 'There are still only a few holders.',
-  'Es gibt bereits viele Holder.': 'There are already many holders.',
-};
-
-// Pattern-based translations for German strings that contain dynamic values (numbers, percentages).
-const CHECK_DESCRIPTION_PATTERNS: Array<{ pattern: RegExp; translate: (m: RegExpMatchArray) => string }> = [
-  {
-    pattern: /^Eine einzelne Wallet h[äa]lt ([\d.,]+)% des Supply\.$/,
-    translate: (m) => `A single wallet holds ${m[1]}% of the supply.`,
-  },
-  {
-    pattern: /^Der Token wird von (\d+) Wallets gehalten\.$/,
-    translate: (m) => `The token is held by ${m[1]} wallets.`,
-  },
-];
 
 const state: PopupState = {
   currentScreen: 'loading',
@@ -184,12 +97,8 @@ const elements = {
     scoreValue: document.getElementById('score-value'),
     riskLabel: document.getElementById('risk-label'),
     checksList: document.getElementById('checks-list'),
-    upgradeBanner: document.getElementById('upgrade-banner'),
-    upgradeBannerTitle: document.getElementById('upgrade-banner-title'),
-    upgradeBannerBody: document.getElementById('upgrade-banner-body'),
     manualEntryBtn: document.getElementById('manual-entry-btn'),
     accountBtn: document.getElementById('account-btn'),
-    upgradeBtn: document.getElementById('upgrade-btn'),
     viewExplorer: document.getElementById('view-explorer'),
     // V2 elements
     subscoresContainer: document.getElementById('subscores-container'),
@@ -459,132 +368,6 @@ function canAccessTier(userTier: TierLevel, requiredTier: TierLevel): boolean {
   return getTierRank(userTier) >= getTierRank(requiredTier);
 }
 
-function normalizeCheckLabel(checkKey: string, fallbackLabel?: string): string {
-  return CHECK_METADATA[checkKey]?.label ?? fallbackLabel ?? checkKey;
-}
-
-function normalizeCheckDescription(description: string | undefined, checkKey: string): string {
-  if (!description) {
-    return CHECK_METADATA[checkKey]?.teaser ?? '';
-  }
-
-  if (CHECK_DESCRIPTION_TRANSLATIONS[description]) {
-    return CHECK_DESCRIPTION_TRANSLATIONS[description];
-  }
-
-  for (const { pattern, translate } of CHECK_DESCRIPTION_PATTERNS) {
-    const match = description.match(pattern);
-    if (match) {
-      return translate(match);
-    }
-  }
-
-  return description;
-}
-
-function normalizeCheckText(value: unknown): string {
-  return String(value ?? '')
-    .toLowerCase()
-    .replace(/\s+/g, ' ')
-    .trim();
-}
-
-function inferAuthorityStatus(
-  check: CheckResult,
-  safePatterns: string[],
-  dangerPatterns: string[],
-): CheckResult['status'] {
-  if (typeof check.value === 'boolean') {
-    return check.value ? 'danger' : 'success';
-  }
-
-  const text = `${normalizeCheckText(check.label)} ${normalizeCheckText(check.description)}`;
-
-  for (const pattern of safePatterns) {
-    if (text.includes(pattern)) {
-      return 'success';
-    }
-  }
-
-  for (const pattern of dangerPatterns) {
-    if (text.includes(pattern)) {
-      return 'danger';
-    }
-  }
-
-  return check.status;
-}
-
-function inferLiquidityStatus(check: CheckResult): CheckResult['status'] {
-  if (typeof check.value === 'boolean') {
-    return check.value ? 'success' : 'danger';
-  }
-
-  const text = `${normalizeCheckText(check.label)} ${normalizeCheckText(check.description)}`;
-  const dangerPatterns = [
-    'nicht gelockt',
-    'not locked',
-    'can be removed',
-    'removed at any time',
-    'abgezogen',
-  ];
-  const safePatterns = [
-    'geburnt',
-    'burned',
-    'burnt',
-    'gelockt',
-    'locked',
-    '>30 tage',
-    '>30 days',
-  ];
-
-  for (const pattern of dangerPatterns) {
-    if (text.includes(pattern)) {
-      return 'danger';
-    }
-  }
-
-  for (const pattern of safePatterns) {
-    if (text.includes(pattern)) {
-      return 'success';
-    }
-  }
-
-  return check.status;
-}
-
-function getDisplayCheckStatus(checkKey: string, check: CheckResult): CheckResult['status'] {
-  switch (checkKey) {
-    case 'mintAuthority':
-      return inferAuthorityStatus(
-        check,
-        ['deaktiv', 'disabled', 'no one can mint', 'cannot mint', "can't mint"],
-        [' aktiv', ' active', 'can still be minted', 'creator can mint', 'can mint new tokens'],
-      );
-    case 'freezeAuthority':
-      return inferAuthorityStatus(
-        check,
-        ['deaktiv', 'disabled', 'no wallet can be frozen', 'cannot be frozen', "can't be frozen"],
-        [' aktiv', ' active', 'can still be frozen', 'creator can freeze', 'wallets can still be frozen'],
-      );
-    case 'liquidityLocked':
-      return inferLiquidityStatus(check);
-    default:
-      return check.status;
-  }
-}
-
-function getRiskLevel(score: number): 'high' | 'medium' | 'low' {
-  if (score <= SCORE_THRESHOLDS.high) {
-    return 'high';
-  }
-
-  if (score <= SCORE_THRESHOLDS.medium) {
-    return 'medium';
-  }
-
-  return 'low';
-}
 
 function truncateAddress(address: string): string {
   if (address.length <= 16) {
@@ -696,30 +479,6 @@ function getLimitUpgradeCopy(): { title: string; body: string; buttonLabel: stri
   }
 }
 
-function updateUpgradeBanner(
-  visible: boolean,
-  copy?: { title: string; body: string; buttonLabel: string },
-): void {
-  if (!elements.tokenDetail.upgradeBanner) {
-    return;
-  }
-
-  if (!visible || !copy) {
-    elements.tokenDetail.upgradeBanner.classList.add('hidden');
-    return;
-  }
-
-  elements.tokenDetail.upgradeBanner.classList.remove('hidden');
-  if (elements.tokenDetail.upgradeBannerTitle) {
-    elements.tokenDetail.upgradeBannerTitle.textContent = copy.title;
-  }
-  if (elements.tokenDetail.upgradeBannerBody) {
-    elements.tokenDetail.upgradeBannerBody.textContent = copy.body;
-  }
-  if (elements.tokenDetail.upgradeBtn instanceof HTMLButtonElement) {
-    elements.tokenDetail.upgradeBtn.textContent = copy.buttonLabel;
-  }
-}
 
 function setTierBadgeClass(tier: TierLevel): void {
   const badge = elements.account.tierBadge;
@@ -752,7 +511,6 @@ function renderEmptyState(): void {
       </div>
     </div>
   `;
-  updateUpgradeBanner(false);
   if (elements.tokenDetail.viewExplorer instanceof HTMLAnchorElement) {
     elements.tokenDetail.viewExplorer.dataset.address = '';
   }
@@ -795,12 +553,48 @@ function renderUsageLimitState(): void {
       </div>
     </div>
   `;
-  updateUpgradeBanner(true, copy);
   if (elements.tokenDetail.viewExplorer instanceof HTMLAnchorElement) {
     elements.tokenDetail.viewExplorer.dataset.address = '';
   }
 }
 
+
+function renderAnonDailyLimitState(): void {
+  const branding = getPlanBranding(state.userProfile?.tier);
+  if (elements.tokenDetail.tokenLogo) {
+    elements.tokenDetail.tokenLogo.src = branding.tokenFallbackLogo;
+    elements.tokenDetail.tokenLogo.alt = 'BarryGuard daily limit';
+  }
+  elements.tokenDetail.tokenName!.textContent = 'Daily Scan Limit Reached';
+  elements.tokenDetail.tokenSymbol!.textContent = '';
+  updateTokenAddressButton("You've reached your 10 free scans for today.", null);
+  elements.tokenDetail.scoreValue!.textContent = '--';
+  elements.tokenDetail.scoreCircle!.className = 'score-circle';
+  elements.tokenDetail.riskLabel!.textContent = 'LIMIT REACHED';
+  elements.tokenDetail.checksList!.innerHTML = `
+    <div class="check-item">
+      <div class="check-content">
+        <div class="check-label">You've reached your 10 free scans for today.</div>
+        <div class="check-description">Sign up free → 100 scans/day + full history.</div>
+      </div>
+    </div>
+    <div style="display:flex;gap:8px;padding:12px 0;">
+      <button id="anon-register-btn" class="btn-primary" style="flex:1;">Create free account</button>
+      <button id="anon-login-btn" class="btn-secondary" style="flex:1;">Log in</button>
+    </div>
+  `;
+  document.getElementById('anon-register-btn')?.addEventListener('click', () => {
+    setRegisterError(null);
+    setStatusMessage(elements.register.message, null);
+    showScreen('register');
+  });
+  document.getElementById('anon-login-btn')?.addEventListener('click', () => {
+    showScreen('login');
+  });
+  if (elements.tokenDetail.viewExplorer instanceof HTMLAnchorElement) {
+    elements.tokenDetail.viewExplorer.dataset.address = '';
+  }
+}
 
 function renderPrimaryTokenState(): void {
   renderUsageIndicator();
@@ -818,183 +612,6 @@ function renderPrimaryTokenState(): void {
   renderEmptyState();
 }
 
-// V2 Rendering Functions
-
-function renderSubscores(score: TokenScore): void {
-  const container = elements.tokenDetail.subscoresContainer;
-  if (!container) {
-    return;
-  }
-
-  const subscores = score.subscores ?? {};
-  const categories = Object.keys(subscores) as (keyof Pick<TokenScore, 'contractRisk' | 'marketStructure' | 'behaviorRisk'>)[];
-
-  for (const category of categories) {
-    const value = subscores[category];
-    if (value === undefined || value === null) {
-      continue;
-    }
-
-    // Get existing row or create new one
-    let row = document.getElementById(`subscore-${category}`);
-    if (!row) {
-      continue; // Skip if row doesn't exist in DOM
-    }
-
-    const bar = document.getElementById(`subscore-${category}-bar`);
-    const valueEl = document.getElementById(`subscore-${category}-value`);
-
-    if (bar && valueEl) {
-      const clampedValue = Math.max(0, Math.min(100, Math.round(value)));
-      bar.style.width = `${clampedValue}%`;
-
-      // Remove old score classes and add new one
-      bar.classList.remove('score-high', 'score-medium', 'score-low');
-      const riskClass = getRiskLevel(clampedValue);
-      bar.classList.add(`score-${riskClass}`);
-
-      valueEl.textContent = `${clampedValue}/100`;
-    }
-  }
-}
-
-function renderReasons(score: TokenScore): void {
-  const container = elements.tokenDetail.reasonsContainer;
-  const list = elements.tokenDetail.reasonsList;
-
-  if (!container || !list) {
-    return;
-  }
-
-  const reasons = score.topConcerns ?? [];
-
-  if (reasons.length === 0) {
-    container.classList.add('hidden');
-    return;
-  }
-
-  container.classList.remove('hidden');
-  list.innerHTML = '';
-
-  for (const reason of reasons.slice(0, 5)) { // Limit to top 5 concerns
-    const li = document.createElement('li');
-    li.textContent = reason;
-    list.appendChild(li);
-  }
-}
-
-function renderAnalysisFooter(score: TokenScore): void {
-  // Render analyzed-at timestamp
-  if (elements.tokenDetail.analyzedAt && score.analyzedAt) {
-    const date = new Date(score.analyzedAt);
-    const now = new Date();
-    const diffMs = now.getTime() - date.getTime();
-    const diffMins = Math.floor(diffMs / 60000);
-    const diffHours = Math.floor(diffMs / 3600000);
-
-    let timeText: string;
-    if (diffMins < 1) {
-      timeText = 'Analyzed just now';
-    } else if (diffMins < 60) {
-      timeText = `Analyzed ${diffMins}m ago`;
-    } else if (diffHours < 24) {
-      timeText = `Analyzed ${diffHours}h ago`;
-    } else {
-      timeText = date.toLocaleDateString();
-    }
-    elements.tokenDetail.analyzedAt.textContent = timeText;
-  }
-
-  // Render confidence badge based on cached status
-  if (elements.tokenDetail.confidenceBadge) {
-    const isCached = score.cached ?? false;
-    elements.tokenDetail.confidenceBadge.classList.remove('medium', 'low');
-
-    if (isCached === false) {
-      elements.tokenDetail.confidenceBadge.textContent = 'Live data';
-      elements.tokenDetail.confidenceBadge.className = 'confidence-badge';
-    } else if (score.partialData) {
-      elements.tokenDetail.confidenceBadge.textContent = 'Partial data';
-      elements.tokenDetail.confidenceBadge.classList.add('medium');
-    } else {
-      elements.tokenDetail.confidenceBadge.textContent = 'Cached data';
-      elements.tokenDetail.confidenceBadge.className = 'confidence-badge';
-    }
-  }
-}
-
-function renderChecks(score: TokenScore): void {
-  const list = elements.tokenDetail.checksList;
-  if (!list) {
-    return;
-  }
-
-  list.innerHTML = '';
-
-  for (const checkKey of CHECK_ORDER) {
-    const check = score.checks[checkKey] as CheckResult | undefined;
-    const metadata = CHECK_METADATA[checkKey] ?? { label: checkKey, teaser: '' };
-    const label = normalizeCheckLabel(checkKey, check?.label);
-    const description = normalizeCheckDescription(check?.description, checkKey);
-
-    const item = document.createElement('div');
-    item.className = 'check-item';
-
-    if (!check) {
-      const icon = document.createElement('div');
-      icon.className = 'check-icon warning';
-      icon.textContent = '!';
-
-      const labelEl = document.createElement('div');
-      labelEl.className = 'check-label';
-      labelEl.textContent = label;
-
-      const descEl = document.createElement('div');
-      descEl.className = 'check-description';
-      descEl.textContent = score.cached === false
-        ? 'Still analyzing. This factor will update automatically.'
-        : 'This factor has not been returned yet.';
-
-      const content = document.createElement('div');
-      content.className = 'check-content';
-      content.append(labelEl, descEl);
-      item.append(icon, content);
-    } else {
-      const displayStatus = getDisplayCheckStatus(checkKey, check!);
-      const statusClass =
-        displayStatus === 'success'
-          ? 'success'
-          : displayStatus === 'warning'
-            ? 'warning'
-            : 'danger';
-      const statusLabel =
-        displayStatus === 'success'
-          ? 'OK'
-          : displayStatus === 'warning'
-            ? '!'
-            : 'X';
-
-      const icon = document.createElement('div');
-      icon.className = `check-icon ${statusClass}`;
-      icon.textContent = statusLabel;
-
-      const labelEl = document.createElement('div');
-      labelEl.className = 'check-label';
-      labelEl.textContent = label;
-
-      const descEl = document.createElement('div');
-      descEl.className = 'check-description';
-      descEl.textContent = description;
-
-      const content = document.createElement('div');
-      content.className = 'check-content';
-      content.append(labelEl, descEl);
-      item.append(icon, content);
-    }
-
-    list.appendChild(item);
-  }
-}
 
 function renderTokenDetail(score: TokenScore): void {
   const risk = getRiskLevel(score.score);
@@ -1031,8 +648,13 @@ function renderTokenDetail(score: TokenScore): void {
 
   // V2 rendering
   renderSubscores(score);
-  renderReasons(score);
-  renderAnalysisFooter(score);
+  if (elements.tokenDetail.reasonsContainer && elements.tokenDetail.reasonsList) {
+    renderReasons(score, elements.tokenDetail.reasonsContainer, elements.tokenDetail.reasonsList);
+  }
+  renderAnalysisFooter(score, elements.tokenDetail.analyzedAt, elements.tokenDetail.confidenceBadge);
+  if (elements.tokenDetail.checksList) {
+    renderChecks(score, elements.tokenDetail.checksList);
+  }
 }
 
 function updateAccountScreen(): void {
@@ -1501,7 +1123,14 @@ async function handleAnalyze(): Promise<void> {
     }, 5000);
 
     if (!response.success || !response.data) {
-      if (response.errorType === 'rate_limit' || response.errorType === 'anon_daily_limit') {
+      if (response.errorType === 'anon_daily_limit') {
+        setManualError(null);
+        renderAnonDailyLimitState();
+        showScreen('token-detail');
+        return;
+      }
+
+      if (response.errorType === 'rate_limit') {
         setManualError(null);
         renderPrimaryTokenState();
         showScreen('token-detail');
@@ -1532,6 +1161,38 @@ async function handleAnalyze(): Promise<void> {
   } finally {
     elements.manual.analyzeBtn.disabled = false;
     elements.manual.analyzeBtn.textContent = 'Analyze Token';
+  }
+}
+
+async function handleRefreshToken(): Promise<void> {
+  const selectedToken = state.selectedToken;
+  if (!selectedToken?.address) return;
+
+  const tier = getEffectiveViewerTier();
+  if (tier === 'free') {
+    window.alert('Upgrade to Rescue Pass to refresh token analysis on demand.');
+    return;
+  }
+
+  const btn = elements.tokenDetail.refreshBtn as HTMLButtonElement | null;
+  if (btn) btn.disabled = true;
+
+  try {
+    const response = await sendMessage<TokenScore>({
+      type: 'REFRESH_TOKEN_SCORE',
+      payload: { address: selectedToken.address, chain: 'solana' },
+    }, 10000);
+
+    if (response.success && response.data) {
+      const nextToken: SelectedToken = { ...selectedToken, score: response.data };
+      state.selectedToken = nextToken;
+      renderTokenDetail(response.data);
+      await chrome.storage.local.set({ selectedToken: nextToken });
+    } else if (response.errorType === 'plan_gate') {
+      window.alert('Refresh is available on Rescue Pass and Pro plans.');
+    }
+  } finally {
+    if (btn) btn.disabled = false;
   }
 }
 
@@ -1604,8 +1265,16 @@ function setupEventListeners(): void {
     void handleAccountOpen();
   });
 
-  elements.tokenDetail.upgradeBtn?.addEventListener('click', () => {
-    handleUpgradeFlow();
+  elements.tokenDetail.refreshBtn?.addEventListener('click', () => {
+    void handleRefreshToken();
+  });
+
+  elements.tokenDetail.viewFullAnalysis?.addEventListener('click', (event) => {
+    event.preventDefault();
+    const address = state.selectedToken?.address;
+    if (address) {
+      openExternal(`https://barryguard.com/check/${address}`);
+    }
   });
 
   elements.tokenDetail.tokenAddress?.addEventListener('click', () => {
