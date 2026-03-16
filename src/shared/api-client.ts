@@ -122,4 +122,11 @@ export class BarryGuardApiClient {
     if (res.success && res.data) this.authToken = res.data;
     return res;
   }
+
+  refreshTokenScore(address: string, chain = 'solana'): Promise<ApiResponse<TokenScore>> {
+    return this.request<TokenScore>(`/token/${address}/refresh`, {
+      method: 'POST',
+      headers: { 'X-Chain': chain },
+    });
+  }
 }

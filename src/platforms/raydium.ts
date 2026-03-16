@@ -1,6 +1,6 @@
 import { GenericSolanaPlatform } from './generic-solana';
 import { pickPreferredSolanaAddress } from './address-helpers';
-import { createBadgeElement, getRiskColors, safeSendPopupMessage, setBadgeContent } from './platform-utils';
+import { createBadgeElement, getRiskColors, renderBadgeTooltip, safeSendPopupMessage, setBadgeContent } from './platform-utils';
 import type { TokenScore } from '../shared/types';
 
 const COMMON_SOLANA_QUOTES = new Set([
@@ -84,6 +84,8 @@ export class RaydiumPlatform extends GenericSolanaPlatform {
       event.stopPropagation();
       safeSendPopupMessage(this.buildSelectedToken(address, score));
     };
+
+    renderBadgeTooltip(badge, score.score, score.risk, score.reasons ?? []);
 
     this.insertRaydiumBadge(address, badge, placement);
   }

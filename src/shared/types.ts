@@ -2,7 +2,7 @@
 
 export type RiskLevel = 'high' | 'medium' | 'low';
 export type TierLevel = 'free' | 'rescue_pass' | 'pro';
-export type ApiErrorType = 'plan_gate' | 'rate_limit' | 'cooldown' | 'server' | 'network' | 'busy' | 'validation';
+export type ApiErrorType = 'plan_gate' | 'rate_limit' | 'cooldown' | 'server' | 'network' | 'busy' | 'validation' | 'anon_daily_limit';
 
 export interface TierCapabilities {
   singleTokenAnalysis: boolean;
@@ -24,14 +24,28 @@ export interface CheckResult {
   locked?: boolean;
 }
 
+export interface Subscores {
+  contract: number;
+  marketStructure: number;
+  behavior: number;
+}
+
+export type ConfidenceLevel = 'high' | 'medium' | 'low';
+
 export interface TokenScore {
   address: string;
   chain: string;
   score: number;
   risk: RiskLevel;
+  subscores: Subscores;
   checks: Record<string, CheckResult>;
+  reasons: string[];
+  confidence: ConfidenceLevel;
   cached: boolean;
   analyzedAt?: string;
+  tokenName?: string;
+  tokenSymbol?: string;
+  tokenLogoUrl?: string;
   token?: TokenMetadata;
 }
 
@@ -73,6 +87,7 @@ export interface ApiResponse<T> {
   error?: string;
   statusCode?: number;
   errorType?: ApiErrorType;
+  errorCode?: string;
   retryAfterSeconds?: number;
 }
 
@@ -86,7 +101,6 @@ export interface SelectedToken {
   address: string;
   score?: TokenScore;
   metadata?: TokenMetadata;
-  locked?: boolean;
 }
 
 export interface TokenListAnalysisData {
