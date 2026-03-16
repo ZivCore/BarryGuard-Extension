@@ -37,9 +37,11 @@ const CHECK_FALLBACK_TIERS: Record<string, TierLevel> = {
   mintAuthority: 'free',
   freezeAuthority: 'free',
   liquidityLocked: 'free',
-  topHolderConcentration: 'rescue_pass',
-  tokenAge: 'rescue_pass',
-  holderCount: 'rescue_pass',
+  topHolderConcentration: 'free',
+  tokenAge: 'free',
+  holderCount: 'free',
+  developerHistory: 'free',
+  clusterControl: 'free',
 };
 const CHECK_ORDER = [
   'mintAuthority',
@@ -48,8 +50,9 @@ const CHECK_ORDER = [
   'topHolderConcentration',
   'tokenAge',
   'holderCount',
+  'developerHistory',
+  'clusterControl',
 ] as const;
-const FREE_VISIBLE_CHECKS = CHECK_ORDER.slice(0, 3);
 const CHECK_KEY_ALIASES: Record<string, string> = {
   mintauthority: 'mintAuthority',
   mint_authority: 'mintAuthority',
@@ -72,6 +75,12 @@ const CHECK_KEY_ALIASES: Record<string, string> = {
   holdercount: 'holderCount',
   holder_count: 'holderCount',
   'holder-count': 'holderCount',
+  developerhistory: 'developerHistory',
+  developer_history: 'developerHistory',
+  'developer-history': 'developerHistory',
+  clustercontrol: 'clusterControl',
+  cluster_control: 'clusterControl',
+  'cluster-control': 'clusterControl',
 };
 
 function canonicalizeCheckKey(key: string): string {
@@ -95,6 +104,43 @@ function sanitizeString(value: unknown): string | undefined {
 
   const trimmed = value.trim();
   return trimmed ? trimmed : undefined;
+}
+
+function sanitizeSubscores(value: unknown): Record<string, number> | undefined {
+  const record = asRecord(value);
+  if (!record) {
+    return undefined;
+  }
+
+  const result: Record<string, number> = {};
+  for (const key of ['contract', 'marketStructure', 'market_structure', 'behavior']) {
+    const val = record[key];
+    if (typeof val === 'number' && Number.isFinite(val)) {
+      const normalizedKey = key === 'market_structure' ? 'marketStructure' : key;
+      result[normalizedKey] = val;
+    }
+  }
+
+  return Object.keys(result).length > 0 ? result : undefined;
+}
+
+function sanitizeConfidence(value: unknown): string | undefined {
+  if (typeof value !== 'string') {
+    return undefined;
+  }
+  const trimmed = value.trim().toLowerCase();
+  if (trimmed === 'high' || trimmed === 'medium' || trimmed === 'low') {
+    return trimmed;
+  }
+  return undefined;
+}
+
+function sanitizeReasons(value: unknown): string[] | undefined {
+  if (!Array.isArray(value)) {
+    return undefined;
+  }
+  const filtered = value.filter((v): v is string => typeof v === 'string' && v.trim()).map((v) => v.trim());
+  return filtered.length > 0 ? filtered : undefined;
 }
 
 function sanitizeTokenMetadata(value: unknown): TokenMetadata | undefined {
@@ -332,21 +378,16 @@ function sanitizeChecks(value: unknown, sourceRecord?: JsonRecord): Record<strin
   return Object.fromEntries(normalizedChecks.entries());
 }
 
-function getExpectedVisibleChecks(tier: TierLevel): readonly string[] {
-  return tier === 'free' ? FREE_VISIBLE_CHECKS : CHECK_ORDER;
-}
-
 function hasPlaceholderNumericValue(key: string, value: unknown): boolean {
   return typeof value === 'number'
     && value === 0
     && (key === 'topHolderConcentration' || key === 'holderCount');
 }
 
-export function isTokenScoreLikelyIncomplete(score: TokenScore, viewerTier: TierLevel = 'free'): boolean {
-  const expectedChecks = getExpectedVisibleChecks(viewerTier);
-  for (const key of expectedChecks) {
+export function isTokenScoreLikelyIncomplete(score: TokenScore): boolean {
+  for (const key of CHECK_ORDER) {
     const check = score.checks[key];
-    if (!check || check.locked === true) {
+    if (!check) {
       return true;
     }
 
@@ -387,15 +428,27 @@ export function sanitizeTokenScore(value: unknown, options: TokenScoreSanitizati
 
   const analyzedAt = sanitizeString(record.analyzedAt);
   const token = sanitizeTokenMetadata(record.token);
+  const subscores = sanitizeSubscores(record.subscores);
+  const reasons = sanitizeReasons(record.reasons);
+  const confidence = sanitizeConfidence(record.confidence);
+  const tokenName = sanitizeString(record.tokenName);
+  const tokenSymbol = sanitizeString(record.tokenSymbol);
+  const tokenLogoUrl = sanitizeString(record.tokenLogoUrl);
 
   return {
     address,
     chain: normalizedChain,
     score,
     risk: risk as RiskLevel,
+    subscores: subscores ?? { contract: 0, marketStructure: 0, behavior: 0 },
     checks: sanitizeChecks(record.checks, record),
+    reasons: reasons ?? [],
+    confidence: confidence ?? 'medium',
     cached: record.cached === true,
     ...(analyzedAt ? { analyzedAt } : {}),
+    ...(tokenName ? { tokenName } : {}),
+    ...(tokenSymbol ? { tokenSymbol } : {}),
+    ...(tokenLogoUrl ? { tokenLogoUrl } : {}),
     ...(token ? { token } : {}),
   };
 }

@@ -12,6 +12,5 @@ export interface IPlatform {
   renderScoreBadge(address: string, score: TokenScore): void;
   renderLoadingBadge(address: string): void;
   renderErrorBadge(address: string): void;
-  renderLockedBadge(address: string): void;
   observeDOMChanges(callback: () => void): void;
 }

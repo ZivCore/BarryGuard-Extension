@@ -695,6 +695,14 @@ function mapApiFailure<T>(response: ApiResponse<T>): ApiResponse<T> {
   }
 
   if (response.statusCode === 429) {
+    // Check for anonymous daily limit vs hourly rate limit
+    if (response.errorCode === 'ANON_DAILY_LIMIT') {
+      return {
+        ...response,
+        errorType: 'anon_daily_limit',
+        error: response.error ?? 'Anonymous daily limit reached. Please log in to continue.',
+      };
+    }
     return {
       ...response,
       errorType: 'rate_limit',
@@ -892,27 +900,23 @@ async function analyzeTokenList(addresses: string[]): Promise<ApiResponse<TokenL
 }
 
 async function openPopupForToken(selectedToken: SelectedToken) {
-  if (selectedToken.locked) {
-    await chrome.storage.local.set({ selectedToken });
-  } else {
-    const hasMetadata = Boolean(
-      selectedToken.metadata?.name
-      || selectedToken.metadata?.symbol
-      || selectedToken.metadata?.imageUrl,
-    );
-    const metadataResult = hasMetadata
-      ? { success: false as const }
-      : await getPumpFunMetadata(selectedToken.address);
-    const enrichedToken: SelectedToken = {
-      ...selectedToken,
-      metadata: {
-        ...(selectedToken.metadata ?? {}),
-        ...(metadataResult.success ? metadataResult.data : {}),
-      },
-    };
+  const hasMetadata = Boolean(
+    selectedToken.metadata?.name
+    || selectedToken.metadata?.symbol
+    || selectedToken.metadata?.imageUrl,
+  );
+  const metadataResult = hasMetadata
+    ? { success: false as const }
+    : await getPumpFunMetadata(selectedToken.address);
+  const enrichedToken: SelectedToken = {
+    ...selectedToken,
+    metadata: {
+      ...(selectedToken.metadata ?? {}),
+      ...(metadataResult.success ? metadataResult.data : {}),
+    },
+  };
 
-    await chrome.storage.local.set({ selectedToken: enrichedToken });
-  }
+  await chrome.storage.local.set({ selectedToken: enrichedToken });
 
   try {
     await chrome.action.openPopup();
@@ -1007,6 +1011,34 @@ export function initializeBackground(): void {
           case 'GET_USER_TIER': {
             const profile = await refreshProfileStateIfNeeded(true);
             respond(profile ? { success: true, data: profile } : { success: false, error: 'No active session.' });
+            break;
+          }
+          case 'REFRESH_TOKEN_SCORE': {
+            if (!isValidSolanaAddress(message.payload?.address)) {
+              respond({ success: false, error: 'Invalid token address format.', errorType: 'validation' as const });
+              break;
+            }
+            const chain = message.payload?.chain ?? 'solana';
+            const refreshResult = await api.refreshTokenScore(message.payload.address, chain);
+            if (refreshResult.success && refreshResult.data) {
+              const normalized = sanitizeTokenScore(refreshResult.data, { expectedAddress: message.payload.address });
+              if (normalized) {
+                const normalizedProfile = await refreshProfileStateIfNeeded();
+                const tier: TierLevel = normalizedProfile?.tier ?? 'free';
+                await cache.set(message.payload.address, normalized, tier);
+                respond({ success: true, data: { ...normalized, cached: false } });
+              } else {
+                respond({ success: false, error: 'Malformed token score data.', errorType: 'server' as const });
+              }
+            } else if (refreshResult.statusCode === 403) {
+              respond({
+                ...refreshResult,
+                errorType: 'plan_gate' as const,
+                error: 'Refresh is available on Rescue Pass and Pro plans.',
+              });
+            } else {
+              respond(mapApiFailure(refreshResult));
+            }
             break;
           }
           case 'LOGIN': {

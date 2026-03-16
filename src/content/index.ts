@@ -122,7 +122,7 @@ export function selectAddressesForTier(
   addresses: string[],
   currentAddress: string | null,
   tier: TierLevel,
-): { active: string[]; locked: string[] } {
+): { active: string[] } {
   return selectAddressesForContext(addresses, currentAddress, tier);
 }
 
@@ -130,19 +130,12 @@ export function selectAddressesForContext(
   addresses: string[],
   currentAddress: string | null,
   tier: TierLevel,
-): { active: string[]; locked: string[] } {
+): { active: string[] } {
   if (currentAddress) {
-    return { active: addresses.filter((address) => address === currentAddress), locked: [] };
+    return { active: addresses.filter((address) => address === currentAddress) };
   }
 
-  if (tier !== 'free') {
-    return { active: addresses, locked: [] };
-  }
-
-  return {
-    active: addresses.slice(0, FREE_LIST_SLOTS),
-    locked: addresses.slice(FREE_LIST_SLOTS),
-  };
+  return { active: addresses };
 }
 
 export function shouldRetryTokenScoreFetch(
@@ -463,12 +456,6 @@ export function initializeContentScript(): void {
       }
 
       fetchAndRender(address);
-    });
-
-    locked.forEach((address) => {
-      if (!hasRenderedBadge(address)) {
-        platform.renderLockedBadge(address);
-      }
     });
   }
 

@@ -62,23 +62,65 @@
           </div>
           <div class="risk-label" id="risk-label">ANALYZING...</div>
         </div>
+
+        <div class="disclaimer-text">
+          BarryGuard cannot guarantee safety. Use this as a risk signal, not a guarantee.
+        </div>
+      </div>
+
+      <div id="subscores-container" class="subscores-section">
+        <div class="subscore-row" id="subscore-contractRisk">
+          <span class="subscore-label">Contract Risk</span>
+          <div class="subscore-bar-wrapper">
+            <div class="subscore-bar" id="subscore-contractRisk-bar"></div>
+          </div>
+          <span class="subscore-value" id="subscore-contractRisk-value">--/100</span>
+        </div>
+        <div class="subscore-row" id="subscore-marketStructure">
+          <span class="subscore-label">Market Structure</span>
+          <div class="subscore-bar-wrapper">
+            <div class="subscore-bar" id="subscore-marketStructure-bar"></div>
+          </div>
+          <span class="subscore-value" id="subscore-marketStructure-value">--/100</span>
+        </div>
+        <div class="subscore-row" id="subscore-behaviorRisk">
+          <span class="subscore-label">Behavior Risk</span>
+          <div class="subscore-bar-wrapper">
+            <div class="subscore-bar" id="subscore-behaviorRisk-bar"></div>
+          </div>
+          <span class="subscore-value" id="subscore-behaviorRisk-value">--/100</span>
+        </div>
+      </div>
+
+      <div id="reasons-container" class="reasons-section hidden">
+        <h2>Top Concerns</h2>
+        <ul id="reasons-list"></ul>
       </div>
 
       <div id="checks-container">
-        <h2>Risk Factors</h2>
+        <h2>All Checks</h2>
         <div id="checks-list"></div>
       </div>
 
-      <div id="upgrade-banner" class="upgrade-banner hidden">
-        <div class="upgrade-text">
-          <strong id="upgrade-banner-title">Upgrade to Rescue Pass</strong>
-          <p id="upgrade-banner-body">Unlock all 6 risk checks</p>
+      <div class="analysis-footer">
+        <div class="footer-left">
+          <span class="analyzed-at" id="analyzed-at">Analyzed just now</span>
+          <span class="confidence-badge" id="confidence-badge">Data: Complete</span>
         </div>
-        <button id="upgrade-btn" class="btn-primary">Upgrade</button>
+        <div class="footer-right">
+          <button id="refresh-btn" class="icon-btn" title="Refresh analysis">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M23 4v6h-6"></path>
+              <path d="M1 20v-6h6"></path>
+              <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+            </svg>
+          </button>
+        </div>
       </div>
 
       <div class="footer">
         <a href="#" id="view-explorer" class="link-btn">View on Solscan</a>
+        <a href="#" id="view-full-analysis" class="link-btn">View full analysis ↗</a>
         <button id="account-btn" class="btn-secondary">Account</button>
       </div>
     </div>
