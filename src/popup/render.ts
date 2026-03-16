@@ -50,6 +50,18 @@ export const CHECK_METADATA: Record<string, { label: string; teaser: string }> =
     label: 'Cluster Control',
     teaser: 'Detects if wallets are controlled by a single entity (cluster).',
   },
+  earlyDump: {
+    label: 'Early Dump',
+    teaser: 'Checks if the developer or early wallets sold shortly after launch.',
+  },
+  sniperDominance: {
+    label: 'Sniper Dominance',
+    teaser: 'Checks what share of early buys came from sniper or bot wallets.',
+  },
+  sellability: {
+    label: 'Sellability',
+    teaser: 'Checks whether the token can actually be sold without anomalies.',
+  },
 };
 
 const CHECK_DESCRIPTION_TRANSLATIONS: Record<string, string> = {
@@ -209,11 +221,17 @@ export function getConfidenceDisplay(confidence: ConfidenceLevel): { text: strin
  * Renders all checks from score.checks into listEl.
  * Icons: ✅ safe, ⚠️ warning, ❌ danger (per spec).
  */
+const CHECK_ORDER_SET = new Set<string>(CHECK_ORDER);
+
 export function renderChecks(score: TokenScore, listEl: HTMLElement): void {
   listEl.innerHTML = '';
 
-  for (const checkKey of CHECK_ORDER) {
+  const extraCheckKeys = Object.keys(score.checks).filter((k) => !CHECK_ORDER_SET.has(k));
+  const allCheckKeys: string[] = [...CHECK_ORDER, ...extraCheckKeys];
+
+  for (const checkKey of allCheckKeys) {
     const check = score.checks[checkKey] as CheckResult | undefined;
+    if (!check && !CHECK_ORDER_SET.has(checkKey)) continue; // skip missing optional checks
     const label = normalizeCheckLabel(checkKey, check?.label);
     const description = normalizeCheckDescription(check?.description, checkKey);
 

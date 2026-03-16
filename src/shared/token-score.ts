@@ -42,6 +42,9 @@ const CHECK_FALLBACK_TIERS: Record<string, TierLevel> = {
   holderCount: 'free',
   developerHistory: 'free',
   clusterControl: 'free',
+  earlyDump: 'free',
+  sniperDominance: 'free',
+  sellability: 'free',
 };
 const CHECK_ORDER = [
   'mintAuthority',
@@ -81,6 +84,18 @@ const CHECK_KEY_ALIASES: Record<string, string> = {
   clustercontrol: 'clusterControl',
   cluster_control: 'clusterControl',
   'cluster-control': 'clusterControl',
+  earlydump: 'earlyDump',
+  early_dump: 'earlyDump',
+  'early-dump': 'earlyDump',
+  sniperdominance: 'sniperDominance',
+  sniper_dominance: 'sniperDominance',
+  'sniper-dominance': 'sniperDominance',
+  sniperbot: 'sniperDominance',
+  sniper_bot: 'sniperDominance',
+  bot_dominance: 'sniperDominance',
+  sell_ability: 'sellability',
+  'sell-ability': 'sellability',
+  sellable: 'sellability',
 };
 
 function canonicalizeCheckKey(key: string): string {
