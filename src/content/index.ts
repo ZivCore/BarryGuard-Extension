@@ -79,7 +79,6 @@ function persistSelectedToken(selectedToken: {
   address: string;
   score?: TokenScore;
   metadata?: TokenMetadata;
-  locked?: boolean;
 }): void {
   withSafeRuntime(() => {
     void chrome.storage.local.set({ selectedToken }).catch((error: unknown) => {
@@ -116,7 +115,6 @@ export function getCurrentPageAddress(pathOrUrl: string): string | null {
   return pathMatch?.[1] ?? null;
 }
 
-const FREE_LIST_SLOTS = 3;
 
 export function selectAddressesForTier(
   addresses: string[],
@@ -434,12 +432,12 @@ export function initializeContentScript(): void {
 
   function scanAll(): void {
     const currentPageAddress = platform.getCurrentPageAddress();
-    const { active, locked } = selectAddressesForContext(
+    const { active } = selectAddressesForContext(
       platform.extractTokenAddresses(),
       currentPageAddress,
       currentTier,
     );
-    const visibleAddresses = [...active, ...locked];
+    const visibleAddresses = [...active];
 
     syncVisibleBadges(visibleAddresses);
     if (currentPageAddress) {

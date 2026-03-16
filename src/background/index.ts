@@ -362,30 +362,6 @@ async function initialize(): Promise<void> {
   await cache.init();
   await refreshProfileStateIfNeeded(true);
   console.log('[BarryGuard] Background worker initialized');
-  return;
-
-  const token = await getStoredToken();
-  if (token) {
-    api.setAuthToken(token as AuthToken);
-    const profileResult = await fetchFreshProfile();
-    if (profileResult.refreshedToken) {
-      await chrome.storage.local.set({ [AUTH_KEY]: profileResult.refreshedToken });
-    }
-
-    if (profileResult.response.success && profileResult.response.data) {
-      await persistProfileState(profileResult.response.data as UserProfile);
-    } else if (profileResult.shouldClearSession) {
-      await clearSessionState();
-      // Refresh failed — clear session
-    } else {
-      const storedProfile = await getStoredNormalizedProfile();
-      await applyProfileState(storedProfile);
-    }
-  } else {
-    await applyProfileState(null);
-  }
-
-  console.log('[BarryGuard] Background worker initialized');
 }
 
 async function updateActionIcon(profile: UserProfile | null): Promise<void> {
