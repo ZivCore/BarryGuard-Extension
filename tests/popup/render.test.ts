@@ -1,6 +1,7 @@
 // tests/popup/render.test.ts
 import { beforeEach, describe, expect, it } from 'vitest';
 import {
+  CHECK_METADATA,
   getConfidenceDisplay,
   renderAnalysisFooter,
   renderChecks,
@@ -87,6 +88,74 @@ describe('renderChecks', () => {
     renderChecks(makeScore(), listEl);
     const descs = Array.from(listEl.querySelectorAll('.check-description')).map((el) => el.textContent);
     expect(descs.some((d) => d?.includes('mint') || d?.includes('No freeze'))).toBe(true);
+  });
+
+  it('renders earlyDump check when present in score.checks', () => {
+    const listEl = document.createElement('div');
+    const score = makeScore({
+      checks: {
+        ...makeScore().checks,
+        earlyDump: { status: 'danger', value: true, label: 'Early dump detected', description: 'Dev wallet sold within 5 min.', tier: 'free' },
+      },
+    });
+    renderChecks(score, listEl);
+    const labels = Array.from(listEl.querySelectorAll('.check-label')).map((el) => el.textContent);
+    expect(labels).toContain('Early Dump');
+  });
+
+  it('renders sniperDominance check when present in score.checks', () => {
+    const listEl = document.createElement('div');
+    const score = makeScore({
+      checks: {
+        ...makeScore().checks,
+        sniperDominance: { status: 'warning', value: 22, label: 'Sniper dominance 22%', description: '22% of early buys from snipers.', tier: 'free' },
+      },
+    });
+    renderChecks(score, listEl);
+    const labels = Array.from(listEl.querySelectorAll('.check-label')).map((el) => el.textContent);
+    expect(labels).toContain('Sniper Dominance');
+  });
+
+  it('renders sellability check when present in score.checks', () => {
+    const listEl = document.createElement('div');
+    const score = makeScore({
+      checks: {
+        ...makeScore().checks,
+        sellability: { status: 'success', value: true, label: 'Token sellable', description: 'No sell restrictions detected.', tier: 'free' },
+      },
+    });
+    renderChecks(score, listEl);
+    const labels = Array.from(listEl.querySelectorAll('.check-label')).map((el) => el.textContent);
+    expect(labels).toContain('Sellability');
+  });
+
+  it('does not render Phase C checks when absent from score.checks', () => {
+    const listEl = document.createElement('div');
+    renderChecks(makeScore(), listEl); // makeScore has no earlyDump/sniperDominance/sellability
+    const items = listEl.querySelectorAll('.check-item');
+    expect(items.length).toBe(8); // only the 8 required checks
+  });
+});
+
+// ─── CHECK_METADATA Phase C entries ───────────────────────────────────────────
+
+describe('CHECK_METADATA Phase C entries', () => {
+  it('has earlyDump entry with label and teaser', () => {
+    expect(CHECK_METADATA['earlyDump']).toBeDefined();
+    expect(CHECK_METADATA['earlyDump'].label).toBeTruthy();
+    expect(CHECK_METADATA['earlyDump'].teaser).toBeTruthy();
+  });
+
+  it('has sniperDominance entry with label and teaser', () => {
+    expect(CHECK_METADATA['sniperDominance']).toBeDefined();
+    expect(CHECK_METADATA['sniperDominance'].label).toBeTruthy();
+    expect(CHECK_METADATA['sniperDominance'].teaser).toBeTruthy();
+  });
+
+  it('has sellability entry with label and teaser', () => {
+    expect(CHECK_METADATA['sellability']).toBeDefined();
+    expect(CHECK_METADATA['sellability'].label).toBeTruthy();
+    expect(CHECK_METADATA['sellability'].teaser).toBeTruthy();
   });
 });
 

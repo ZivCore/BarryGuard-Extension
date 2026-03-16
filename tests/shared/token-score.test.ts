@@ -561,3 +561,61 @@ describe('extractTokenScores', () => {
     })).toBe(false);
   });
 });
+
+describe('sanitizeTokenScore Phase C check aliases', () => {
+  const BASE = {
+    address: '7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU',
+    chain: 'solana',
+    score: 42,
+    risk: 'high' as const,
+  };
+
+  it('normalizes early_dump key alias to earlyDump', () => {
+    const result = sanitizeTokenScore({
+      ...BASE,
+      checks: {
+        early_dump: { status: 'danger', value: true, label: 'Early dump', description: 'Dev sold early.', tier: 'free' },
+      },
+    });
+    expect(result?.checks['earlyDump']).toBeDefined();
+    expect(result?.checks['early_dump']).toBeUndefined();
+  });
+
+  it('normalizes sniper_dominance key alias to sniperDominance', () => {
+    const result = sanitizeTokenScore({
+      ...BASE,
+      checks: {
+        sniper_dominance: { status: 'warning', value: 22, label: 'Sniper dominance', description: '22% snipers.', tier: 'free' },
+      },
+    });
+    expect(result?.checks['sniperDominance']).toBeDefined();
+    expect(result?.checks['sniper_dominance']).toBeUndefined();
+  });
+
+  it('normalizes sell_ability key alias to sellability', () => {
+    const result = sanitizeTokenScore({
+      ...BASE,
+      checks: {
+        sell_ability: { status: 'success', value: true, label: 'Sellable', description: 'No restrictions.', tier: 'free' },
+      },
+    });
+    expect(result?.checks['sellability']).toBeDefined();
+    expect(result?.checks['sell_ability']).toBeUndefined();
+  });
+
+  it('preserves earlyDump check as-is when key is already canonical', () => {
+    const result = sanitizeTokenScore({
+      ...BASE,
+      checks: {
+        earlyDump: { status: 'danger', value: true, label: 'Early dump', description: 'Dev sold early.', tier: 'free' },
+      },
+    });
+    expect(result?.checks['earlyDump']).toEqual({
+      status: 'danger',
+      value: true,
+      label: 'Early dump',
+      description: 'Dev sold early.',
+      tier: 'free',
+    });
+  });
+});
