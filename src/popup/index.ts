@@ -1014,7 +1014,12 @@ async function refreshSelectedTokenScore(): Promise<void> {
     return;
   }
 
-  const shouldBypassLocalCache = selectedToken.score ? shouldKeepRefreshingScore(selectedToken.score) : true;
+  const hasScore = Boolean(selectedToken.score);
+  const shouldBypassLocalCache = hasScore ? shouldKeepRefreshingScore(selectedToken.score) : false;
+
+  // No score at all → full analysis via GET_TOKEN_SCORE
+  // Has score but incomplete → GET_TOKEN_SCORE_FRESH (prefer existing, skip local cache)
+  // Has complete score → GET_TOKEN_SCORE (may return from cache)
   const response = await sendMessage<TokenScore>({
     type: shouldBypassLocalCache ? 'GET_TOKEN_SCORE_FRESH' : 'GET_TOKEN_SCORE',
     payload: shouldBypassLocalCache
@@ -1024,7 +1029,7 @@ async function refreshSelectedTokenScore(): Promise<void> {
           preferExistingOnly: true,
         }
       : selectedToken.address,
-  }, 5000);
+  }, hasScore ? 5000 : 15000);
 
   if (!response.success || !response.data) {
     if (shouldRetryScoreRefresh(response)) {
