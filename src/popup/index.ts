@@ -933,8 +933,43 @@ async function loadUsageState(): Promise<void> {
   renderUsageIndicator();
 }
 
+async function queryActiveTabToken(): Promise<SelectedToken | null> {
+  try {
+    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    if (!tab?.id) {
+      return null;
+    }
+
+    return new Promise((resolve) => {
+      chrome.tabs.sendMessage(tab.id!, { type: 'GET_ACTIVE_TAB_TOKEN' }, (response) => {
+        if (chrome.runtime.lastError || !response?.address) {
+          resolve(null);
+          return;
+        }
+
+        resolve({
+          address: response.address,
+          score: response.score ?? undefined,
+        });
+      });
+    });
+  } catch {
+    return null;
+  }
+}
+
 async function loadSelectedToken(): Promise<void> {
   try {
+    // Prefer the active tab's current token over whatever is in shared storage
+    const activeTabToken = await queryActiveTabToken();
+    if (activeTabToken) {
+      handleSelectedTokenUpdate(activeTabToken);
+      // Sync storage so other listeners stay consistent
+      await chrome.storage.local.set({ selectedToken: activeTabToken });
+      return;
+    }
+
+    // Fallback: use stored selectedToken (non-supported site or no content script)
     const stored = await chrome.storage.local.get('selectedToken');
     const selectedToken = stored.selectedToken as SelectedToken | undefined;
     handleSelectedTokenUpdate(selectedToken ?? null);
@@ -1366,6 +1401,8 @@ function setupEventListeners(): void {
     if (elements.register.registerBtn) elements.register.registerBtn.disabled = !checked;
     if (elements.register.magicLinkBtn) elements.register.magicLinkBtn.disabled = !checked;
     if (elements.register.googleBtn instanceof HTMLButtonElement) elements.register.googleBtn.disabled = !checked;
+    const hint = document.getElementById('register-terms-hint');
+    if (hint) hint.style.display = checked ? 'none' : '';
   });
   elements.register.registerBtn?.addEventListener('click', () => {
     void handleRegister();

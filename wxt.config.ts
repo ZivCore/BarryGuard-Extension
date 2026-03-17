@@ -10,7 +10,7 @@ export default defineConfig({
     name: 'BarryGuard',
     description: 'Real-time Solana token risk analysis overlay for supported Solana sites',
     homepage_url: 'https://barryguard.com',
-    permissions: ['storage'],
+    permissions: ['storage', 'activeTab'],
     host_permissions: [
       '*://pump.fun/*',
       '*://amm.pump.fun/*',
