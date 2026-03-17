@@ -614,6 +614,33 @@ function renderAnonDailyLimitState(): void {
   }
 }
 
+function renderLoadingTokenState(address: string): void {
+  const branding = getPlanBranding(state.userProfile?.tier);
+  const short = `${address.slice(0, 6)}…${address.slice(-4)}`;
+
+  if (elements.tokenDetail.tokenLogo) {
+    elements.tokenDetail.tokenLogo.src = branding.tokenFallbackLogo;
+    elements.tokenDetail.tokenLogo.alt = 'BarryGuard loading';
+  }
+
+  elements.tokenDetail.tokenName!.textContent = 'Analyzing…';
+  elements.tokenDetail.tokenSymbol!.textContent = '';
+  updateTokenAddressButton(short, address);
+  elements.tokenDetail.scoreValue!.textContent = '…';
+  elements.tokenDetail.scoreCircle!.className = 'score-circle';
+  elements.tokenDetail.riskLabel!.textContent = 'LOADING';
+  elements.tokenDetail.checksList!.innerHTML = `
+    <div class="check-item">
+      <div class="check-content">
+        <div class="check-label check-label-center">Fetching on-chain data…</div>
+      </div>
+    </div>
+  `;
+  if (elements.tokenDetail.viewExplorer instanceof HTMLAnchorElement) {
+    elements.tokenDetail.viewExplorer.dataset.address = address;
+  }
+}
+
 function renderPrimaryTokenState(): void {
   renderUsageIndicator();
 
@@ -623,7 +650,6 @@ function renderPrimaryTokenState(): void {
   }
 
   // Token address present but no score — user navigated to a token while rate limited.
-  // Show the limit state with the current token address visible (not the old token).
   if (state.selectedToken?.address && hasExhaustedUsage()) {
     showScreen('token-detail');
     renderUsageLimitState();
@@ -632,6 +658,13 @@ function renderPrimaryTokenState(): void {
 
   if (hasExhaustedUsage()) {
     renderUsageLimitState();
+    return;
+  }
+
+  // Token address present but score not yet loaded — show loading state
+  if (state.selectedToken?.address) {
+    showScreen('token-detail');
+    renderLoadingTokenState(state.selectedToken.address);
     return;
   }
 
@@ -981,7 +1014,7 @@ async function refreshSelectedTokenScore(): Promise<void> {
     return;
   }
 
-  const shouldBypassLocalCache = shouldKeepRefreshingScore(selectedToken.score);
+  const shouldBypassLocalCache = selectedToken.score ? shouldKeepRefreshingScore(selectedToken.score) : true;
   const response = await sendMessage<TokenScore>({
     type: shouldBypassLocalCache ? 'GET_TOKEN_SCORE_FRESH' : 'GET_TOKEN_SCORE',
     payload: shouldBypassLocalCache
