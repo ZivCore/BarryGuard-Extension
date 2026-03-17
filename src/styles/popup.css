@@ -348,6 +348,10 @@ body {
 }
 
 .token-address-group {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
   min-width: 0;
 }
 
@@ -356,8 +360,8 @@ body {
   font-size: 10px;
   font-weight: 800;
   letter-spacing: 0.12em;
-  margin-bottom: 4px;
   text-transform: uppercase;
+  width: 100%;
 }
 
 .token-address {
@@ -365,7 +369,9 @@ body {
   font-family: Consolas, "Courier New", monospace;
   font-size: 11px;
   line-height: 1.35;
-  overflow-wrap: anywhere;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .token-address-button {
@@ -373,11 +379,11 @@ body {
   border: 1px solid rgba(23, 59, 99, 0.1);
   border-radius: 12px;
   cursor: pointer;
-  display: block;
+  flex: 1;
+  min-width: 0;
   padding: 8px 10px;
   text-align: left;
   transition: background 0.16s ease, border-color 0.16s ease, transform 0.16s ease;
-  width: 100%;
 }
 
 .token-address-button.is-empty {
