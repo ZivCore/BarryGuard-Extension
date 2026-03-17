@@ -297,8 +297,6 @@ export function renderChecks(score: TokenScore, listEl: HTMLElement, tier: strin
     // Locked check overlay for free/anonymous tier
     if (isLockedCheck) {
       item.className = 'check-item check-item-locked';
-      const overlay = document.createElement('div');
-      overlay.className = 'check-upgrade-overlay';
 
       const lockSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
       lockSvg.setAttribute('width', '14');
@@ -318,8 +316,13 @@ export function renderChecks(score: TokenScore, listEl: HTMLElement, tier: strin
       const text = document.createElement('span');
       text.textContent = 'Upgrade for full report';
 
-      overlay.append(lockSvg, text);
-      item.appendChild(overlay);
+      const overlayLink = document.createElement('a');
+      overlayLink.href = 'https://barryguard.com/pricing';
+      overlayLink.target = '_blank';
+      overlayLink.rel = 'noopener noreferrer';
+      overlayLink.className = 'check-upgrade-overlay';
+      overlayLink.append(lockSvg, text);
+      item.appendChild(overlayLink);
     }
 
     listEl.appendChild(item);

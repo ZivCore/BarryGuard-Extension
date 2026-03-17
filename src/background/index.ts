@@ -223,15 +223,28 @@ async function refreshProfileStateIfNeeded(force = false): Promise<UserProfile |
 
   const storedToken = await getStoredToken();
   if (!storedToken) {
-    const sessionProfile = await loadProfileFromApi();
-    if (sessionProfile.success && sessionProfile.data) {
-      await persistProfileState(sessionProfile.data);
-      return sessionProfile.data;
+    // No Bearer token — try cookie-based session (user logged in on website)
+    const sessionResult = await api.validateSession();
+    if (sessionResult.success && sessionResult.data) {
+      // If the session response includes a token (cookie-based login), store it
+      // so the extension can use Bearer auth going forward
+      const sessionData = sessionResult.data as UserProfile & { token?: { access_token: string; refresh_token: string } };
+      if (sessionData.token?.access_token) {
+        await chrome.storage.session.set({ [AUTH_KEY]: sessionData.token });
+        api.setAuthToken(sessionData.token as import('../shared/types').AuthToken);
+      }
+
+      const tierResult = await api.getUserTier();
+      const storedProfile = await getStoredNormalizedProfile();
+      const merged = tierResult.success && tierResult.data
+        ? normalizeProfile({ ...sessionResult.data, ...tierResult.data })
+        : mergeProfileWithFallback(sessionResult.data, storedProfile);
+
+      await persistProfileState(merged);
+      return merged;
     }
 
-    // No valid session — clear stale profile data regardless of error type.
-    // Previously we would fall back to a cached profile on network errors,
-    // but this caused ghost "Free Tier" states for logged-out users.
+    // No valid session — clear stale profile data
     await chrome.storage.local.remove([PROFILE_KEY, PROFILE_SYNC_AT_KEY, HOURLY_USAGE_KEY]);
     await applyProfileState(null);
     return null;
