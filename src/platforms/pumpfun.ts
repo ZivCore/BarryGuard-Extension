@@ -122,6 +122,26 @@ export class PumpFunPlatform implements IPlatform {
     badge.onclick = null;
   }
 
+  renderLockedBadge(address: string): void {
+    const target = this.getTargetElement(address);
+    if (!target) {
+      return;
+    }
+
+    const badge = this.getBadge(address) ?? this.createBadge(address);
+    badge.setAttribute('data-barryguard-locked', 'true');
+    badge.style.backgroundColor = '#fef3c7';
+    badge.style.color = '#92400e';
+    badge.style.border = '1px solid #fde68a';
+    setBadgeContent(badge, '\u{1F512}');
+    badge.title = 'BarryGuard: Limit reached — upgrade or wait';
+    badge.onclick = null;
+
+    if (!this.getBadge(address)) {
+      this.insertBadge(address, target, badge);
+    }
+  }
+
   observeDOMChanges(callback: () => void): void {
     const observer = new MutationObserver((mutations) => {
       const isDetailPage = Boolean(this.getCurrentPageAddress());

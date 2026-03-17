@@ -121,6 +121,24 @@ export class RaydiumPlatform extends GenericSolanaPlatform {
     badge.onclick = null;
   }
 
+  override renderLockedBadge(address: string): void {
+    const placement = this.getBadgePlacement(address);
+    if (!placement) {
+      return;
+    }
+
+    const badge = this.getRaydiumBadge(address) ?? createBadgeElement(address);
+    badge.setAttribute('data-barryguard-locked', 'true');
+    badge.style.backgroundColor = '#fef3c7';
+    badge.style.color = '#92400e';
+    badge.style.border = '1px solid #fde68a';
+    setBadgeContent(badge, '\u{1F512}');
+    badge.title = 'BarryGuard: Limit reached — upgrade or wait';
+    badge.onclick = null;
+
+    this.insertRaydiumBadge(address, badge, placement);
+  }
+
   protected override findNameNode(root: Element): Element | null {
     const candidates = Array.from(root.querySelectorAll(
       '[data-sentry-element="Text"], p, span, div',
