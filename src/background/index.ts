@@ -24,7 +24,7 @@ const PROFILE_SYNC_AT_KEY = 'profile_synced_at';
 const SINGLE_ANALYSIS_KEY = 'single_analysis_state';
 const HOURLY_USAGE_KEY = 'hourly_usage_state';
 const ANONYMOUS_HOURLY_LIMIT = 10;
-const FREE_HOURLY_LIMIT = 100;
+const FREE_HOURLY_LIMIT = 30;
 const FREE_COOLDOWN_SECONDS = 10;
 const ANONYMOUS_COOLDOWN_SECONDS = FREE_COOLDOWN_SECONDS;
 const PROFILE_REFRESH_MAX_AGE_MS = 60 * 1000;
@@ -125,8 +125,10 @@ async function getStoredProfile(): Promise<UserProfile | null> {
 }
 
 async function persistProfileState(profile: UserProfile): Promise<void> {
+  // Strip stripeCustomerId — only needed server-side, should not persist in local storage
+  const { stripeCustomerId: _ignored, ...profileToStore } = profile as UserProfile & { stripeCustomerId?: unknown };
   await chrome.storage.local.set({
-    [PROFILE_KEY]: profile,
+    [PROFILE_KEY]: profileToStore,
     [PROFILE_SYNC_AT_KEY]: Date.now(),
   });
   await syncHourlyUsageState(profile);
