@@ -853,7 +853,7 @@ function renderTokenDetail(score: TokenScore): void {
 
   if (elements.tokenDetail.tokenName) elements.tokenDetail.tokenName.textContent = tokenName;
   if (elements.tokenDetail.tokenSymbol) elements.tokenDetail.tokenSymbol.textContent = tokenSymbol;
-  updateTokenAddressButton(truncateAddress(score.address), score.address);
+  updateTokenAddressButton(score.address, score.address);
   if (elements.tokenDetail.scoreValue) elements.tokenDetail.scoreValue.textContent = String(score.score);
   if (elements.tokenDetail.scoreDonut) {
     elements.tokenDetail.scoreDonut.className = `score-donut score-${risk}`;

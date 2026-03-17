@@ -73,6 +73,7 @@ export class PumpFunPlatform implements IPlatform {
     badge.style.backgroundColor = colors.bg;
     badge.style.color = colors.text;
     badge.style.border = `1px solid ${colors.border}`;
+    badge.style.boxShadow = colors.glow;
     setBadgeContent(badge, String(score.score));
     badge.title = `BarryGuard Score: ${score.score}/100 - Click for details`;
     badge.onclick = (event) => {
@@ -380,7 +381,7 @@ export class PumpFunPlatform implements IPlatform {
     return match?.[1];
   }
 
-  private getColors(risk: string): { bg: string; text: string; border: string } {
+  private getColors(risk: string): { bg: string; text: string; border: string; glow: string } {
     return getRiskColors(risk);
   }
 }

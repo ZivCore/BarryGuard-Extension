@@ -52,7 +52,7 @@ export function createBadgeElement(address: string): HTMLDivElement {
     'transition:all 0.2s ease',
     'z-index:1000',
     'white-space:nowrap',
-    'box-shadow:0 4px 10px rgba(15,23,42,0.08)',
+    'box-shadow:0 0 8px rgba(220,38,38,0.5)',
   ].join(';');
 
   return badge;
@@ -242,17 +242,17 @@ export function setBadgeContent(badge: HTMLDivElement, value: string, compact = 
   badge.replaceChildren(labelNode, valueNode);
 }
 
-export function getRiskColors(risk: string): { bg: string; text: string; border: string } {
-  const map: Record<string, { bg: string; text: string; border: string }> = {
-    danger: { bg: '#fee2e2', text: '#991b1b', border: '#fecaca' },
-    high: { bg: '#ffedd5', text: '#9a3412', border: '#fed7aa' },
-    caution: { bg: '#fef3c7', text: '#92400e', border: '#fde68a' },
-    moderate: { bg: '#d1fae5', text: '#065f46', border: '#a7f3d0' },
-    low: { bg: '#d1fae5', text: '#065f46', border: '#a7f3d0' },
+export function getRiskColors(risk: string): { bg: string; text: string; border: string; glow: string } {
+  const map: Record<string, { bg: string; text: string; border: string; glow: string }> = {
+    danger:   { bg: '#dc2626', text: '#ffffff', border: '#b91c1c', glow: '0 0 8px rgba(220,38,38,0.5)' },
+    high:     { bg: '#ea580c', text: '#ffffff', border: '#c2410c', glow: '0 0 8px rgba(234,88,12,0.5)' },
+    caution:  { bg: '#d97706', text: '#ffffff', border: '#b45309', glow: '0 0 8px rgba(217,119,6,0.4)' },
+    moderate: { bg: '#16a34a', text: '#ffffff', border: '#15803d', glow: '0 0 8px rgba(22,163,74,0.4)' },
+    low:      { bg: '#059669', text: '#ffffff', border: '#047857', glow: '0 0 8px rgba(5,150,105,0.4)' },
     // Backward compatibility
-    critical: { bg: '#fee2e2', text: '#991b1b', border: '#fecaca' },
-    medium: { bg: '#fef3c7', text: '#92400e', border: '#fde68a' },
-    safe: { bg: '#d1fae5', text: '#065f46', border: '#a7f3d0' },
+    critical: { bg: '#dc2626', text: '#ffffff', border: '#b91c1c', glow: '0 0 8px rgba(220,38,38,0.5)' },
+    medium:   { bg: '#d97706', text: '#ffffff', border: '#b45309', glow: '0 0 8px rgba(217,119,6,0.4)' },
+    safe:     { bg: '#059669', text: '#ffffff', border: '#047857', glow: '0 0 8px rgba(5,150,105,0.4)' },
   };
 
   return map[risk] ?? map.danger;

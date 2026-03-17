@@ -225,8 +225,11 @@ export function getConfidenceDisplay(confidence: ConfidenceLevel): { text: strin
  */
 const CHECK_ORDER_SET = new Set<string>(CHECK_ORDER);
 
-export function renderChecks(score: TokenScore, listEl: HTMLElement): void {
+export function renderChecks(score: TokenScore, listEl: HTMLElement, tier: string = 'pro'): void {
   listEl.innerHTML = '';
+
+  const isPaid = tier === 'rescue_pass' || tier === 'pro';
+  let checkIndex = 0;
 
   const extraCheckKeys = Object.keys(score.checks).filter((k) => !CHECK_ORDER_SET.has(k));
   const allCheckKeys: string[] = [...CHECK_ORDER, ...extraCheckKeys];
@@ -234,6 +237,14 @@ export function renderChecks(score: TokenScore, listEl: HTMLElement): void {
   for (const checkKey of allCheckKeys) {
     const check = score.checks[checkKey] as CheckResult | undefined;
     if (!check && !CHECK_ORDER_SET.has(checkKey)) continue; // skip missing optional checks
+
+    checkIndex++;
+
+    // Free/anonymous: show 3 checks, blur 4th, hide rest
+    if (!isPaid && checkIndex > 4) continue;
+
+    const isLockedCheck = !isPaid && checkIndex === 4;
+
     const label = normalizeCheckLabel(checkKey, check?.label);
     const description = normalizeCheckDescription(check?.description, checkKey);
 
@@ -283,7 +294,51 @@ export function renderChecks(score: TokenScore, listEl: HTMLElement): void {
       item.append(icon, content);
     }
 
+    // Locked check overlay for free/anonymous tier
+    if (isLockedCheck) {
+      item.className = 'check-item check-item-locked';
+      const overlay = document.createElement('div');
+      overlay.className = 'check-upgrade-overlay';
+
+      const lockSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+      lockSvg.setAttribute('width', '14');
+      lockSvg.setAttribute('height', '14');
+      lockSvg.setAttribute('viewBox', '0 0 24 24');
+      lockSvg.setAttribute('fill', 'none');
+      lockSvg.setAttribute('stroke', 'currentColor');
+      lockSvg.setAttribute('stroke-width', '2');
+      const rect = document.createElementNS('http://www.w3.org/2000/svg', 'rect');
+      rect.setAttribute('x', '3'); rect.setAttribute('y', '11');
+      rect.setAttribute('width', '18'); rect.setAttribute('height', '11');
+      rect.setAttribute('rx', '2'); rect.setAttribute('ry', '2');
+      const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+      path.setAttribute('d', 'M7 11V7a5 5 0 0 1 10 0v4');
+      lockSvg.append(rect, path);
+
+      const text = document.createElement('span');
+      text.textContent = 'Upgrade for full report';
+
+      overlay.append(lockSvg, text);
+      item.appendChild(overlay);
+    }
+
     listEl.appendChild(item);
+  }
+
+  // For free/anonymous: add "View full analysis" CTA directly after the locked check
+  if (!isPaid) {
+    const ctaWrapper = document.createElement('div');
+    ctaWrapper.style.cssText = 'padding: 8px 0 0;';
+
+    const ctaLink = document.createElement('a');
+    ctaLink.href = `https://barryguard.com/check/${score.address}`;
+    ctaLink.target = '_blank';
+    ctaLink.rel = 'noopener noreferrer';
+    ctaLink.className = 'view-full-analysis-btn';
+    ctaLink.textContent = 'View full analysis on barryguard.com ↗';
+
+    ctaWrapper.appendChild(ctaLink);
+    listEl.appendChild(ctaWrapper);
   }
 }
 

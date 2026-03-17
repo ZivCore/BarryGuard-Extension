@@ -44,12 +44,27 @@
     <div id="token-detail-screen" class="screen hidden">
       <div class="header">
         <h1 tabindex="-1">Token Analysis</h1>
-        <button id="manual-entry-btn" class="icon-btn" title="Enter token address" aria-label="Enter token address manually">
-          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-            <circle cx="11" cy="11" r="8"></circle>
-            <path d="m21 21-4.35-4.35"></path>
-          </svg>
-        </button>
+        <div class="header-actions">
+          <button id="manual-entry-btn" class="icon-btn" title="Enter token address" aria-label="Enter token address manually">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <circle cx="11" cy="11" r="8"></circle>
+              <path d="m21 21-4.35-4.35"></path>
+            </svg>
+          </button>
+          <button id="refresh-btn" class="icon-btn" title="Refresh analysis" aria-label="Refresh analysis">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M23 4v6h-6"></path>
+              <path d="M1 20v-6h6"></path>
+              <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+            </svg>
+          </button>
+          <button id="header-account-btn" class="icon-btn" title="Account" aria-label="Account">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+              <circle cx="12" cy="7" r="4"></circle>
+            </svg>
+          </button>
+        </div>
       </div>
 
       <div class="analysis-overview">
@@ -64,6 +79,14 @@
           <div class="token-address-group">
             <div class="token-address-label">Address</div>
             <button type="button" class="token-address token-address-button" id="token-address"></button>
+            <a id="solscan-link" class="solscan-icon-link" href="#" target="_blank" rel="noopener noreferrer" title="View on Solscan" aria-label="View on Solscan">
+              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+                <polyline points="15 3 21 3 21 9"></polyline>
+                <line x1="10" y1="14" x2="21" y2="3"></line>
+              </svg>
+            </a>
+            <span class="analyzed-at" id="analyzed-at">Analyzed just now</span>
           </div>
           <div id="copy-toast" class="copy-toast hidden" aria-live="polite">Copied</div>
         </div>
@@ -118,27 +141,6 @@
         <div id="checks-list"></div>
       </div>
 
-      <div class="analysis-footer">
-        <div class="footer-left">
-          <span class="analyzed-at" id="analyzed-at">Analyzed just now</span>
-          <span class="confidence-badge" id="confidence-badge">Data: Complete</span>
-        </div>
-        <div class="footer-right">
-          <button id="refresh-btn" class="icon-btn" title="Refresh analysis" aria-label="Refresh analysis">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M23 4v6h-6"></path>
-              <path d="M1 20v-6h6"></path>
-              <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
-            </svg>
-          </button>
-        </div>
-      </div>
-
-      <div class="footer">
-        <a href="#" id="view-explorer" class="link-btn">View on Solscan</a>
-        <a href="#" id="view-full-analysis" class="link-btn">View full analysis ↗</a>
-        <button id="account-btn" class="btn-secondary">Account</button>
-      </div>
     </div>
 
     <div id="login-screen" class="screen hidden">
