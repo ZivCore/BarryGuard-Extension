@@ -4,11 +4,27 @@ import type { TokenScore, TierLevel, CacheEntry } from './types';
 const CACHE_KEY = 'barryguard_cache';
 const MAX_ENTRIES = 1000;
 
+// Default TTL values match backend config (free: 720 min, rescue_pass: 60 min, pro: 10 min).
+// These can be updated at runtime via updateCacheTTL() from the /api/config endpoint.
 const TTL_MS: Record<TierLevel, number> = {
-  free:         5 * 60 * 1000,
-  rescue_pass:  2 * 60 * 1000,
-  pro:          2 * 60 * 1000,
+  free:         720 * 60 * 1000,  // 720 min (12h) — matching backend
+  rescue_pass:   60 * 60 * 1000,  // 60 min
+  pro:           10 * 60 * 1000,  // 10 min
 };
+
+/**
+ * Updates cache TTL values from a backend config object.
+ * Expected shape: { free?: number; rescue_pass?: number; pro?: number } (values in milliseconds).
+ * Call this at extension startup after loading /api/config to keep TTLs in sync with the backend.
+ */
+export function updateCacheTTL(config: Partial<Record<TierLevel, number>>): void {
+  for (const tier of ['free', 'rescue_pass', 'pro'] as TierLevel[]) {
+    const value = config[tier];
+    if (typeof value === 'number' && Number.isFinite(value) && value > 0) {
+      TTL_MS[tier] = value;
+    }
+  }
+}
 
 export class TokenCache {
   private cache = new Map<string, CacheEntry>();

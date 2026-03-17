@@ -28,7 +28,7 @@ import {
   renderAnalysisFooter,
 } from './render';
 
-type ScreenName = 'loading' | 'token-detail' | 'login' | 'register' | 'account' | 'manual';
+type ScreenName = 'loading' | 'token-detail' | 'login' | 'register' | 'account' | 'manual' | 'no-token';
 
 interface RuntimeMessage {
   type: string;
@@ -78,6 +78,7 @@ const elements = {
     register: document.getElementById('register-screen'),
     account: document.getElementById('account-screen'),
     manual: document.getElementById('manual-entry-screen'),
+    noToken: document.getElementById('no-token-screen'),
   },
   brand: {
     logo: document.getElementById('brand-logo') as HTMLImageElement | null,
@@ -149,6 +150,10 @@ const elements = {
     analyzeBtn: document.getElementById('analyze-btn') as HTMLButtonElement | null,
     backBtn: document.getElementById('manual-back-btn'),
     error: document.getElementById('manual-error'),
+  },
+  noToken: {
+    screen: document.getElementById('no-token-screen'),
+    manualBtn: document.getElementById('no-token-manual-btn'),
   },
 };
 
@@ -300,6 +305,7 @@ function showScreen(screen: ScreenName): void {
     register: elements.screens.register,
     account: elements.screens.account,
     manual: elements.screens.manual,
+    'no-token': elements.screens.noToken,
   };
 
   targetMap[screen]?.classList.remove('hidden');
@@ -503,6 +509,7 @@ function renderEmptyState(): void {
   elements.tokenDetail.scoreValue!.textContent = '--';
   elements.tokenDetail.scoreCircle!.className = 'score-circle';
   elements.tokenDetail.riskLabel!.textContent = 'ANALYZE TOKEN';
+  // safe: internal data only
   elements.tokenDetail.checksList!.innerHTML = `
     <div class="check-item">
       <div class="check-content">
@@ -538,6 +545,7 @@ function renderUsageLimitState(): void {
   elements.tokenDetail.scoreValue!.textContent = '--';
   elements.tokenDetail.scoreCircle!.className = 'score-circle score-medium';
   elements.tokenDetail.riskLabel!.textContent = 'UPGRADE OR WAIT';
+  // safe: internal data only
   elements.tokenDetail.checksList!.innerHTML = `
     <div class="check-item">
       <div class="check-icon warning">!</div>
@@ -572,6 +580,7 @@ function renderAnonDailyLimitState(): void {
   elements.tokenDetail.scoreValue!.textContent = '--';
   elements.tokenDetail.scoreCircle!.className = 'score-circle';
   elements.tokenDetail.riskLabel!.textContent = 'LIMIT REACHED';
+  // safe: internal data only
   elements.tokenDetail.checksList!.innerHTML = `
     <div class="check-item">
       <div class="check-content">
@@ -695,6 +704,16 @@ function handleSelectedTokenUpdate(selectedToken: SelectedToken | null): void {
   }
 
   state.selectedToken = selectedToken;
+
+  if (!selectedToken && state.initialized) {
+    showScreen('no-token');
+    return;
+  }
+
+  if (selectedToken && state.currentScreen === 'no-token') {
+    showScreen('token-detail');
+  }
+
   renderPrimaryTokenState();
 
   if (selectedToken?.score) {
@@ -1365,6 +1384,11 @@ function setupEventListeners(): void {
     }
   });
 
+  elements.noToken.manualBtn?.addEventListener('click', () => {
+    setManualError(null);
+    showScreen('manual');
+  });
+
   document.addEventListener('keydown', (event) => {
     if (event.key === 'Escape') {
       window.close();
@@ -1391,7 +1415,11 @@ async function init(): Promise<void> {
   } finally {
     applyPlanBranding();
     renderUsageIndicator();
-    showScreen('token-detail');
+    if (!state.selectedToken) {
+      showScreen('no-token');
+    } else {
+      showScreen('token-detail');
+    }
   }
 }
 
