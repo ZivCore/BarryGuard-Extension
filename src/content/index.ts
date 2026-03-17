@@ -549,6 +549,18 @@ export function initializeContentScript(): void {
   }
 
   platform.observeDOMChanges(scanAll);
+
+  // Respond to popup asking for the current tab's token state
+  withSafeRuntime(() => {
+    chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+      if (message?.type === 'GET_ACTIVE_TAB_TOKEN') {
+        const address = platform.getCurrentPageAddress();
+        const score = address ? resolvedScores.get(address) ?? null : null;
+        sendResponse({ address, score });
+      }
+    });
+  });
+
   withSafeRuntime(() => {
     chrome.storage.onChanged.addListener((changes, areaName) => {
       if (areaName !== 'local' || !changes[PROFILE_STORAGE_KEY]) {
