@@ -62,6 +62,8 @@ const PAID_ACTION_ICON_PATHS: Record<'rescue_pass' | 'pro', Record<number, strin
 
 type JsonRecord = Record<string, unknown>;
 
+const VALID_TIERS = ['free', 'rescue_pass', 'pro'] as const;
+
 function asRecord(value: unknown): JsonRecord | null {
   return value && typeof value === 'object' ? (value as JsonRecord) : null;
 }
@@ -98,120 +100,22 @@ function mergeRecords(...records: Array<JsonRecord | null>): JsonRecord {
   return records.reduce<JsonRecord>((acc, record) => (record ? { ...acc, ...record } : acc), {});
 }
 
-function normalizeTierValue(value: unknown): TierLevel | null {
-  if (typeof value !== 'string') {
-    return null;
+// inferTier reads the tier exclusively from the trusted 'tier' field (an explicit enum field).
+// It does NOT derive tier from generic boolean flags, price hints, or subscription status fields
+// to prevent tier upgrades from API-response manipulation.
+function inferTier(data: unknown): TierLevel {
+  if (!data || typeof data !== 'object') return 'free';
+  const record = data as Record<string, unknown>;
+  const tier = record['tier'];
+  if (typeof tier === 'string' && VALID_TIERS.includes(tier as TierLevel)) {
+    return tier as TierLevel;
   }
-
-  const normalized = value.trim().toLowerCase().replace(/[\s-]+/g, '_');
-  if (normalized === 'free') {
-    return 'free';
-  }
-
-  if (['rescue_pass', 'rescue', 'premium', 'paid'].includes(normalized)) {
-    return 'rescue_pass';
-  }
-
-  if (normalized === 'pro') {
-    return 'pro';
-  }
-
-  return null;
-}
-
-function inferTier(record: JsonRecord, _depth = 0, allowGenericStatus = false): TierLevel {
-  if (_depth > 3) return 'free';
-  const directTier = normalizeTierValue(
-    pickString(record, ['tier', 'plan', 'planTier', 'plan_tier', 'subscriptionTier', 'subscription_tier']),
-  );
-  if (directTier) {
-    return directTier;
-  }
-
-  if (record.isPro === true || record.is_pro === true) {
-    return 'pro';
-  }
-
-  if (
-    record.isPaid === true
-    || record.is_paid === true
-    || record.hasSubscription === true
-    || record.has_subscription === true
-    || record.subscriptionActive === true
-    || record.subscription_active === true
-    || record.hasActiveSubscription === true
-    || record.has_active_subscription === true
-  ) {
-    return 'rescue_pass';
-  }
-
-  const nestedSources = [
-    asRecord(record.data),
-    asRecord(record.user),
-    asRecord(record.profile),
-    asRecord(record.membership),
-    asRecord(record.billing),
-    asRecord(record.entitlements),
-  ].filter((value): value is JsonRecord => Boolean(value));
-
-  for (const source of nestedSources) {
-    const nestedTier = inferTier(source, _depth + 1);
-    if (nestedTier !== 'free') {
-      return nestedTier;
-    }
-  }
-
-  const nestedSubscription = asRecord(record.subscription);
-  if (nestedSubscription) {
-    const nestedSubscriptionTier = inferTier(nestedSubscription, _depth + 1, true);
-    if (nestedSubscriptionTier !== 'free') {
-      return nestedSubscriptionTier;
-    }
-  }
-
-  const priceHint = pickString(record, [
-    'priceId',
-    'price_id',
-    'stripePriceId',
-    'stripe_price_id',
-    'product',
-    'productName',
-    'product_name',
-    'priceName',
-    'price_name',
-    'planName',
-    'plan_name',
-    'name',
-  ]);
-  if (priceHint) {
-    const normalizedPriceHint = priceHint.toLowerCase();
-    if (normalizedPriceHint.includes('pro')) {
-      return 'pro';
-    }
-    if (normalizedPriceHint.includes('rescue')) {
-      return 'rescue_pass';
-    }
-  }
-
-  // Only check explicit subscription status fields — 'status' is too generic and can be spoofed
-  const status = pickString(
-    record,
-    allowGenericStatus
-      ? ['subscriptionStatus', 'subscription_status', 'status']
-      : ['subscriptionStatus', 'subscription_status'],
-  );
-  if (status) {
-    const normalizedStatus = status.toLowerCase();
-    if (['active', 'trialing'].includes(normalizedStatus)) {
-      return 'rescue_pass';
-    }
-  }
-
-  return 'free';
+  return 'free'; // Default is always free, never pro
 }
 
 async function getStoredToken(): Promise<AuthToken | null> {
-  const stored = await chrome.storage.local.get(AUTH_KEY);
+  // Auth token is stored in session storage (cleared on browser restart — more secure)
+  const stored = await chrome.storage.session.get(AUTH_KEY);
   return stored[AUTH_KEY] ?? null;
 }
 
@@ -240,7 +144,9 @@ async function getStoredNormalizedProfile(): Promise<UserProfile | null> {
 }
 
 async function clearSessionState(): Promise<void> {
-  await chrome.storage.local.remove([AUTH_KEY, PROFILE_KEY, PROFILE_SYNC_AT_KEY, HOURLY_USAGE_KEY]);
+  // Auth token lives in session storage; profile data lives in local storage
+  await chrome.storage.session.remove(AUTH_KEY);
+  await chrome.storage.local.remove([PROFILE_KEY, PROFILE_SYNC_AT_KEY, HOURLY_USAGE_KEY]);
   api.clearAuthToken();
   await applyProfileState(null);
 }
@@ -326,7 +232,7 @@ async function refreshProfileStateIfNeeded(force = false): Promise<UserProfile |
   api.setAuthToken(storedToken);
   const result = await fetchFreshProfile();
   if (result.refreshedToken) {
-    await chrome.storage.local.set({ [AUTH_KEY]: result.refreshedToken });
+    await chrome.storage.session.set({ [AUTH_KEY]: result.refreshedToken });
   }
 
   if (result.response.success && result.response.data) {
@@ -644,17 +550,47 @@ async function setHourlyUsageState(state: HourlyUsageState): Promise<void> {
 }
 
 async function syncHourlyUsageState(profile: UserProfile | null): Promise<HourlyUsageState | null> {
-  void profile;
-  return null;
+  const limit = getHourlyLimit(profile);
+  const tier: TierLevel = profile?.tier ?? 'free';
+  const audience: 'anonymous' | 'authenticated' = profile ? 'authenticated' : 'anonymous';
+  const currentBucketKey = getUsageBucketKey(tier, audience);
+
+  const stored = await getStoredHourlyUsageState();
+
+  // Reset when the hourly bucket changes (new hour or tier/audience change)
+  if (!stored || stored.bucketKey !== currentBucketKey) {
+    const fresh: HourlyUsageState = {
+      bucketKey: currentBucketKey,
+      tier,
+      audience,
+      used: 0,
+      limit,
+      updatedAt: Date.now(),
+    };
+    await setHourlyUsageState(fresh);
+    return fresh;
+  }
+
+  // Update limit in case it changed (e.g. profile updated)
+  const synced: HourlyUsageState = { ...stored, limit };
+  if (synced.limit !== stored.limit) {
+    await setHourlyUsageState(synced);
+  }
+  return synced;
 }
 
 async function markUsageExhausted(profile: UserProfile | null): Promise<void> {
-  void profile;
+  const state = await syncHourlyUsageState(profile);
+  if (!state) return;
+  const exhausted: HourlyUsageState = { ...state, used: state.limit, updatedAt: Date.now() };
+  await setHourlyUsageState(exhausted);
 }
 
 async function incrementHourlyUsage(profile: UserProfile | null, amount: number): Promise<void> {
-  void profile;
-  void amount;
+  const state = await syncHourlyUsageState(profile);
+  if (!state) return;
+  const updated: HourlyUsageState = { ...state, used: state.used + amount, updatedAt: Date.now() };
+  await setHourlyUsageState(updated);
 }
 
 function mapApiFailure<T>(response: ApiResponse<T>): ApiResponse<T> {
@@ -719,8 +655,21 @@ async function maybeEnforceHourlyLimit(
   profile: UserProfile | null,
   requestedUnits = 1,
 ): Promise<ApiResponse<never> | null> {
-  void profile;
-  void requestedUnits;
+  const state = await syncHourlyUsageState(profile);
+  if (!state) return null;
+
+  if (state.used + requestedUnits > state.limit) {
+    // Compute seconds until the next hourly bucket starts
+    const msUntilReset = 3600000 - (Date.now() % 3600000);
+    const retryAfterSeconds = Math.ceil(msUntilReset / 1000);
+    return {
+      success: false,
+      error: `Hourly limit reached (${state.used}/${state.limit}). Resets in ${retryAfterSeconds}s.`,
+      statusCode: 429,
+      errorType: 'rate_limit',
+      retryAfterSeconds,
+    };
+  }
   return null;
 }
 
@@ -1024,7 +973,8 @@ export function initializeBackground(): void {
                 ...(asRecord(result.data) ?? {}),
                 ...(asRecord(result.data.user) ?? {}),
               });
-              await chrome.storage.local.set({ [AUTH_KEY]: result.data.token });
+              // Auth token stored in session storage (cleared on browser restart — more secure)
+              await chrome.storage.session.set({ [AUTH_KEY]: result.data.token });
               await persistProfileState(normalizedUser);
               respond({ success: true, data: normalizedUser });
               break;
@@ -1039,7 +989,8 @@ export function initializeBackground(): void {
                 ...(asRecord(result.data) ?? {}),
                 ...(asRecord(result.data.user) ?? {}),
               });
-              await chrome.storage.local.set({ [AUTH_KEY]: result.data.token });
+              // Auth token stored in session storage (cleared on browser restart — more secure)
+              await chrome.storage.session.set({ [AUTH_KEY]: result.data.token });
               await persistProfileState(normalizedUser);
               respond({ success: true, data: normalizedUser });
               break;
@@ -1066,7 +1017,9 @@ export function initializeBackground(): void {
             break;
           case 'LOGOUT':
             await api.logout();
-            await chrome.storage.local.remove([AUTH_KEY, PROFILE_KEY, PROFILE_SYNC_AT_KEY, HOURLY_USAGE_KEY]);
+            // Auth token lives in session storage; profile data lives in local storage
+            await chrome.storage.session.remove(AUTH_KEY);
+            await chrome.storage.local.remove([PROFILE_KEY, PROFILE_SYNC_AT_KEY, HOURLY_USAGE_KEY]);
             await syncHourlyUsageState(null);
             await updateActionIcon(null);
             respond({ success: true });

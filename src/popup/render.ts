@@ -207,13 +207,13 @@ function getDisplayCheckStatus(checkKey: string, check: CheckResult): CheckResul
 export function getConfidenceDisplay(confidence: ConfidenceLevel): { text: string; className: string } {
   switch (confidence) {
     case 'high':
-      return { text: 'Data: Complete', className: '' };
+      return { text: 'All checks available', className: '' };
     case 'medium':
-      return { text: 'Data: Partial', className: 'medium' };
+      return { text: 'Some checks pending', className: 'medium' };
     case 'low':
-      return { text: 'Data: Limited', className: 'low' };
+      return { text: 'Limited blockchain data', className: 'low' };
     default:
-      return { text: 'Data: Partial', className: 'medium' };
+      return { text: 'Some checks pending', className: 'medium' };
   }
 }
 

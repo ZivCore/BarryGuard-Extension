@@ -28,10 +28,22 @@
       <div class="loader"></div>
     </div>
 
+    <div id="no-token-screen" class="screen hidden">
+      <div class="brand-placeholder">
+        <div class="no-token-icon">🐕</div>
+        <h2 class="no-token-title">No token detected</h2>
+        <p class="no-token-subtitle">Navigate to Pump.fun, Raydium, or another supported platform, or enter a token address manually.</p>
+        <button id="no-token-manual-btn" class="btn-primary" style="margin-top: 16px;">Enter token address</button>
+        <div class="supported-platforms" style="margin-top: 16px; font-size: 0.72em; color: var(--muted, #888);">
+          Supported: pump.fun · raydium · dexscreener · birdeye · moonshot · letsbonk
+        </div>
+      </div>
+    </div>
+
     <div id="token-detail-screen" class="screen hidden">
       <div class="header">
         <h1>Token Analysis</h1>
-        <button id="manual-entry-btn" class="icon-btn" title="Manual Entry">
+        <button id="manual-entry-btn" class="icon-btn" title="Enter token address" aria-label="Enter token address manually">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <circle cx="11" cy="11" r="8"></circle>
             <path d="m21 21-4.35-4.35"></path>
