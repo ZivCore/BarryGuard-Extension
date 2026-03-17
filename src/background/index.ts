@@ -959,25 +959,6 @@ export function initializeBackground(): void {
             respond(profile ? { success: true, data: profile } : { success: false, error: 'No active session.' });
             break;
           }
-          case 'GET_ACTIVE_TAB_TOKEN': {
-            try {
-              const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-              if (!tab?.id) {
-                respond({ success: false, error: 'No active tab' });
-                break;
-              }
-              chrome.tabs.sendMessage(tab.id, { type: 'GET_ACTIVE_TAB_TOKEN' }, (tabResponse) => {
-                if (chrome.runtime.lastError || !tabResponse?.address) {
-                  respond({ success: false, error: 'No token on active tab' });
-                  return;
-                }
-                respond({ success: true, data: tabResponse });
-              });
-            } catch {
-              respond({ success: false, error: 'Failed to query active tab' });
-            }
-            break;
-          }
           case 'REFRESH_TOKEN_SCORE': {
             if (!isValidSolanaAddress(message.payload?.address)) {
               respond({ success: false, error: 'Invalid token address format.', errorType: 'validation' as const });

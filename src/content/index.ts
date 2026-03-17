@@ -396,6 +396,7 @@ export function initializeContentScript(): void {
         }
 
         if (platform.getCurrentPageAddress() === address) {
+          persistActivePageToken();
           const selectedToken = platform.buildSelectedToken(address, score);
           sendRuntimeMessage({ type: 'GET_TOKEN_METADATA', payload: address }, (metadataResponse) => {
             const metadata = {
@@ -462,6 +463,7 @@ export function initializeContentScript(): void {
     const visibleAddresses = [...active];
 
     syncVisibleBadges(visibleAddresses);
+    persistActivePageToken();
     if (currentPageAddress) {
       scheduleStorageReconcile(currentPageAddress);
     }
@@ -545,21 +547,26 @@ export function initializeContentScript(): void {
     }
 
     lastUrl = currentUrl;
+    persistActivePageToken();
     scanAll();
   }
 
   platform.observeDOMChanges(scanAll);
 
-  // Respond to popup asking for the current tab's token state
-  withSafeRuntime(() => {
-    chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
-      if (message?.type === 'GET_ACTIVE_TAB_TOKEN') {
-        const address = platform.getCurrentPageAddress();
-        const score = address ? resolvedScores.get(address) ?? null : null;
-        sendResponse({ address, score });
-      }
+  // Keep activePageToken in sync so the popup always shows the current tab's token
+  function persistActivePageToken(): void {
+    const address = platform.getCurrentPageAddress();
+    if (!address) {
+      return;
+    }
+
+    const score = resolvedScores.get(address) ?? undefined;
+    withSafeRuntime(() => {
+      void chrome.storage.local.set({
+        activePageToken: { address, score, updatedAt: Date.now() },
+      }).catch(() => {});
     });
-  });
+  }
 
   withSafeRuntime(() => {
     chrome.storage.onChanged.addListener((changes, areaName) => {
