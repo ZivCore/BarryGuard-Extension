@@ -1158,15 +1158,10 @@ function sendMessage<T>(message: RuntimeMessage, timeoutMs = 2500): Promise<ApiR
 }
 
 async function loadUserProfile(): Promise<boolean> {
-  // Check for an explicit auth token first — cookie-based sessions alone
-  // should not make the extension show "logged in" state
-  const tokenStore = await chrome.storage.session.get('auth_token');
-  const hasExplicitToken = Boolean(tokenStore?.auth_token);
-
   const response = await sendMessage<UserProfile>({ type: 'GET_USER_TIER' });
-  if (!response.success || !response.data || !hasExplicitToken) {
+  if (!response.success || !response.data) {
     state.isLoggedIn = false;
-    state.userProfile = hasExplicitToken ? (response.data ?? null) : null;
+    state.userProfile = null;
     applyPlanBranding();
     renderUsageIndicator();
     return false;
@@ -1340,8 +1335,8 @@ async function handleRegister(): Promise<void> {
     return;
   }
 
-  if (password.length < 12) {
-    setRegisterError('Password must be at least 12 characters.');
+  if (password.length < 8) {
+    setRegisterError('Password must be at least 8 characters.');
     return;
   }
   if (!/[A-Z]/.test(password)) {

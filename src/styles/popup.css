@@ -732,6 +732,13 @@ body {
   margin-bottom: 16px;
 }
 
+.password-hint {
+  color: var(--muted);
+  font-size: 10px;
+  line-height: 1.4;
+  margin-top: 4px;
+}
+
 .form-group label {
   color: var(--deep-blue);
   display: block;
