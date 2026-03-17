@@ -1,6 +1,6 @@
 // src/shared/types.ts
 
-export type RiskLevel = 'high' | 'medium' | 'low';
+export type RiskLevel = 'danger' | 'high' | 'caution' | 'moderate' | 'low';
 export type TierLevel = 'free' | 'rescue_pass' | 'pro';
 export type ApiErrorType = 'plan_gate' | 'rate_limit' | 'cooldown' | 'server' | 'network' | 'busy' | 'validation' | 'anon_daily_limit';
 

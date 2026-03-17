@@ -2,7 +2,7 @@
 // Rendering functions extracted from popup/index.ts for testability.
 // These functions have no module-level side effects and can be imported in tests.
 
-import type { CheckResult, ConfidenceLevel, Subscores, TokenScore } from '../shared/types';
+import type { CheckResult, ConfidenceLevel, RiskLevel, Subscores, TokenScore } from '../shared/types';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -99,9 +99,11 @@ const CHECK_DESCRIPTION_PATTERNS: Array<{ pattern: RegExp; translate: (m: RegExp
 
 // ─── Helpers ──────────────────────────────────────────────────────────────────
 
-export function getRiskLevel(score: number): 'high' | 'medium' | 'low' {
-  if (score <= 30) return 'high';
-  if (score <= 60) return 'medium';
+export function getRiskLevel(score: number): RiskLevel {
+  if (score <= 29) return 'danger';
+  if (score <= 54) return 'high';
+  if (score <= 74) return 'caution';
+  if (score <= 89) return 'moderate';
   return 'low';
 }
 
@@ -325,7 +327,7 @@ export function renderSubscores(score: TokenScore): void {
     if (bar && valueEl) {
       const clamped = Math.max(0, Math.min(100, Math.round(value)));
       bar.style.width = `${clamped}%`;
-      bar.classList.remove('score-high', 'score-medium', 'score-low');
+      bar.classList.remove('score-danger', 'score-high', 'score-caution', 'score-moderate', 'score-low');
       bar.classList.add(`score-${getRiskLevel(clamped)}`);
       valueEl.textContent = `${clamped}/100`;
     }

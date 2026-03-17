@@ -252,9 +252,9 @@ describe('renderSubscores', () => {
     expect(document.getElementById('subscore-marketStructure-bar')?.style.width).toBe('0%');
   });
 
-  it('applies score-low class for scores under 30', () => {
+  it('applies score-danger class for scores at or below 29', () => {
     renderSubscores(makeScore({ subscores: { contract: 20, marketStructure: 55, behavior: 28 } }));
-    expect(document.getElementById('subscore-contract-bar')?.classList.contains('score-high')).toBe(true);
+    expect(document.getElementById('subscore-contract-bar')?.classList.contains('score-danger')).toBe(true);
   });
 });
 

@@ -110,13 +110,24 @@ export function renderBadgeTooltip(
   let showTimeoutId: ReturnType<typeof setTimeout> | null = null;
 
   function getRiskIcon(riskLevel: string): string {
-    if (riskLevel.toLowerCase() === 'high') return '⚠️';
-    if (riskLevel.toLowerCase() === 'medium') return '⚡';
+    const level = riskLevel.toLowerCase();
+    if (level === 'critical') return '🚨';
+    if (level === 'high') return '⚠️';
+    if (level === 'moderate' || level === 'medium') return '⚡';
+    if (level === 'low') return '🟢';
     return '✅';
   }
 
   function formatRiskLabel(riskLevel: string): string {
-    return riskLevel.toUpperCase();
+    const labels: Record<string, string> = {
+      critical: 'CRITICAL',
+      high: 'HIGH',
+      moderate: 'MODERATE',
+      low: 'LOW',
+      safe: 'VERY LOW',
+      medium: 'MODERATE',
+    };
+    return labels[riskLevel.toLowerCase()] ?? riskLevel.toUpperCase();
   }
 
   function showTooltip(event: MouseEvent): void {
@@ -233,12 +244,16 @@ export function setBadgeContent(badge: HTMLDivElement, value: string, compact = 
 
 export function getRiskColors(risk: string): { bg: string; text: string; border: string } {
   const map: Record<string, { bg: string; text: string; border: string }> = {
-    high: { bg: '#fee2e2', text: '#991b1b', border: '#fecaca' },
+    critical: { bg: '#fee2e2', text: '#991b1b', border: '#fecaca' },
+    high: { bg: '#ffedd5', text: '#9a3412', border: '#fed7aa' },
+    moderate: { bg: '#fef3c7', text: '#92400e', border: '#fde68a' },
+    low: { bg: '#ccfbf1', text: '#115e59', border: '#99f6e4' },
+    safe: { bg: '#d1fae5', text: '#065f46', border: '#a7f3d0' },
+    // Backward compatibility
     medium: { bg: '#fef3c7', text: '#92400e', border: '#fde68a' },
-    low: { bg: '#d1fae5', text: '#065f46', border: '#a7f3d0' },
   };
 
-  return map[risk] ?? map.high;
+  return map[risk] ?? map.critical;
 }
 
 export function mergeTokenMetadata(primary?: TokenMetadata, secondary?: TokenMetadata): TokenMetadata {
