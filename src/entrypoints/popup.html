@@ -200,17 +200,27 @@
           <input type="password" id="register-password-confirm" placeholder="Repeat password">
         </div>
 
-        <button id="register-btn" class="btn-primary btn-full">Create Account</button>
+        <label style="display: flex; align-items: flex-start; gap: 8px; cursor: pointer; margin-bottom: 4px;">
+          <input type="checkbox" id="terms-checkbox" style="margin-top: 2px; width: 14px; height: 14px; flex-shrink: 0; accent-color: var(--accent, #2563eb);">
+          <span style="font-size: 0.72em; color: var(--muted, #888); line-height: 1.4;">
+            I have read and accept the
+            <a href="https://barryguard.com/terms" target="_blank" rel="noopener noreferrer" style="color: inherit; text-decoration: underline;">Terms of Service</a>
+            and the
+            <a href="https://barryguard.com/privacy" target="_blank" rel="noopener noreferrer" style="color: inherit; text-decoration: underline;">Privacy Policy</a>.
+          </span>
+        </label>
+
+        <button id="register-btn" class="btn-primary btn-full" disabled>Create Account</button>
         <div id="register-error" class="error-message hidden"></div>
 
-        <button id="register-magic-link-btn" class="btn-secondary btn-full">Send Magic Link</button>
+        <button id="register-magic-link-btn" class="btn-secondary btn-full" disabled>Send Magic Link</button>
         <div id="register-message" class="status-message hidden" aria-live="polite"></div>
 
         <div class="divider">
           <span>or continue with</span>
         </div>
 
-        <button id="register-google-btn" class="btn-social btn-social-google">
+        <button id="register-google-btn" class="btn-social btn-social-google" disabled>
           <svg width="18" height="18" viewBox="0 0 24 24" aria-hidden="true">
             <path fill="#4285F4" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/>
             <path fill="#34A853" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/>
@@ -293,6 +303,11 @@
 
     <div class="disclaimer">
       <p>BarryGuard provides risk indicators based on on-chain data. This is not financial advice. A low risk score does not mean a token is safe. Only invest what you can afford to lose. DYOR.</p>
+      <p style="margin-top: 6px;">
+        <a href="https://barryguard.com/privacy" target="_blank" rel="noopener noreferrer" style="color: inherit; opacity: 0.6; font-size: 0.75em;">Privacy Policy</a>
+        &nbsp;·&nbsp;
+        <a href="https://barryguard.com/terms" target="_blank" rel="noopener noreferrer" style="color: inherit; opacity: 0.6; font-size: 0.75em;">Terms of Service</a>
+      </p>
     </div>
   </div>
 
