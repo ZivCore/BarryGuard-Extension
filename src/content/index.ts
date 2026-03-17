@@ -533,9 +533,8 @@ export function initializeContentScript(): void {
         },
       );
     } else {
-      // Free tier on list view — don't auto-fetch (would burn through quota instantly).
-      // Show locked badges to indicate upgrade needed for list scanning.
-      needsFetch.forEach((address) => platform.renderLockedBadge(address));
+      // Free tier — individual fetches (batch not available)
+      needsFetch.forEach((address) => fetchAndRender(address));
     }
   }
 
