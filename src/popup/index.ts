@@ -528,42 +528,50 @@ function renderUsageLimitState(): void {
   const branding = getPlanBranding(state.userProfile?.tier);
   const summary = getUsageSummary();
   const copy = getLimitUpgradeCopy();
+  const tokenAddress = state.selectedToken?.address ?? null;
+  const tokenName = state.selectedToken?.metadata?.name;
+  const tokenSymbol = state.selectedToken?.metadata?.symbol;
+  const shortAddress = tokenAddress
+    ? `${tokenAddress.slice(0, 6)}…${tokenAddress.slice(-4)}`
+    : null;
 
   if (elements.tokenDetail.tokenLogo) {
     elements.tokenDetail.tokenLogo.src = branding.tokenFallbackLogo;
     elements.tokenDetail.tokenLogo.alt = 'BarryGuard upgrade recommendation';
   }
 
-  elements.tokenDetail.tokenName!.textContent = 'Hourly Limit Reached';
-  elements.tokenDetail.tokenSymbol!.textContent = summary ? `${summary.used}/${summary.limit} USED` : '';
+  elements.tokenDetail.tokenName!.textContent = tokenName ?? 'Hourly Limit Reached';
+  elements.tokenDetail.tokenSymbol!.textContent = tokenSymbol
+    ? `${tokenSymbol} — LIMIT REACHED`
+    : summary ? `${summary.used}/${summary.limit} USED` : '';
   updateTokenAddressButton(
-    summary
+    shortAddress ?? (summary
       ? 'You have no BarryGuard analyses left in the current hourly window.'
-      : 'Your BarryGuard quota is currently exhausted.',
-    null,
+      : 'Your BarryGuard quota is currently exhausted.'),
+    tokenAddress,
   );
   elements.tokenDetail.scoreValue!.textContent = '--';
   elements.tokenDetail.scoreCircle!.className = 'score-circle score-medium';
-  elements.tokenDetail.riskLabel!.textContent = 'UPGRADE OR WAIT';
+  elements.tokenDetail.riskLabel!.textContent = 'LIMIT REACHED';
   // safe: internal data only
   elements.tokenDetail.checksList!.innerHTML = `
     <div class="check-item">
       <div class="check-icon warning">!</div>
       <div class="check-content">
         <div class="check-label">Quota exhausted</div>
-        <div class="check-description">Your hourly BarryGuard request budget is fully used.</div>
+        <div class="check-description">${summary ? `${summary.used}/${summary.limit} analyses used this hour.` : 'Your hourly BarryGuard request budget is fully used.'}</div>
       </div>
     </div>
     <div class="check-item">
       <div class="check-icon success">+</div>
       <div class="check-content">
-        <div class="check-label">Next step</div>
-        <div class="check-description">Upgrade your plan for more capacity or wait until the next hourly reset.</div>
+        <div class="check-label">${copy.title}</div>
+        <div class="check-description">${copy.body}</div>
       </div>
     </div>
   `;
   if (elements.tokenDetail.viewExplorer instanceof HTMLAnchorElement) {
-    elements.tokenDetail.viewExplorer.dataset.address = '';
+    elements.tokenDetail.viewExplorer.dataset.address = tokenAddress ?? '';
   }
 }
 
@@ -611,6 +619,14 @@ function renderPrimaryTokenState(): void {
 
   if (state.selectedToken?.score) {
     renderTokenDetail(state.selectedToken.score);
+    return;
+  }
+
+  // Token address present but no score — user navigated to a token while rate limited.
+  // Show the limit state with the current token address visible (not the old token).
+  if (state.selectedToken?.address && hasExhaustedUsage()) {
+    showScreen('token-detail');
+    renderUsageLimitState();
     return;
   }
 
@@ -974,7 +990,7 @@ async function handleLogin(): Promise<void> {
   setStatusMessage(elements.login.message, null);
 
   if (!email || !password) {
-    window.alert('Please enter email and password.');
+    setStatusMessage(elements.login.message, 'Please enter email and password.');
     return;
   }
 
@@ -992,7 +1008,7 @@ async function handleLogin(): Promise<void> {
     });
 
     if (!response.success || !response.data) {
-      window.alert(response.error ?? 'Login failed.');
+      setStatusMessage(elements.login.message, response.error ?? 'Login failed.');
       return;
     }
 
@@ -1191,7 +1207,10 @@ async function handleRefreshToken(): Promise<void> {
 
   const tier = getEffectiveViewerTier();
   if (tier === 'free') {
-    window.alert('Upgrade to Rescue Pass to refresh token analysis on demand.');
+    if (elements.tokenDetail?.riskLabel) {
+      elements.tokenDetail.riskLabel.textContent = 'Upgrade to Rescue Pass to refresh on demand.';
+      setTimeout(() => { if (elements.tokenDetail?.riskLabel) elements.tokenDetail.riskLabel.textContent = ''; }, 3000);
+    }
     return;
   }
 
@@ -1210,7 +1229,10 @@ async function handleRefreshToken(): Promise<void> {
       renderTokenDetail(response.data);
       await chrome.storage.local.set({ selectedToken: nextToken });
     } else if (response.errorType === 'plan_gate') {
-      window.alert('Refresh is available on Rescue Pass and Pro plans.');
+      if (elements.tokenDetail?.riskLabel) {
+        elements.tokenDetail.riskLabel.textContent = 'Refresh requires Rescue Pass or Pro.';
+        setTimeout(() => { if (elements.tokenDetail?.riskLabel) elements.tokenDetail.riskLabel.textContent = ''; }, 3000);
+      }
     }
   } finally {
     if (btn) btn.disabled = false;
@@ -1240,7 +1262,7 @@ async function handleOAuth(): Promise<void> {
     return;
   }
 
-  window.alert(response.error ?? 'Google login is currently unavailable.');
+  setStatusMessage(elements.login.message, response.error ?? 'Google login is currently unavailable.');
 }
 
 function setupEventListeners(): void {

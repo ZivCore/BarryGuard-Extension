@@ -366,6 +366,14 @@ export function initializeContentScript(): void {
     });
   }
 
+  function isRateLimitResponse(response: ApiResponse<TokenScore> | undefined): boolean {
+    return Boolean(
+      response
+      && !response.success
+      && (response.errorType === 'rate_limit' || response.errorType === 'cooldown' || response.errorType === 'anon_daily_limit'),
+    );
+  }
+
   function fetchAndRender(address: string): void {
     if (pending.has(address)) {
       return;
@@ -405,15 +413,29 @@ export function initializeContentScript(): void {
         return;
       }
 
-      if (shouldRetryScoreFetch(address, response as ApiResponse<TokenScore> | undefined)) {
+      const rateLimited = isRateLimitResponse(response as ApiResponse<TokenScore> | undefined);
+
+      // Bug fix: on rate limit, show lock badge instead of question mark
+      if (rateLimited) {
+        platform.renderLockedBadge(address);
+      } else {
+        platform.renderErrorBadge(address);
+      }
+
+      // Bug fix: when on detail page and rate limited, persist selectedToken
+      // with the current address (no score) so the popup shows the right token
+      // instead of a stale previous token
+      if (platform.getCurrentPageAddress() === address) {
+        if (rateLimited) {
+          persistSelectedToken({ address });
+        } else {
+          scheduleStorageReconcile(address);
+        }
+      }
+
+      if (!rateLimited && shouldRetryScoreFetch(address, response as ApiResponse<TokenScore> | undefined)) {
         scheduleRetry(address);
       }
-
-      if (platform.getCurrentPageAddress() === address) {
-        scheduleStorageReconcile(address);
-      }
-
-      platform.renderErrorBadge(address);
     });
   }
 
@@ -511,8 +533,9 @@ export function initializeContentScript(): void {
         },
       );
     } else {
-      // Free tier — individual fetches (batch not available)
-      needsFetch.forEach((address) => fetchAndRender(address));
+      // Free tier on list view — don't auto-fetch (would burn through quota instantly).
+      // Show locked badges to indicate upgrade needed for list scanning.
+      needsFetch.forEach((address) => platform.renderLockedBadge(address));
     }
   }
 

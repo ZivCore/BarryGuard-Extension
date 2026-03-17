@@ -497,7 +497,7 @@ export function extractTokenScores(
     return [];
   }
 
-  const candidates = [record.results, record.scores, record.tokens, record.data];
+  const candidates = [record.results, record.scores, record.tokens, record.data, record.analyses];
   for (const candidate of candidates) {
     const scores = extractTokenScores(candidate, options);
     if (scores.length > 0) {
