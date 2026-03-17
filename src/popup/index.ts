@@ -125,6 +125,7 @@ const elements = {
     password: document.getElementById('register-password') as HTMLInputElement | null,
     passwordConfirm: document.getElementById('register-password-confirm') as HTMLInputElement | null,
     registerBtn: document.getElementById('register-btn') as HTMLButtonElement | null,
+    termsCheckbox: document.getElementById('terms-checkbox') as HTMLInputElement | null,
     magicLinkBtn: document.getElementById('register-magic-link-btn') as HTMLButtonElement | null,
     message: document.getElementById('register-message'),
     googleBtn: document.getElementById('register-google-btn'),
@@ -1079,7 +1080,8 @@ async function handleRegister(): Promise<void> {
     showCurrentOrEmptyToken();
     showScreen('token-detail');
   } finally {
-    elements.register.registerBtn.disabled = false;
+    const termsChecked = elements.register.termsCheckbox?.checked ?? false;
+    elements.register.registerBtn.disabled = !termsChecked;
     elements.register.registerBtn.textContent = 'Create Account';
   }
 }
@@ -1317,6 +1319,12 @@ function setupEventListeners(): void {
   elements.register.toLoginLink?.addEventListener('click', (event) => {
     event.preventDefault();
     showScreen('login');
+  });
+  elements.register.termsCheckbox?.addEventListener('change', () => {
+    const checked = elements.register.termsCheckbox?.checked ?? false;
+    if (elements.register.registerBtn) elements.register.registerBtn.disabled = !checked;
+    if (elements.register.magicLinkBtn) elements.register.magicLinkBtn.disabled = !checked;
+    if (elements.register.googleBtn instanceof HTMLButtonElement) elements.register.googleBtn.disabled = !checked;
   });
   elements.register.registerBtn?.addEventListener('click', () => {
     void handleRegister();
