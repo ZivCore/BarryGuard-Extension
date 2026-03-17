@@ -444,6 +444,7 @@ export function initializeContentScript(): void {
       scheduleStorageReconcile(currentPageAddress);
     }
 
+    // Re-render already resolved scores
     active.forEach((address) => {
       const resolvedScore = resolvedScores.get(address);
       if (resolvedScore) {
@@ -452,9 +453,67 @@ export function initializeContentScript(): void {
           scheduleRenderRetry(address);
         }
       }
-
-      fetchAndRender(address);
     });
+
+    // Separate addresses that need fetching from those already resolved/pending
+    const needsFetch = active.filter((address) => !resolvedScores.has(address) && !pending.has(address));
+
+    if (needsFetch.length === 0) {
+      return;
+    }
+
+    // Single address (detail page) — use individual GET
+    if (needsFetch.length === 1) {
+      fetchAndRender(needsFetch[0]);
+      return;
+    }
+
+    // Multiple addresses (list view) — use batch if paid tier, individual for free
+    if (currentTier === 'rescue_pass' || currentTier === 'pro') {
+      // Show loading badges for all
+      needsFetch.forEach((address) => {
+        pending.add(address);
+        platform.renderLoadingBadge(address);
+      });
+
+      sendRuntimeMessage(
+        { type: 'ANALYZE_TOKEN_LIST', payload: { addresses: needsFetch } },
+        (response) => {
+          needsFetch.forEach((address) => pending.delete(address));
+
+          if (response?.success && response.data?.analyses) {
+            const analyses = response.data.analyses as Array<{
+              address: string;
+              score?: number;
+              risk?: string;
+              checks?: Record<string, unknown>;
+              locked?: boolean;
+              error?: string;
+            }>;
+
+            for (const analysis of analyses) {
+              if (analysis.score != null && analysis.risk && !analysis.locked && !analysis.error) {
+                const score = analysis as unknown as import('../shared/types').TokenScore;
+                resolvedScores.set(analysis.address, score);
+                clearRetry(analysis.address);
+                platform.renderScoreBadge(analysis.address, score);
+                if (!hasRenderedBadge(analysis.address)) {
+                  scheduleRenderRetry(analysis.address);
+                }
+              } else {
+                platform.renderErrorBadge(analysis.address);
+              }
+            }
+          } else {
+            // Batch failed — fall back to individual fetches
+            needsFetch.forEach((address) => fetchAndRender(address));
+          }
+        },
+      );
+    } else {
+      // Free tier — individual fetches (batch not available)
+      needsFetch.forEach((address) => fetchAndRender(address));
+    }
   }
 
   function handleUrlChange(): void {

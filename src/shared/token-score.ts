@@ -42,6 +42,7 @@ const CHECK_FALLBACK_TIERS: Record<string, TierLevel> = {
   holderCount: 'free',
   developerHistory: 'free',
   clusterControl: 'free',
+  liquidityDepth: 'free',
   earlyDump: 'free',
   sniperDominance: 'free',
   sellability: 'free',
@@ -55,6 +56,10 @@ const CHECK_ORDER = [
   'holderCount',
   'developerHistory',
   'clusterControl',
+  'liquidityDepth',
+  'earlyDump',
+  'sniperDominance',
+  'sellability',
 ] as const;
 const CHECK_KEY_ALIASES: Record<string, string> = {
   mintauthority: 'mintAuthority',
@@ -92,6 +97,8 @@ const CHECK_KEY_ALIASES: Record<string, string> = {
   'sniper-dominance': 'sniperDominance',
   sniperbot: 'sniperDominance',
   sniper_bot: 'sniperDominance',
+  sniperBot: 'sniperDominance',
+  'sniper-bot': 'sniperDominance',
   bot_dominance: 'sniperDominance',
   sell_ability: 'sellability',
   'sell-ability': 'sellability',
