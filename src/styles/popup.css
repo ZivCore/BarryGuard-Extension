@@ -5,7 +5,7 @@
   --surface-strong: rgba(255, 248, 238, 0.95);
   --surface-border: rgba(60, 77, 92, 0.14);
   --text: #243342;
-  --muted: #6f7d86;
+  --muted: #5a6872;
   --deep-blue: #173b63;
   --swiss-red: #c5392f;
   --warm-gold: #b88946;
@@ -40,8 +40,8 @@ body {
   font-family: "Segoe UI", "Trebuchet MS", sans-serif;
   font-size: 14px;
   line-height: 1.5;
-  min-height: 560px;
-  width: 380px;
+  min-height: 640px;
+  width: 480px;
 }
 
 .hidden {
@@ -1170,4 +1170,31 @@ body {
 .barryguard-tooltip-link:hover {
   background: rgba(23, 59, 99, 0.14);
   border-color: rgba(23, 59, 99, 0.24);
+}
+
+/* L-12: Refresh button spin animation */
+.icon-btn.is-refreshing svg {
+  animation: spin 1s linear infinite;
+}
+
+/* M-14: Compact usage indicator for token-detail footer */
+.footer-usage {
+  align-items: center;
+  background: rgba(23, 59, 99, 0.06);
+  border: 1px solid rgba(23, 59, 99, 0.10);
+  border-radius: 999px;
+  display: inline-flex;
+  font-size: 10px;
+  font-weight: 700;
+  gap: 4px;
+  letter-spacing: 0.04em;
+  padding: 3px 8px;
+}
+
+.footer-usage-count {
+  color: var(--deep-blue);
+}
+
+.footer-usage-label {
+  color: var(--muted);
 }
