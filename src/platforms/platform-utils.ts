@@ -244,16 +244,18 @@ export function setBadgeContent(badge: HTMLDivElement, value: string, compact = 
 
 export function getRiskColors(risk: string): { bg: string; text: string; border: string } {
   const map: Record<string, { bg: string; text: string; border: string }> = {
-    critical: { bg: '#fee2e2', text: '#991b1b', border: '#fecaca' },
+    danger: { bg: '#fee2e2', text: '#991b1b', border: '#fecaca' },
     high: { bg: '#ffedd5', text: '#9a3412', border: '#fed7aa' },
-    moderate: { bg: '#fef3c7', text: '#92400e', border: '#fde68a' },
-    low: { bg: '#ccfbf1', text: '#115e59', border: '#99f6e4' },
-    safe: { bg: '#d1fae5', text: '#065f46', border: '#a7f3d0' },
+    caution: { bg: '#fef3c7', text: '#92400e', border: '#fde68a' },
+    moderate: { bg: '#d1fae5', text: '#065f46', border: '#a7f3d0' },
+    low: { bg: '#d1fae5', text: '#065f46', border: '#a7f3d0' },
     // Backward compatibility
+    critical: { bg: '#fee2e2', text: '#991b1b', border: '#fecaca' },
     medium: { bg: '#fef3c7', text: '#92400e', border: '#fde68a' },
+    safe: { bg: '#d1fae5', text: '#065f46', border: '#a7f3d0' },
   };
 
-  return map[risk] ?? map.critical;
+  return map[risk] ?? map.danger;
 }
 
 export function mergeTokenMetadata(primary?: TokenMetadata, secondary?: TokenMetadata): TokenMetadata {
