@@ -215,18 +215,10 @@ async function refreshProfileStateIfNeeded(force = false): Promise<UserProfile |
       return sessionProfile.data;
     }
 
-    if (isUnauthorizedResponse(sessionProfile)) {
-      await chrome.storage.local.remove([PROFILE_KEY, PROFILE_SYNC_AT_KEY, HOURLY_USAGE_KEY]);
-      await applyProfileState(null);
-      return null;
-    }
-
-    if (storedProfile) {
-      await chrome.storage.local.set({ [PROFILE_SYNC_AT_KEY]: Date.now() });
-      await applyProfileState(storedProfile);
-      return storedProfile;
-    }
-
+    // No valid session — clear stale profile data regardless of error type.
+    // Previously we would fall back to a cached profile on network errors,
+    // but this caused ghost "Free Tier" states for logged-out users.
+    await chrome.storage.local.remove([PROFILE_KEY, PROFILE_SYNC_AT_KEY, HOURLY_USAGE_KEY]);
     await applyProfileState(null);
     return null;
   }
