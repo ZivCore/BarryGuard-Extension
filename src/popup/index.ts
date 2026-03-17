@@ -935,24 +935,18 @@ async function loadUsageState(): Promise<void> {
 
 async function queryActiveTabToken(): Promise<SelectedToken | null> {
   try {
-    const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
-    if (!tab?.id) {
+    const response = await sendMessage<{ address: string; score?: TokenScore | null }>({
+      type: 'GET_ACTIVE_TAB_TOKEN',
+    }, 3000);
+
+    if (!response.success || !response.data?.address) {
       return null;
     }
 
-    return new Promise((resolve) => {
-      chrome.tabs.sendMessage(tab.id!, { type: 'GET_ACTIVE_TAB_TOKEN' }, (response) => {
-        if (chrome.runtime.lastError || !response?.address) {
-          resolve(null);
-          return;
-        }
-
-        resolve({
-          address: response.address,
-          score: response.score ?? undefined,
-        });
-      });
-    });
+    return {
+      address: response.data.address,
+      score: response.data.score ?? undefined,
+    };
   } catch {
     return null;
   }
