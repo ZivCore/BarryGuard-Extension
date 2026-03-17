@@ -933,19 +933,22 @@ async function loadUsageState(): Promise<void> {
   renderUsageIndicator();
 }
 
-async function queryActiveTabToken(): Promise<SelectedToken | null> {
+async function queryActivePageToken(): Promise<SelectedToken | null> {
   try {
-    const response = await sendMessage<{ address: string; score?: TokenScore | null }>({
-      type: 'GET_ACTIVE_TAB_TOKEN',
-    }, 3000);
+    const stored = await chrome.storage.local.get('activePageToken');
+    const active = stored.activePageToken as { address?: string; score?: TokenScore; updatedAt?: number } | undefined;
+    if (!active?.address) {
+      return null;
+    }
 
-    if (!response.success || !response.data?.address) {
+    // Only use if written within the last 30 seconds (stale = different tab wrote it)
+    if (active.updatedAt && Date.now() - active.updatedAt > 30_000) {
       return null;
     }
 
     return {
-      address: response.data.address,
-      score: response.data.score ?? undefined,
+      address: active.address,
+      score: active.score ?? undefined,
     };
   } catch {
     return null;
@@ -954,8 +957,8 @@ async function queryActiveTabToken(): Promise<SelectedToken | null> {
 
 async function loadSelectedToken(): Promise<void> {
   try {
-    // Prefer the active tab's current token over whatever is in shared storage
-    const activeTabToken = await queryActiveTabToken();
+    // Prefer the active page's current token over whatever is in shared storage
+    const activeTabToken = await queryActivePageToken();
     if (activeTabToken) {
       handleSelectedTokenUpdate(activeTabToken);
       // Sync storage so other listeners stay consistent
