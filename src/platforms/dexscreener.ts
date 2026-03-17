@@ -92,7 +92,9 @@ export class DexScreenerPlatform extends GenericSolanaPlatform {
     // Trigger async resolution for any unresolved pairs
     const unresolved = pairAddresses.filter((p) => !this.pairToTokenMap.has(p));
     if (unresolved.length > 0 && !this.resolutionPending) {
-      void this.resolvePairAddresses(unresolved);
+      this.resolvePairAddresses(unresolved).catch((err: unknown) => {
+        console.error('[BarryGuard] DexScreener pair resolution failed:', err);
+      });
     }
 
     // Return currently resolved token addresses, updating row cache

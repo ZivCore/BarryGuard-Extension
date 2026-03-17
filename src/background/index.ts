@@ -1,7 +1,7 @@
 import { BarryGuardApiClient } from '../shared/api-client';
-import { TokenCache } from '../shared/cache';
+import { TokenCache, updateCacheTTL } from '../shared/cache';
 import { extractPumpFunEmbeddedMetadata } from '../shared/pumpfun-metadata';
-import { sanitizeCustomerPortalUrl } from '../shared/runtime-config';
+import { getApiBaseUrl, sanitizeCustomerPortalUrl } from '../shared/runtime-config';
 import { extractTokenScores, sanitizeTokenScore } from '../shared/token-score';
 import type {
   ApiResponse,
@@ -264,8 +264,27 @@ function runInitializeOnce(): void {
   });
 }
 
+async function syncCacheTTLsFromApi(): Promise<void> {
+  try {
+    const baseUrl = getApiBaseUrl();
+    const response = await fetch(`${baseUrl}/config`);
+    if (!response.ok) return;
+    const data = await response.json() as { cache?: { ttlMinutes?: Partial<Record<string, number>> } };
+    const ttlMinutes = data?.cache?.ttlMinutes;
+    if (!ttlMinutes || typeof ttlMinutes !== 'object') return;
+    const ttlMs: Partial<Record<TierLevel, number>> = {};
+    if (typeof ttlMinutes['free'] === 'number')        ttlMs.free        = ttlMinutes['free'] * 60000;
+    if (typeof ttlMinutes['rescue_pass'] === 'number') ttlMs.rescue_pass = ttlMinutes['rescue_pass'] * 60000;
+    if (typeof ttlMinutes['pro'] === 'number')         ttlMs.pro         = ttlMinutes['pro'] * 60000;
+    updateCacheTTL(ttlMs);
+  } catch {
+    // Non-fatal: extension continues with hardcoded TTL defaults
+  }
+}
+
 async function initialize(): Promise<void> {
   await cache.init();
+  await syncCacheTTLsFromApi();
   await refreshProfileStateIfNeeded(true);
   console.log('[BarryGuard] Background worker initialized');
 }

@@ -19,8 +19,10 @@ export class BarryGuardApiClient {
 
   private async request<T>(path: string, options: RequestInit = {}): Promise<ApiResponse<T>> {
     const baseUrl = getApiBaseUrl();
+    const extensionVersion = (typeof chrome !== 'undefined' && chrome?.runtime?.getManifest?.()?.version) ?? '';
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
+      ...(extensionVersion ? { 'X-Extension-Version': extensionVersion } : {}),
       ...(options.headers as Record<string, string>),
     };
     if (this.authToken) {
