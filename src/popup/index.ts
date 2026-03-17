@@ -518,6 +518,9 @@ function setTierBadgeClass(tier: TierLevel): void {
 }
 
 function renderEmptyState(): void {
+  const rugBanner = document.getElementById('rug-warning-banner');
+  if (rugBanner) rugBanner.remove();
+
   const branding = getPlanBranding(state.userProfile?.tier);
   if (elements.tokenDetail.tokenLogo) {
     elements.tokenDetail.tokenLogo.src = branding.tokenFallbackLogo;
@@ -557,6 +560,9 @@ function renderEmptyState(): void {
 }
 
 function renderUsageLimitState(): void {
+  const rugBanner = document.getElementById('rug-warning-banner');
+  if (rugBanner) rugBanner.remove();
+
   const branding = getPlanBranding(state.userProfile?.tier);
   const summary = getUsageSummary();
   const copy = getLimitUpgradeCopy();
@@ -663,6 +669,9 @@ function renderUsageLimitState(): void {
 
 
 function renderAnonDailyLimitState(): void {
+  const rugBanner = document.getElementById('rug-warning-banner');
+  if (rugBanner) rugBanner.remove();
+
   const branding = getPlanBranding(state.userProfile?.tier);
   if (elements.tokenDetail.tokenLogo) {
     elements.tokenDetail.tokenLogo.src = branding.tokenFallbackLogo;
@@ -735,6 +744,9 @@ function renderAnonDailyLimitState(): void {
 }
 
 function renderLoadingTokenState(address: string): void {
+  const rugBanner = document.getElementById('rug-warning-banner');
+  if (rugBanner) rugBanner.remove();
+
   const branding = getPlanBranding(state.userProfile?.tier);
   const short = `${address.slice(0, 6)}…${address.slice(-4)}`;
 
@@ -820,9 +832,12 @@ function renderTokenDetail(score: TokenScore): void {
   }
 
   // v2 API provides tokenName, tokenSymbol, tokenLogoUrl directly; fall back to platform metadata
+  // The backend returns "Token XXXX...XXXX" as a fallback name — prefer platform metadata over that
   const meta = state.selectedToken?.metadata;
-  const tokenName = score.tokenName || meta?.name || 'Unknown Token';
-  const tokenSymbol = score.tokenSymbol || meta?.symbol || '';
+  const isFallbackName = score.tokenName?.startsWith('Token ') && score.tokenName?.includes('...');
+  const isFallbackSymbol = score.tokenSymbol && /^[A-Z0-9]{4}$/.test(score.tokenSymbol) && score.address?.toUpperCase().startsWith(score.tokenSymbol);
+  const tokenName = (!isFallbackName && score.tokenName) || meta?.name || score.tokenName || 'Unknown Token';
+  const tokenSymbol = (!isFallbackSymbol && score.tokenSymbol) || meta?.symbol || score.tokenSymbol || '';
   const tokenLogo = score.tokenLogoUrl || meta?.imageUrl;
 
   if (elements.tokenDetail.tokenLogo) {
@@ -849,19 +864,65 @@ function renderTokenDetail(score: TokenScore): void {
   }
   if (elements.tokenDetail.riskLabel) {
     const RISK_LABELS: Record<string, string> = {
-      critical: 'CRITICAL RISK',
+      danger: 'DANGER',
       high: 'HIGH RISK',
-      moderate: 'MODERATE RISK',
+      caution: 'CAUTION',
+      moderate: 'MODERATE',
       low: 'LOW RISK',
+      // Backward compatibility
+      critical: 'CRITICAL RISK',
       safe: 'VERY LOW RISK',
     };
     elements.tokenDetail.riskLabel.textContent = RISK_LABELS[risk] ?? `${risk.toUpperCase()} RISK`;
     elements.tokenDetail.riskLabel.className = `risk-label risk-${risk}`;
   }
+
+  // Rug warning banner
+  const existingBanner = document.getElementById('rug-warning-banner');
+  if (existingBanner) existingBanner.remove();
+
+  if (risk === 'danger') {
+    const banner = document.createElement('div');
+    banner.id = 'rug-warning-banner';
+    banner.className = 'rug-warning-banner';
+
+    const icon = document.createElement('span');
+    icon.textContent = '\u26A0';
+    icon.className = 'rug-warning-icon';
+
+    const text = document.createElement('span');
+    const reasons = score.reasons ?? [];
+    const rugIndicators = reasons.some(r => /rug|dump|crash|scam/i.test(r));
+    text.textContent = rugIndicators
+      ? 'LIKELY RUGGED \u2014 Exercise extreme caution'
+      : 'DANGER \u2014 Multiple critical risk factors detected';
+
+    banner.append(icon, text);
+
+    // Insert after score-container
+    const scoreContainer = document.getElementById('score-container');
+    scoreContainer?.parentNode?.insertBefore(banner, scoreContainer.nextSibling);
+  }
+
   renderUsageIndicator();
 
   if (elements.tokenDetail.viewExplorer instanceof HTMLAnchorElement) {
     elements.tokenDetail.viewExplorer.dataset.address = score.address;
+  }
+
+  // Solscan link — dynamically set href based on current token address
+  const solscanLink = document.getElementById('solscan-link') as HTMLAnchorElement | null;
+  if (solscanLink && score.address) {
+    solscanLink.href = `https://solscan.io/token/${score.address}`;
+    solscanLink.style.display = '';
+  } else if (solscanLink) {
+    solscanLink.style.display = 'none';
+  }
+
+  // Full analysis link — dynamically set href
+  const fullAnalysisLink = document.getElementById('view-full-analysis') as HTMLAnchorElement | null;
+  if (fullAnalysisLink && score.address) {
+    fullAnalysisLink.href = `https://barryguard.com/check/${score.address}`;
   }
 
   // V2 rendering
@@ -871,7 +932,7 @@ function renderTokenDetail(score: TokenScore): void {
   }
   renderAnalysisFooter(score, elements.tokenDetail.analyzedAt, elements.tokenDetail.confidenceBadge);
   if (elements.tokenDetail.checksList) {
-    renderChecks(score, elements.tokenDetail.checksList);
+    renderChecks(score, elements.tokenDetail.checksList, getEffectiveViewerTier());
   }
 }
 
@@ -1547,6 +1608,10 @@ function setupEventListeners(): void {
   });
 
   elements.tokenDetail.accountBtn?.addEventListener('click', () => {
+    void handleAccountOpen();
+  });
+
+  document.getElementById('header-account-btn')?.addEventListener('click', () => {
     void handleAccountOpen();
   });
 
