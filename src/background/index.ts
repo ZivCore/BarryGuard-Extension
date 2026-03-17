@@ -702,13 +702,7 @@ function isValidSolanaAddress(value: unknown): value is string {
 
 const _inFlightAddresses = new Set<string>();
 
-async function getTokenScore(
-  address: string,
-  options: {
-    skipLocalCache?: boolean;
-    preferExistingOnly?: boolean;
-  } = {},
-) {
+async function getTokenScore(address: string) {
   if (_inFlightAddresses.has(address)) {
     return { success: false, error: 'Analysis already in progress for this token.', errorType: 'busy' as const };
   }
@@ -720,13 +714,13 @@ async function getTokenScore(
     const normalizedProfile = await refreshProfileStateIfNeeded();
     const tier: TierLevel = normalizedProfile?.tier ?? 'free';
 
-    if (!options.skipLocalCache) {
-      const cached = await cache.get(address, tier);
-      if (cached) {
-        return { success: true, data: { ...cached, cached: true } };
-      }
+    // 1. Local cache
+    const cached = await cache.get(address, tier);
+    if (cached) {
+      return { success: true, data: { ...cached, cached: true } };
     }
 
+    // 2. Server cache: GET /api/token/[address]
     const existing = await api.getTokenScore(address);
     if (existing.success && existing.data) {
       const normalizedExisting = sanitizeTokenScore(existing.data, { expectedAddress: address });
@@ -736,10 +730,7 @@ async function getTokenScore(
       }
     }
 
-    if (options.preferExistingOnly) {
-      return mapApiFailure(existing);
-    }
-
+    // 3. Cooldown/Limit checks
     const cooldown = await maybeEnforceSingleCooldown(normalizedProfile);
     if (cooldown) {
       return cooldown;
@@ -750,6 +741,7 @@ async function getTokenScore(
       return hourlyLimit;
     }
 
+    // 4. Fresh analysis: POST /api/analyze
     const fresh = await api.analyzeToken(address);
     if (fresh.success && fresh.data) {
       const normalizedFresh = sanitizeTokenScore(fresh.data, { expectedAddress: address });
@@ -885,27 +877,6 @@ export {
   refreshProfileStateIfNeeded as _refreshProfileStateIfNeededForTest,
 };
 
-function getTokenScorePayloadDetails(payload: unknown): {
-  address: string | null;
-  skipLocalCache: boolean;
-  preferExistingOnly: boolean;
-} {
-  if (typeof payload === 'string') {
-    return {
-      address: payload,
-      skipLocalCache: false,
-      preferExistingOnly: false,
-    };
-  }
-
-  const record = asRecord(payload);
-  return {
-    address: typeof record?.address === 'string' ? record.address : null,
-    skipLocalCache: record?.skipLocalCache === true,
-    preferExistingOnly: record?.preferExistingOnly === true,
-  };
-}
-
 export function initializeBackground(): void {
   chrome.runtime.onMessage.addListener((message, sender, respond) => {
     // Only accept messages from this extension's own pages (popup, content scripts, background)
@@ -917,19 +888,12 @@ export function initializeBackground(): void {
       try {
         switch (message.type) {
           case 'GET_TOKEN_SCORE': {
-            const payload = getTokenScorePayloadDetails(message.payload);
-            respond(await getTokenScore(payload.address ?? '', {
-              skipLocalCache: payload.skipLocalCache,
-              preferExistingOnly: payload.preferExistingOnly,
-            }));
-            break;
-          }
-          case 'GET_TOKEN_SCORE_FRESH': {
-            const payload = getTokenScorePayloadDetails(message.payload);
-            respond(await getTokenScore(payload.address ?? '', {
-              skipLocalCache: true,
-              preferExistingOnly: true,
-            }));
+            const address = typeof message.payload === 'string'
+              ? message.payload
+              : (typeof (message.payload as Record<string, unknown>)?.address === 'string'
+                ? (message.payload as Record<string, unknown>).address as string
+                : '');
+            respond(await getTokenScore(address));
             break;
           }
           case 'ANALYZE_TOKEN':

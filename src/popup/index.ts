@@ -399,11 +399,26 @@ function getEffectiveViewerTier(): TierLevel {
   return state.userProfile?.tier ?? 'free';
 }
 
-function getCurrentUsageBucketKey(tier: TierLevel, audience: 'anonymous' | 'authenticated'): string {
-  return `${audience}:${tier}:${Math.floor(Date.now() / 3600000)}`;
-}
-
 function getUsageSummary(): { limit: number; used: number; remaining: number; ratio: number } | null {
+  // Prefer local hourly usage state tracked by the background service worker.
+  // It is incremented after every analysis and is more current than the profile
+  // data which only updates on API sync.
+  const local = state.usageState;
+  if (local && local.limit > 0) {
+    const currentHourEpoch = String(Math.floor(Date.now() / 3600000));
+    if (local.bucketKey.endsWith(`:${currentHourEpoch}`)) {
+      const used = Math.max(0, Math.min(local.used, local.limit));
+      const remaining = Math.max(0, local.limit - used);
+      return {
+        limit: local.limit,
+        used,
+        remaining,
+        ratio: used / local.limit,
+      };
+    }
+  }
+
+  // Fall back to backend profile data (may be stale)
   const backendLimit = state.userProfile?.hourlyAnalysesLimit;
   const backendUsed = state.userProfile?.hourlyAnalysesUsed;
   const backendRemaining = state.userProfile?.hourlyAnalysesRemaining;
@@ -966,46 +981,10 @@ async function loadUsageState(): Promise<void> {
   renderUsageIndicator();
 }
 
-async function queryActivePageToken(): Promise<SelectedToken | null> {
-  try {
-    const stored = await chrome.storage.local.get('activePageToken');
-    const active = stored.activePageToken as { address?: string; score?: TokenScore; updatedAt?: number } | undefined;
-    if (!active?.address) {
-      return null;
-    }
-
-    // Only use if written within the last 30 seconds (stale = different tab wrote it)
-    if (active.updatedAt && Date.now() - active.updatedAt > 30_000) {
-      return null;
-    }
-
-    return {
-      address: active.address,
-      score: active.score ?? undefined,
-    };
-  } catch {
-    return null;
-  }
-}
-
 async function loadSelectedToken(): Promise<void> {
   try {
-    const stored = await chrome.storage.local.get(['selectedToken', 'activePageToken']);
-    const activePageToken = stored.activePageToken as { address?: string; score?: TokenScore; updatedAt?: number } | undefined;
+    const stored = await chrome.storage.local.get('selectedToken');
     const selectedToken = stored.selectedToken as SelectedToken | undefined;
-
-    // If the active page has a token, use it — but merge with selectedToken if same address has score
-    if (activePageToken?.address && activePageToken.updatedAt && Date.now() - activePageToken.updatedAt < 30_000) {
-      const hasScoreFromStorage = selectedToken?.address === activePageToken.address && selectedToken?.score;
-      const merged: SelectedToken = {
-        address: activePageToken.address,
-        score: activePageToken.score ?? (hasScoreFromStorage ? selectedToken.score : undefined),
-        metadata: hasScoreFromStorage ? selectedToken.metadata : undefined,
-      };
-      handleSelectedTokenUpdate(merged);
-      return;
-    }
-
     handleSelectedTokenUpdate(selectedToken ?? null);
   } catch {
     handleSelectedTokenUpdate(null);
@@ -1014,26 +993,15 @@ async function loadSelectedToken(): Promise<void> {
 
 async function refreshSelectedTokenScore(): Promise<void> {
   const selectedToken = state.selectedToken;
-  if (!selectedToken?.address) {
+  // Only refresh when score already exists (content script handles initial fetch)
+  if (!selectedToken?.score || !shouldKeepRefreshingScore(selectedToken.score)) {
     return;
   }
 
-  const hasScore = Boolean(selectedToken.score);
-  const shouldBypassLocalCache = hasScore ? shouldKeepRefreshingScore(selectedToken.score) : false;
-
-  // No score at all → full analysis via GET_TOKEN_SCORE
-  // Has score but incomplete → GET_TOKEN_SCORE_FRESH (prefer existing, skip local cache)
-  // Has complete score → GET_TOKEN_SCORE (may return from cache)
   const response = await sendMessage<TokenScore>({
-    type: shouldBypassLocalCache ? 'GET_TOKEN_SCORE_FRESH' : 'GET_TOKEN_SCORE',
-    payload: shouldBypassLocalCache
-      ? {
-          address: selectedToken.address,
-          skipLocalCache: true,
-          preferExistingOnly: true,
-        }
-      : selectedToken.address,
-  }, hasScore ? 5000 : 15000);
+    type: 'GET_TOKEN_SCORE',
+    payload: selectedToken.address,
+  }, 5000);
 
   if (!response.success || !response.data) {
     if (shouldRetryScoreRefresh(response)) {
@@ -1243,7 +1211,12 @@ async function handleAnalyze(): Promise<void> {
 
       if (response.errorType === 'rate_limit') {
         setManualError(null);
-        renderPrimaryTokenState();
+        state.selectedToken = {
+          address,
+          score: undefined,
+          metadata: state.selectedToken?.address === address ? state.selectedToken.metadata : undefined,
+        };
+        renderUsageLimitState();
         showScreen('token-detail');
         return;
       }
@@ -1374,7 +1347,7 @@ function setupEventListeners(): void {
     if (changes.hourly_usage_state) {
       state.usageState = (changes.hourly_usage_state.newValue as HourlyUsageState | undefined) ?? null;
       renderUsageIndicator();
-      if (!state.selectedToken) {
+      if (!state.selectedToken?.score) {
         renderPrimaryTokenState();
       }
     }

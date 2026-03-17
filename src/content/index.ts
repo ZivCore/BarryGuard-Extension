@@ -395,8 +395,7 @@ export function initializeContentScript(): void {
           clearRenderRetry(address);
         }
 
-        if (platform.getCurrentPageAddress() === address) {
-          persistActivePageToken();
+        if (platform.getCurrentPageAddress() === address && document.hasFocus()) {
           const selectedToken = platform.buildSelectedToken(address, score);
           sendRuntimeMessage({ type: 'GET_TOKEN_METADATA', payload: address }, (metadataResponse) => {
             const metadata = {
@@ -426,7 +425,7 @@ export function initializeContentScript(): void {
       // Bug fix: when on detail page and rate limited, persist selectedToken
       // with the current address (no score) so the popup shows the right token
       // instead of a stale previous token
-      if (platform.getCurrentPageAddress() === address) {
+      if (platform.getCurrentPageAddress() === address && document.hasFocus()) {
         if (rateLimited) {
           persistSelectedToken({ address });
         } else {
@@ -463,7 +462,13 @@ export function initializeContentScript(): void {
     const visibleAddresses = [...active];
 
     syncVisibleBadges(visibleAddresses);
-    persistActivePageToken();
+
+    // Detail page: immediately persist selectedToken with address so the popup
+    // always shows the current page's token (even before score resolves)
+    if (currentPageAddress && document.hasFocus() && !resolvedScores.has(currentPageAddress)) {
+      persistSelectedToken({ address: currentPageAddress });
+    }
+
     if (currentPageAddress) {
       scheduleStorageReconcile(currentPageAddress);
     }
@@ -547,26 +552,10 @@ export function initializeContentScript(): void {
     }
 
     lastUrl = currentUrl;
-    persistActivePageToken();
     scanAll();
   }
 
   platform.observeDOMChanges(scanAll);
-
-  // Keep activePageToken in sync so the popup always shows the current tab's token
-  function persistActivePageToken(): void {
-    const address = platform.getCurrentPageAddress();
-    if (!address) {
-      return;
-    }
-
-    const score = resolvedScores.get(address) ?? undefined;
-    withSafeRuntime(() => {
-      void chrome.storage.local.set({
-        activePageToken: { address, score, updatedAt: Date.now() },
-      }).catch(() => {});
-    });
-  }
 
   withSafeRuntime(() => {
     chrome.storage.onChanged.addListener((changes, areaName) => {
