@@ -94,7 +94,8 @@ const elements = {
     tokenSymbol: document.getElementById('token-symbol'),
     tokenAddress: document.getElementById('token-address') as HTMLButtonElement | null,
     copyToast: document.getElementById('copy-toast'),
-    scoreCircle: document.getElementById('score-circle'),
+    scoreDonut: document.getElementById('score-donut'),
+    scoreDonutRing: document.getElementById('score-donut-ring'),
     scoreValue: document.getElementById('score-value'),
     riskLabel: document.getElementById('risk-label'),
     checksList: document.getElementById('checks-list'),
@@ -526,8 +527,16 @@ function renderEmptyState(): void {
   if (elements.tokenDetail.tokenSymbol) elements.tokenDetail.tokenSymbol.textContent = '';
   updateTokenAddressButton('Browse a supported site or enter a token address', null);
   if (elements.tokenDetail.scoreValue) elements.tokenDetail.scoreValue.textContent = '--';
-  if (elements.tokenDetail.scoreCircle) elements.tokenDetail.scoreCircle.className = 'score-circle';
-  if (elements.tokenDetail.riskLabel) elements.tokenDetail.riskLabel.textContent = 'ANALYZE TOKEN';
+  if (elements.tokenDetail.scoreDonut) {
+    elements.tokenDetail.scoreDonut.className = 'score-donut';
+    if (elements.tokenDetail.scoreDonutRing) {
+      elements.tokenDetail.scoreDonutRing.style.setProperty('--score-deg', '0deg');
+    }
+  }
+  if (elements.tokenDetail.riskLabel) {
+    elements.tokenDetail.riskLabel.textContent = 'ANALYZE TOKEN';
+    elements.tokenDetail.riskLabel.className = 'risk-label';
+  }
   // H-8: Safe DOM construction instead of innerHTML
   if (elements.tokenDetail.checksList) {
     elements.tokenDetail.checksList.textContent = '';
@@ -574,8 +583,16 @@ function renderUsageLimitState(): void {
     tokenAddress,
   );
   if (elements.tokenDetail.scoreValue) elements.tokenDetail.scoreValue.textContent = '--';
-  if (elements.tokenDetail.scoreCircle) elements.tokenDetail.scoreCircle.className = 'score-circle score-medium';
-  if (elements.tokenDetail.riskLabel) elements.tokenDetail.riskLabel.textContent = 'LIMIT REACHED';
+  if (elements.tokenDetail.scoreDonut) {
+    elements.tokenDetail.scoreDonut.className = 'score-donut score-moderate';
+    if (elements.tokenDetail.scoreDonutRing) {
+      elements.tokenDetail.scoreDonutRing.style.setProperty('--score-deg', '0deg');
+    }
+  }
+  if (elements.tokenDetail.riskLabel) {
+    elements.tokenDetail.riskLabel.textContent = 'LIMIT REACHED';
+    elements.tokenDetail.riskLabel.className = 'risk-label';
+  }
 
   // H-10: Compute minutes until next hour reset
   const msUntilReset = 3600000 - (Date.now() % 3600000);
@@ -655,8 +672,16 @@ function renderAnonDailyLimitState(): void {
   if (elements.tokenDetail.tokenSymbol) elements.tokenDetail.tokenSymbol.textContent = '';
   updateTokenAddressButton("You've reached your 10 free scans for today.", null);
   if (elements.tokenDetail.scoreValue) elements.tokenDetail.scoreValue.textContent = '--';
-  if (elements.tokenDetail.scoreCircle) elements.tokenDetail.scoreCircle.className = 'score-circle';
-  if (elements.tokenDetail.riskLabel) elements.tokenDetail.riskLabel.textContent = 'LIMIT REACHED';
+  if (elements.tokenDetail.scoreDonut) {
+    elements.tokenDetail.scoreDonut.className = 'score-donut';
+    if (elements.tokenDetail.scoreDonutRing) {
+      elements.tokenDetail.scoreDonutRing.style.setProperty('--score-deg', '0deg');
+    }
+  }
+  if (elements.tokenDetail.riskLabel) {
+    elements.tokenDetail.riskLabel.textContent = 'LIMIT REACHED';
+    elements.tokenDetail.riskLabel.className = 'risk-label';
+  }
   // H-8: Safe DOM construction instead of innerHTML
   if (elements.tokenDetail.checksList) {
     elements.tokenDetail.checksList.textContent = '';
@@ -722,8 +747,16 @@ function renderLoadingTokenState(address: string): void {
   if (elements.tokenDetail.tokenSymbol) elements.tokenDetail.tokenSymbol.textContent = '';
   updateTokenAddressButton(short, address);
   if (elements.tokenDetail.scoreValue) elements.tokenDetail.scoreValue.textContent = '…';
-  if (elements.tokenDetail.scoreCircle) elements.tokenDetail.scoreCircle.className = 'score-circle';
-  if (elements.tokenDetail.riskLabel) elements.tokenDetail.riskLabel.textContent = 'LOADING';
+  if (elements.tokenDetail.scoreDonut) {
+    elements.tokenDetail.scoreDonut.className = 'score-donut';
+    if (elements.tokenDetail.scoreDonutRing) {
+      elements.tokenDetail.scoreDonutRing.style.setProperty('--score-deg', '0deg');
+    }
+  }
+  if (elements.tokenDetail.riskLabel) {
+    elements.tokenDetail.riskLabel.textContent = 'LOADING';
+    elements.tokenDetail.riskLabel.className = 'risk-label';
+  }
   // H-8: Safe DOM construction instead of innerHTML
   if (elements.tokenDetail.checksList) {
     elements.tokenDetail.checksList.textContent = '';
@@ -779,10 +812,18 @@ function renderTokenDetail(score: TokenScore): void {
   const userTier = getEffectiveViewerTier();
   const branding = getPlanBranding(userTier);
 
-  // v2 API provides tokenName, tokenSymbol, tokenLogoUrl directly
-  const tokenName = score.tokenName ?? 'Unknown Token';
-  const tokenSymbol = score.tokenSymbol ?? '';
-  const tokenLogo = score.tokenLogoUrl || state.selectedToken?.metadata?.imageUrl;
+  // Show refresh button only for paid tiers (rescue_pass, pro)
+  const refreshBtn = elements.tokenDetail.refreshBtn as HTMLElement | null;
+  if (refreshBtn) {
+    const tier = getEffectiveViewerTier();
+    refreshBtn.style.display = (tier === 'rescue_pass' || tier === 'pro') ? '' : 'none';
+  }
+
+  // v2 API provides tokenName, tokenSymbol, tokenLogoUrl directly; fall back to platform metadata
+  const meta = state.selectedToken?.metadata;
+  const tokenName = score.tokenName || meta?.name || 'Unknown Token';
+  const tokenSymbol = score.tokenSymbol || meta?.symbol || '';
+  const tokenLogo = score.tokenLogoUrl || meta?.imageUrl;
 
   if (elements.tokenDetail.tokenLogo) {
     elements.tokenDetail.tokenLogo.src = tokenLogo || branding.tokenFallbackLogo;
@@ -799,8 +840,24 @@ function renderTokenDetail(score: TokenScore): void {
   if (elements.tokenDetail.tokenSymbol) elements.tokenDetail.tokenSymbol.textContent = tokenSymbol;
   updateTokenAddressButton(truncateAddress(score.address), score.address);
   if (elements.tokenDetail.scoreValue) elements.tokenDetail.scoreValue.textContent = String(score.score);
-  if (elements.tokenDetail.scoreCircle) elements.tokenDetail.scoreCircle.className = `score-circle score-${risk}`;
-  if (elements.tokenDetail.riskLabel) elements.tokenDetail.riskLabel.textContent = `${risk.toUpperCase()} RISK`;
+  if (elements.tokenDetail.scoreDonut) {
+    elements.tokenDetail.scoreDonut.className = `score-donut score-${risk}`;
+    if (elements.tokenDetail.scoreDonutRing) {
+      const deg = Math.round((score.score / 100) * 360);
+      elements.tokenDetail.scoreDonutRing.style.setProperty('--score-deg', `${deg}deg`);
+    }
+  }
+  if (elements.tokenDetail.riskLabel) {
+    const RISK_LABELS: Record<string, string> = {
+      critical: 'CRITICAL RISK',
+      high: 'HIGH RISK',
+      moderate: 'MODERATE RISK',
+      low: 'LOW RISK',
+      safe: 'VERY LOW RISK',
+    };
+    elements.tokenDetail.riskLabel.textContent = RISK_LABELS[risk] ?? `${risk.toUpperCase()} RISK`;
+    elements.tokenDetail.riskLabel.className = `risk-label risk-${risk}`;
+  }
   renderUsageIndicator();
 
   if (elements.tokenDetail.viewExplorer instanceof HTMLAnchorElement) {

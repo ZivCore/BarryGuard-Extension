@@ -14,7 +14,12 @@ type TokenScoreExtractionOptions = {
   allowedAddresses?: Iterable<string>;
 };
 
-const VALID_RISKS = new Set<RiskLevel>(['high', 'medium', 'low']);
+const VALID_RISKS = new Set<RiskLevel>(['danger', 'high', 'caution', 'moderate', 'low']);
+const RISK_ALIASES: Record<string, RiskLevel> = {
+  medium: 'caution',
+  critical: 'danger',
+  safe: 'low',
+};
 const VALID_CHECK_STATUSES = new Set<CheckResult['status']>(['success', 'warning', 'danger']);
 const CHECK_STATUS_ALIASES: Record<string, CheckResult['status']> = {
   safe: 'success',
@@ -435,7 +440,10 @@ export function sanitizeTokenScore(value: unknown, options: TokenScoreSanitizati
 
   const address = sanitizeString(record.address);
   const chain = sanitizeString(record.chain);
-  const risk = record.risk;
+  const rawRisk = typeof record.risk === 'string' ? record.risk.trim().toLowerCase() : '';
+  const resolvedRisk: RiskLevel | null = VALID_RISKS.has(rawRisk as RiskLevel)
+    ? rawRisk as RiskLevel
+    : (RISK_ALIASES[rawRisk] ?? null);
   const score = typeof record.score === 'number' && Number.isFinite(record.score) ? record.score : null;
   const normalizedChain = chain?.toLowerCase();
 
@@ -444,7 +452,7 @@ export function sanitizeTokenScore(value: unknown, options: TokenScoreSanitizati
     || !SOLANA_ADDRESS_RE.test(address)
     || normalizedChain !== 'solana'
     || score === null
-    || !VALID_RISKS.has(risk as RiskLevel)
+    || !resolvedRisk
     || (options.expectedAddress && address !== options.expectedAddress)
   ) {
     return null;
@@ -463,7 +471,7 @@ export function sanitizeTokenScore(value: unknown, options: TokenScoreSanitizati
     address,
     chain: normalizedChain,
     score,
-    risk: risk as RiskLevel,
+    risk: resolvedRisk,
     subscores: subscores ?? { contract: 0, marketStructure: 0, behavior: 0 },
     checks: sanitizeChecks(record.checks, record),
     reasons: reasons ?? [],

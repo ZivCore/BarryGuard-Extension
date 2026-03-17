@@ -25,7 +25,7 @@ function makeScore(score = 50): TokenScore {
     address: 'test',
     chain: 'solana',
     score,
-    risk: 'medium',
+    risk: 'moderate',
     checks: {},
     cached: false,
   };

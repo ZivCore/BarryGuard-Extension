@@ -187,7 +187,7 @@ describe('extractTokenScores', () => {
         address: 'So11111111111111111111111111111111111111112',
         chain: 'solana',
         score: 65,
-        risk: 'medium',
+        risk: 'moderate', // 'medium' from API is mapped to 'moderate'
         cached: false,
         subscores: { contract: 0, marketStructure: 0, behavior: 0 },
         reasons: [],
