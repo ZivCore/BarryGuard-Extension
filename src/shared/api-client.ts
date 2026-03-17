@@ -1,5 +1,5 @@
 // src/shared/api-client.ts
-import type { ApiResponse, AuthToken, TokenScore, UserProfile } from './types';
+import type { ApiErrorType, ApiResponse, AuthToken, TokenScore, UserProfile } from './types';
 import { getApiBaseUrl } from './runtime-config';
 
 export class BarryGuardApiClient {
@@ -44,13 +44,41 @@ export class BarryGuardApiClient {
         message?: string;
         code?: string;
         errorCode?: string;
+        errorType?: string;
+        retryAfterSeconds?: number;
       };
       const errorCode = err.code ?? err.errorCode;
+      const errorType = err.errorType as ApiErrorType | undefined;
+      let retryAfterSeconds = typeof err.retryAfterSeconds === 'number' && Number.isFinite(err.retryAfterSeconds)
+        ? err.retryAfterSeconds
+        : undefined;
+
+      // L-6: Extract Retry-After header for 429 responses
+      if (res.status === 429 && retryAfterSeconds === undefined) {
+        const retryAfterHeader = res.headers.get('Retry-After');
+        if (retryAfterHeader) {
+          const parsed = Number(retryAfterHeader);
+          if (Number.isFinite(parsed) && parsed > 0) {
+            retryAfterSeconds = parsed;
+          }
+        }
+      }
+
+      // L-7: Map 502/503 to specific error messages
+      let errorMessage = err.error ?? err.message ?? `HTTP ${res.status}`;
+      if (res.status === 502) {
+        errorMessage = 'Blockchain data temporarily unavailable. Try again in a moment.';
+      } else if (res.status === 503) {
+        errorMessage = 'Analysis service is busy. Please retry shortly.';
+      }
+
       return {
         success: false,
-        error: err.error ?? err.message ?? `HTTP ${res.status}`,
+        error: errorMessage,
         statusCode: res.status,
         ...(errorCode ? { errorCode } : {}),
+        ...(errorType ? { errorType } : {}),
+        ...(retryAfterSeconds !== undefined ? { retryAfterSeconds } : {}),
       };
     } catch (e) {
       return {

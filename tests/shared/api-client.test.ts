@@ -16,6 +16,7 @@ function mockError(status: number) {
   mockFetch.mockResolvedValueOnce({
     ok: false,
     status,
+    headers: new Headers(),
     json: async () => ({ message: `HTTP ${status}` }),
   });
 }
@@ -48,10 +49,10 @@ describe('BarryGuardApiClient', () => {
   });
 
   it('returns success:false on non-200 response', async () => {
-    mockError(429);
+    mockError(500);
     const res = await client.getTokenScore('abc');
     expect(res.success).toBe(false);
-    expect(res.error).toBe('HTTP 429');
+    expect(res.error).toBe('HTTP 500');
   });
 
   it('includes Authorization header when token is set', async () => {
@@ -97,6 +98,7 @@ describe('BarryGuardApiClient', () => {
     mockFetch.mockResolvedValueOnce({
       ok: false,
       status: 429,
+      headers: new Headers(),
       json: async () => ({
         message: 'Daily limit reached',
         code: 'ANON_DAILY_LIMIT',

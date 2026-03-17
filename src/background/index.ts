@@ -33,6 +33,11 @@ const DEFAULT_LIST_REQUEST_LIMIT: Record<TierLevel, number> = {
   rescue_pass: 500,
   pro: 2000,
 };
+const DEFAULT_HOURLY_ANALYSIS_LIMIT: Record<TierLevel, number> = {
+  free: 30,
+  rescue_pass: 1000,
+  pro: 10000,
+};
 
 interface SingleAnalysisState {
   lastAnalyzeAt?: number;
@@ -125,12 +130,21 @@ async function getStoredProfile(): Promise<UserProfile | null> {
 }
 
 async function persistProfileState(profile: UserProfile): Promise<void> {
+  // H-7: Clear cache when tier changes so stale data from a lower/higher tier doesn't persist
+  const previousProfile = await getStoredProfile();
+  const previousTier = previousProfile?.tier;
+
   // Strip stripeCustomerId — only needed server-side, should not persist in local storage
   const { stripeCustomerId: _ignored, ...profileToStore } = profile as UserProfile & { stripeCustomerId?: unknown };
   await chrome.storage.local.set({
     [PROFILE_KEY]: profileToStore,
     [PROFILE_SYNC_AT_KEY]: Date.now(),
   });
+
+  if (previousTier && previousTier !== profile.tier) {
+    await cache.clear();
+  }
+
   await syncHourlyUsageState(profile);
   await updateActionIcon(profile);
 }
@@ -279,6 +293,8 @@ async function syncCacheTTLsFromApi(): Promise<void> {
 async function initialize(): Promise<void> {
   await cache.init();
   await syncCacheTTLsFromApi();
+  // M-8: Periodic re-sync of cache TTLs from backend (every 30 minutes)
+  setInterval(() => { void syncCacheTTLsFromApi(); }, 30 * 60 * 1000);
   await refreshProfileStateIfNeeded(true);
   console.log('[BarryGuard] Background worker initialized');
 }
@@ -427,7 +443,7 @@ function normalizeProfile(profile: UserProfile | JsonRecord): UserProfile {
     singleTokenCooldownSeconds:
       typedProfile.singleTokenCooldownSeconds ?? (tier === 'free' ? FREE_COOLDOWN_SECONDS : 0),
     singleTokenHourlyLimit:
-      typedProfile.singleTokenHourlyLimit ?? (tier === 'free' ? FREE_HOURLY_LIMIT : DEFAULT_LIST_REQUEST_LIMIT[tier]),
+      typedProfile.singleTokenHourlyLimit ?? DEFAULT_HOURLY_ANALYSIS_LIMIT[tier],
     hourlyAnalysesUsed,
     hourlyAnalysesRemaining,
     hourlyAnalysesLimit,
@@ -546,7 +562,7 @@ function getHourlyLimit(profile: UserProfile | null): number {
     return ANONYMOUS_HOURLY_LIMIT;
   }
 
-  return profile.singleTokenHourlyLimit ?? (profile.tier === 'free' ? FREE_HOURLY_LIMIT : DEFAULT_LIST_REQUEST_LIMIT[profile.tier]);
+  return profile.singleTokenHourlyLimit ?? DEFAULT_HOURLY_ANALYSIS_LIMIT[profile.tier];
 }
 
 function getUsageBucketKey(tier: TierLevel, audience: 'anonymous' | 'authenticated', timestamp = Date.now()): string {
@@ -749,6 +765,15 @@ async function getTokenScore(address: string) {
         await setSingleAnalysisState({ lastAnalyzeAt: Date.now() });
       }
       await incrementHourlyUsage(normalizedProfile, 1);
+
+      // H-6: Sync local hourly usage from backend (authoritative) if available
+      if (typeof normalizedProfile?.hourlyAnalysesUsed === 'number') {
+        const state = await getStoredHourlyUsageState();
+        if (state) {
+          await setHourlyUsageState({ ...state, used: normalizedProfile.hourlyAnalysesUsed, updatedAt: Date.now() });
+        }
+      }
+
       await cache.set(address, normalizedFresh, tier);
       return { success: true, data: { ...normalizedFresh, cached: false } };
     }
@@ -820,11 +845,32 @@ async function analyzeTokenList(addresses: string[]): Promise<ApiResponse<TokenL
     scores.push({ ...score, cached: false });
   }
 
+  // M-7: Count locked checks across all scores so the popup can show "X tokens require upgrade"
+  let lockedCount = 0;
+  const responseRecord = response.data && typeof response.data === 'object' ? response.data as Record<string, unknown> : null;
+  if (Array.isArray(responseRecord)) {
+    for (const item of responseRecord) {
+      if (item && typeof item === 'object' && (item as Record<string, unknown>).locked === true) {
+        lockedCount++;
+      }
+    }
+  } else if (responseRecord) {
+    const items = (responseRecord.results ?? responseRecord.scores ?? responseRecord.tokens ?? responseRecord.data ?? responseRecord.analyses) as unknown;
+    if (Array.isArray(items)) {
+      for (const item of items) {
+        if (item && typeof item === 'object' && (item as Record<string, unknown>).locked === true) {
+          lockedCount++;
+        }
+      }
+    }
+  }
+
   return {
     success: true,
     data: {
       scores,
       cachedAddresses,
+      lockedCount,
     },
   };
 }
@@ -950,6 +996,11 @@ export function initializeBackground(): void {
                 ...(asRecord(result.data) ?? {}),
                 ...(asRecord(result.data.user) ?? {}),
               });
+              // H-4: If token is null (e.g. email confirmation required), don't store auth or persist profile
+              if (!result.data.token) {
+                respond({ success: true, data: { ...normalizedUser, requiresEmailConfirmation: true } });
+                break;
+              }
               // Auth token stored in session storage (cleared on browser restart — more secure)
               await chrome.storage.session.set({ [AUTH_KEY]: result.data.token });
               await persistProfileState(normalizedUser);
@@ -966,6 +1017,11 @@ export function initializeBackground(): void {
                 ...(asRecord(result.data) ?? {}),
                 ...(asRecord(result.data.user) ?? {}),
               });
+              // H-4: If token is null (e.g. email confirmation required), don't store auth or persist profile
+              if (!result.data.token) {
+                respond({ success: true, data: { ...normalizedUser, requiresEmailConfirmation: true } });
+                break;
+              }
               // Auth token stored in session storage (cleared on browser restart — more secure)
               await chrome.storage.session.set({ [AUTH_KEY]: result.data.token });
               await persistProfileState(normalizedUser);

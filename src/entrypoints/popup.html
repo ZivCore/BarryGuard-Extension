@@ -37,12 +37,13 @@
         <div class="supported-platforms" style="margin-top: 16px; font-size: 0.72em; color: var(--muted, #888);">
           Supported: pump.fun · pumpswap · raydium · dexscreener · birdeye · moonshot · letsbonk
         </div>
+        <button id="no-token-account-btn" class="btn-secondary" style="margin-top: 12px;">Account</button>
       </div>
     </div>
 
     <div id="token-detail-screen" class="screen hidden">
       <div class="header">
-        <h1>Token Analysis</h1>
+        <h1 tabindex="-1">Token Analysis</h1>
         <button id="manual-entry-btn" class="icon-btn" title="Enter token address" aria-label="Enter token address manually">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <circle cx="11" cy="11" r="8"></circle>
@@ -120,7 +121,7 @@
           <span class="confidence-badge" id="confidence-badge">Data: Complete</span>
         </div>
         <div class="footer-right">
-          <button id="refresh-btn" class="icon-btn" title="Refresh analysis">
+          <button id="refresh-btn" class="icon-btn" title="Refresh analysis" aria-label="Refresh analysis">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M23 4v6h-6"></path>
               <path d="M1 20v-6h6"></path>
@@ -139,24 +140,24 @@
 
     <div id="login-screen" class="screen hidden">
       <div class="header">
-        <button id="login-back-btn" class="back-btn">
+        <button id="login-back-btn" class="back-btn" aria-label="Go back">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M19 12H5M12 19l-7-7 7-7"></path>
           </svg>
         </button>
-        <h1>Login</h1>
+        <h1 tabindex="-1">Login</h1>
         <div style="width: 20px;"></div>
       </div>
 
       <div class="login-container">
         <div class="form-group">
           <label for="email">Email</label>
-          <input type="email" id="email" placeholder="your@email.com">
+          <input type="email" id="email" placeholder="your@email.com" autocomplete="email">
         </div>
 
         <div class="form-group">
           <label for="password">Password</label>
-          <input type="password" id="password" placeholder="Password">
+          <input type="password" id="password" placeholder="Password" autocomplete="current-password">
         </div>
 
         <button id="login-btn" class="btn-primary btn-full">Login</button>
@@ -187,29 +188,29 @@
 
     <div id="register-screen" class="screen hidden">
       <div class="header">
-        <button id="register-back-btn" class="back-btn">
+        <button id="register-back-btn" class="back-btn" aria-label="Go back">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M19 12H5M12 19l-7-7 7-7"></path>
           </svg>
         </button>
-        <h1>Register</h1>
+        <h1 tabindex="-1">Register</h1>
         <div style="width: 20px;"></div>
       </div>
 
       <div class="login-container">
         <div class="form-group">
           <label for="register-email">Email</label>
-          <input type="email" id="register-email" placeholder="your@email.com">
+          <input type="email" id="register-email" placeholder="your@email.com" autocomplete="email">
         </div>
 
         <div class="form-group">
           <label for="register-password">Password</label>
-          <input type="password" id="register-password" placeholder="Password">
+          <input type="password" id="register-password" placeholder="Password" autocomplete="new-password">
         </div>
 
         <div class="form-group">
           <label for="register-password-confirm">Confirm Password</label>
-          <input type="password" id="register-password-confirm" placeholder="Repeat password">
+          <input type="password" id="register-password-confirm" placeholder="Repeat password" autocomplete="new-password">
         </div>
 
         <label style="display: flex; align-items: flex-start; gap: 8px; cursor: pointer; margin-bottom: 4px;">
@@ -251,12 +252,12 @@
 
     <div id="account-screen" class="screen hidden">
       <div class="header">
-        <button id="account-back-btn" class="back-btn">
+        <button id="account-back-btn" class="back-btn" aria-label="Go back">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M19 12H5M12 19l-7-7 7-7"></path>
           </svg>
         </button>
-        <h1>Account</h1>
+        <h1 tabindex="-1">Account</h1>
         <div style="width: 20px;"></div>
       </div>
 
@@ -294,12 +295,12 @@
 
     <div id="manual-entry-screen" class="screen hidden">
       <div class="header">
-        <button id="manual-back-btn" class="back-btn">
+        <button id="manual-back-btn" class="back-btn" aria-label="Go back">
           <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
             <path d="M19 12H5M12 19l-7-7 7-7"></path>
           </svg>
         </button>
-        <h1>Manual Entry</h1>
+        <h1 tabindex="-1">Manual Entry</h1>
         <div style="width: 20px;"></div>
       </div>
 

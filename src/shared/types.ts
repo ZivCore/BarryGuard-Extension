@@ -106,4 +106,5 @@ export interface SelectedToken {
 export interface TokenListAnalysisData {
   scores: TokenScore[];
   cachedAddresses: string[];
+  lockedCount?: number;
 }
