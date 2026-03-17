@@ -990,18 +990,22 @@ async function queryActivePageToken(): Promise<SelectedToken | null> {
 
 async function loadSelectedToken(): Promise<void> {
   try {
-    // Prefer the active page's current token over whatever is in shared storage
-    const activeTabToken = await queryActivePageToken();
-    if (activeTabToken) {
-      handleSelectedTokenUpdate(activeTabToken);
-      // Sync storage so other listeners stay consistent
-      await chrome.storage.local.set({ selectedToken: activeTabToken });
+    const stored = await chrome.storage.local.get(['selectedToken', 'activePageToken']);
+    const activePageToken = stored.activePageToken as { address?: string; score?: TokenScore; updatedAt?: number } | undefined;
+    const selectedToken = stored.selectedToken as SelectedToken | undefined;
+
+    // If the active page has a token, use it — but merge with selectedToken if same address has score
+    if (activePageToken?.address && activePageToken.updatedAt && Date.now() - activePageToken.updatedAt < 30_000) {
+      const hasScoreFromStorage = selectedToken?.address === activePageToken.address && selectedToken?.score;
+      const merged: SelectedToken = {
+        address: activePageToken.address,
+        score: activePageToken.score ?? (hasScoreFromStorage ? selectedToken.score : undefined),
+        metadata: hasScoreFromStorage ? selectedToken.metadata : undefined,
+      };
+      handleSelectedTokenUpdate(merged);
       return;
     }
 
-    // Fallback: use stored selectedToken (non-supported site or no content script)
-    const stored = await chrome.storage.local.get('selectedToken');
-    const selectedToken = stored.selectedToken as SelectedToken | undefined;
     handleSelectedTokenUpdate(selectedToken ?? null);
   } catch {
     handleSelectedTokenUpdate(null);
@@ -1344,6 +1348,13 @@ function setupEventListeners(): void {
     if (changes.selectedToken) {
       const selectedToken = changes.selectedToken.newValue as SelectedToken | undefined;
       handleSelectedTokenUpdate(selectedToken ?? null);
+    }
+
+    if (changes.activePageToken) {
+      const active = changes.activePageToken.newValue as { address?: string; score?: TokenScore; updatedAt?: number } | undefined;
+      if (active?.address && active?.score) {
+        handleSelectedTokenUpdate({ address: active.address, score: active.score });
+      }
     }
 
     if (changes.user_profile) {
