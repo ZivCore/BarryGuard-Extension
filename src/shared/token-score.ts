@@ -407,6 +407,8 @@ function hasPlaceholderNumericValue(key: string, value: unknown): boolean {
 }
 
 export function isTokenScoreLikelyIncomplete(score: TokenScore): boolean {
+  if (score.confidence === 'high') return false;
+
   for (const key of CHECK_ORDER) {
     const check = score.checks[key];
     if (!check) {

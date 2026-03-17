@@ -308,12 +308,16 @@ function showScreen(screen: ScreenName): void {
     'no-token': elements.screens.noToken,
   };
 
-  targetMap[screen]?.classList.remove('hidden');
+  const targetEl = targetMap[screen];
+  targetEl?.classList.remove('hidden');
   state.currentScreen = screen;
 
   if (screen === 'account') {
     updateAccountScreen();
   }
+
+  // H-9: Focus management — move focus into the newly-shown screen
+  (targetEl?.querySelector('h1, [autofocus], input') as HTMLElement | null)?.focus();
 }
 
 function setManualError(message: string | null): void {
@@ -518,22 +522,26 @@ function renderEmptyState(): void {
     elements.tokenDetail.tokenLogo.src = branding.tokenFallbackLogo;
     elements.tokenDetail.tokenLogo.alt = 'BarryGuard token placeholder';
   }
-  elements.tokenDetail.tokenName!.textContent = 'No Token Selected';
-  elements.tokenDetail.tokenSymbol!.textContent = '';
+  if (elements.tokenDetail.tokenName) elements.tokenDetail.tokenName.textContent = 'No Token Selected';
+  if (elements.tokenDetail.tokenSymbol) elements.tokenDetail.tokenSymbol.textContent = '';
   updateTokenAddressButton('Browse a supported site or enter a token address', null);
-  elements.tokenDetail.scoreValue!.textContent = '--';
-  elements.tokenDetail.scoreCircle!.className = 'score-circle';
-  elements.tokenDetail.riskLabel!.textContent = 'ANALYZE TOKEN';
-  // safe: internal data only
-  elements.tokenDetail.checksList!.innerHTML = `
-    <div class="check-item">
-      <div class="check-content">
-        <div class="check-label check-label-center">
-          Click a token badge on a supported Solana site or use manual entry
-        </div>
-      </div>
-    </div>
-  `;
+  if (elements.tokenDetail.scoreValue) elements.tokenDetail.scoreValue.textContent = '--';
+  if (elements.tokenDetail.scoreCircle) elements.tokenDetail.scoreCircle.className = 'score-circle';
+  if (elements.tokenDetail.riskLabel) elements.tokenDetail.riskLabel.textContent = 'ANALYZE TOKEN';
+  // H-8: Safe DOM construction instead of innerHTML
+  if (elements.tokenDetail.checksList) {
+    elements.tokenDetail.checksList.textContent = '';
+    const item = document.createElement('div');
+    item.className = 'check-item';
+    const content = document.createElement('div');
+    content.className = 'check-content';
+    const label = document.createElement('div');
+    label.className = 'check-label check-label-center';
+    label.textContent = 'Click a token badge on a supported Solana site or use manual entry';
+    content.appendChild(label);
+    item.appendChild(content);
+    elements.tokenDetail.checksList.appendChild(item);
+  }
   if (elements.tokenDetail.viewExplorer instanceof HTMLAnchorElement) {
     elements.tokenDetail.viewExplorer.dataset.address = '';
   }
@@ -555,8 +563,8 @@ function renderUsageLimitState(): void {
     elements.tokenDetail.tokenLogo.alt = 'BarryGuard upgrade recommendation';
   }
 
-  elements.tokenDetail.tokenName!.textContent = tokenName ?? 'Hourly Limit Reached';
-  elements.tokenDetail.tokenSymbol!.textContent = tokenSymbol
+  if (elements.tokenDetail.tokenName) elements.tokenDetail.tokenName.textContent = tokenName ?? 'Hourly Limit Reached';
+  if (elements.tokenDetail.tokenSymbol) elements.tokenDetail.tokenSymbol.textContent = tokenSymbol
     ? `${tokenSymbol} — LIMIT REACHED`
     : summary ? `${summary.used}/${summary.limit} USED` : '';
   updateTokenAddressButton(
@@ -565,26 +573,72 @@ function renderUsageLimitState(): void {
       : 'Your BarryGuard quota is currently exhausted.'),
     tokenAddress,
   );
-  elements.tokenDetail.scoreValue!.textContent = '--';
-  elements.tokenDetail.scoreCircle!.className = 'score-circle score-medium';
-  elements.tokenDetail.riskLabel!.textContent = 'LIMIT REACHED';
-  // safe: internal data only
-  elements.tokenDetail.checksList!.innerHTML = `
-    <div class="check-item">
-      <div class="check-icon warning">!</div>
-      <div class="check-content">
-        <div class="check-label">Quota exhausted</div>
-        <div class="check-description">${summary ? `${summary.used}/${summary.limit} analyses used this hour.` : 'Your hourly BarryGuard request budget is fully used.'}</div>
-      </div>
-    </div>
-    <div class="check-item">
-      <div class="check-icon success">+</div>
-      <div class="check-content">
-        <div class="check-label">${copy.title}</div>
-        <div class="check-description">${copy.body}</div>
-      </div>
-    </div>
-  `;
+  if (elements.tokenDetail.scoreValue) elements.tokenDetail.scoreValue.textContent = '--';
+  if (elements.tokenDetail.scoreCircle) elements.tokenDetail.scoreCircle.className = 'score-circle score-medium';
+  if (elements.tokenDetail.riskLabel) elements.tokenDetail.riskLabel.textContent = 'LIMIT REACHED';
+
+  // H-10: Compute minutes until next hour reset
+  const msUntilReset = 3600000 - (Date.now() % 3600000);
+  const minsUntilReset = Math.ceil(msUntilReset / 60000);
+
+  // H-8: Safe DOM construction instead of innerHTML
+  if (elements.tokenDetail.checksList) {
+    elements.tokenDetail.checksList.textContent = '';
+
+    // Quota exhausted row
+    const item1 = document.createElement('div');
+    item1.className = 'check-item';
+    const icon1 = document.createElement('div');
+    icon1.className = 'check-icon warning';
+    icon1.textContent = '!';
+    const content1 = document.createElement('div');
+    content1.className = 'check-content';
+    const label1 = document.createElement('div');
+    label1.className = 'check-label';
+    label1.textContent = 'Quota exhausted';
+    const desc1 = document.createElement('div');
+    desc1.className = 'check-description';
+    desc1.textContent = summary
+      ? `${summary.used}/${summary.limit} analyses used this hour. Resets in ~${minsUntilReset}m`
+      : `Your hourly BarryGuard request budget is fully used. Resets in ~${minsUntilReset}m`;
+    content1.appendChild(label1);
+    content1.appendChild(desc1);
+    item1.appendChild(icon1);
+    item1.appendChild(content1);
+    elements.tokenDetail.checksList.appendChild(item1);
+
+    // Upgrade row
+    const item2 = document.createElement('div');
+    item2.className = 'check-item';
+    const icon2 = document.createElement('div');
+    icon2.className = 'check-icon success';
+    icon2.textContent = '+';
+    const content2 = document.createElement('div');
+    content2.className = 'check-content';
+    const label2 = document.createElement('div');
+    label2.className = 'check-label';
+    label2.textContent = copy.title;
+    const desc2 = document.createElement('div');
+    desc2.className = 'check-description';
+    desc2.textContent = copy.body;
+    content2.appendChild(label2);
+    content2.appendChild(desc2);
+    item2.appendChild(icon2);
+    item2.appendChild(content2);
+    elements.tokenDetail.checksList.appendChild(item2);
+
+    // M-13: Upgrade button
+    const btnWrap = document.createElement('div');
+    btnWrap.style.padding = '12px 0';
+    const upgradeBtn = document.createElement('button');
+    upgradeBtn.id = 'limit-upgrade-btn';
+    upgradeBtn.className = 'btn-primary btn-full';
+    upgradeBtn.textContent = copy.buttonLabel;
+    btnWrap.appendChild(upgradeBtn);
+    elements.tokenDetail.checksList.appendChild(btnWrap);
+
+    document.getElementById('limit-upgrade-btn')?.addEventListener('click', () => handleUpgradeFlow());
+  }
   if (elements.tokenDetail.viewExplorer instanceof HTMLAnchorElement) {
     elements.tokenDetail.viewExplorer.dataset.address = tokenAddress ?? '';
   }
@@ -597,33 +651,59 @@ function renderAnonDailyLimitState(): void {
     elements.tokenDetail.tokenLogo.src = branding.tokenFallbackLogo;
     elements.tokenDetail.tokenLogo.alt = 'BarryGuard daily limit';
   }
-  elements.tokenDetail.tokenName!.textContent = 'Daily Scan Limit Reached';
-  elements.tokenDetail.tokenSymbol!.textContent = '';
+  if (elements.tokenDetail.tokenName) elements.tokenDetail.tokenName.textContent = 'Daily Scan Limit Reached';
+  if (elements.tokenDetail.tokenSymbol) elements.tokenDetail.tokenSymbol.textContent = '';
   updateTokenAddressButton("You've reached your 10 free scans for today.", null);
-  elements.tokenDetail.scoreValue!.textContent = '--';
-  elements.tokenDetail.scoreCircle!.className = 'score-circle';
-  elements.tokenDetail.riskLabel!.textContent = 'LIMIT REACHED';
-  // safe: internal data only
-  elements.tokenDetail.checksList!.innerHTML = `
-    <div class="check-item">
-      <div class="check-content">
-        <div class="check-label">You've reached your 10 free scans for today.</div>
-        <div class="check-description">Sign up free → 100 scans/day + full history.</div>
-      </div>
-    </div>
-    <div style="display:flex;gap:8px;padding:12px 0;">
-      <button id="anon-register-btn" class="btn-primary" style="flex:1;">Create free account</button>
-      <button id="anon-login-btn" class="btn-secondary" style="flex:1;">Log in</button>
-    </div>
-  `;
-  document.getElementById('anon-register-btn')?.addEventListener('click', () => {
-    setRegisterError(null);
-    setStatusMessage(elements.register.message, null);
-    showScreen('register');
-  });
-  document.getElementById('anon-login-btn')?.addEventListener('click', () => {
-    showScreen('login');
-  });
+  if (elements.tokenDetail.scoreValue) elements.tokenDetail.scoreValue.textContent = '--';
+  if (elements.tokenDetail.scoreCircle) elements.tokenDetail.scoreCircle.className = 'score-circle';
+  if (elements.tokenDetail.riskLabel) elements.tokenDetail.riskLabel.textContent = 'LIMIT REACHED';
+  // H-8: Safe DOM construction instead of innerHTML
+  if (elements.tokenDetail.checksList) {
+    elements.tokenDetail.checksList.textContent = '';
+
+    const item = document.createElement('div');
+    item.className = 'check-item';
+    const content = document.createElement('div');
+    content.className = 'check-content';
+    const label = document.createElement('div');
+    label.className = 'check-label';
+    label.textContent = "You've reached your 10 free scans for today.";
+    const desc = document.createElement('div');
+    desc.className = 'check-description';
+    // M-18: Updated anon daily limit copy
+    desc.textContent = 'Sign up free for 30 scans/hour and full analysis history.';
+    content.appendChild(label);
+    content.appendChild(desc);
+    item.appendChild(content);
+    elements.tokenDetail.checksList.appendChild(item);
+
+    const btnRow = document.createElement('div');
+    btnRow.style.display = 'flex';
+    btnRow.style.gap = '8px';
+    btnRow.style.padding = '12px 0';
+    const registerBtn = document.createElement('button');
+    registerBtn.id = 'anon-register-btn';
+    registerBtn.className = 'btn-primary';
+    registerBtn.style.flex = '1';
+    registerBtn.textContent = 'Create free account';
+    const loginBtn = document.createElement('button');
+    loginBtn.id = 'anon-login-btn';
+    loginBtn.className = 'btn-secondary';
+    loginBtn.style.flex = '1';
+    loginBtn.textContent = 'Log in';
+    btnRow.appendChild(registerBtn);
+    btnRow.appendChild(loginBtn);
+    elements.tokenDetail.checksList.appendChild(btnRow);
+
+    registerBtn.addEventListener('click', () => {
+      setRegisterError(null);
+      setStatusMessage(elements.register.message, null);
+      showScreen('register');
+    });
+    loginBtn.addEventListener('click', () => {
+      showScreen('login');
+    });
+  }
   if (elements.tokenDetail.viewExplorer instanceof HTMLAnchorElement) {
     elements.tokenDetail.viewExplorer.dataset.address = '';
   }
@@ -638,19 +718,26 @@ function renderLoadingTokenState(address: string): void {
     elements.tokenDetail.tokenLogo.alt = 'BarryGuard loading';
   }
 
-  elements.tokenDetail.tokenName!.textContent = 'Analyzing…';
-  elements.tokenDetail.tokenSymbol!.textContent = '';
+  if (elements.tokenDetail.tokenName) elements.tokenDetail.tokenName.textContent = 'Analyzing…';
+  if (elements.tokenDetail.tokenSymbol) elements.tokenDetail.tokenSymbol.textContent = '';
   updateTokenAddressButton(short, address);
-  elements.tokenDetail.scoreValue!.textContent = '…';
-  elements.tokenDetail.scoreCircle!.className = 'score-circle';
-  elements.tokenDetail.riskLabel!.textContent = 'LOADING';
-  elements.tokenDetail.checksList!.innerHTML = `
-    <div class="check-item">
-      <div class="check-content">
-        <div class="check-label check-label-center">Fetching on-chain data…</div>
-      </div>
-    </div>
-  `;
+  if (elements.tokenDetail.scoreValue) elements.tokenDetail.scoreValue.textContent = '…';
+  if (elements.tokenDetail.scoreCircle) elements.tokenDetail.scoreCircle.className = 'score-circle';
+  if (elements.tokenDetail.riskLabel) elements.tokenDetail.riskLabel.textContent = 'LOADING';
+  // H-8: Safe DOM construction instead of innerHTML
+  if (elements.tokenDetail.checksList) {
+    elements.tokenDetail.checksList.textContent = '';
+    const item = document.createElement('div');
+    item.className = 'check-item';
+    const content = document.createElement('div');
+    content.className = 'check-content';
+    const label = document.createElement('div');
+    label.className = 'check-label check-label-center';
+    label.textContent = 'Fetching on-chain data…';
+    content.appendChild(label);
+    item.appendChild(content);
+    elements.tokenDetail.checksList.appendChild(item);
+  }
   if (elements.tokenDetail.viewExplorer instanceof HTMLAnchorElement) {
     elements.tokenDetail.viewExplorer.dataset.address = address;
   }
@@ -708,12 +795,12 @@ function renderTokenDetail(score: TokenScore): void {
     };
   }
 
-  elements.tokenDetail.tokenName!.textContent = tokenName;
-  elements.tokenDetail.tokenSymbol!.textContent = tokenSymbol;
+  if (elements.tokenDetail.tokenName) elements.tokenDetail.tokenName.textContent = tokenName;
+  if (elements.tokenDetail.tokenSymbol) elements.tokenDetail.tokenSymbol.textContent = tokenSymbol;
   updateTokenAddressButton(truncateAddress(score.address), score.address);
-  elements.tokenDetail.scoreValue!.textContent = String(score.score);
-  elements.tokenDetail.scoreCircle!.className = `score-circle score-${risk}`;
-  elements.tokenDetail.riskLabel!.textContent = `${risk.toUpperCase()} RISK`;
+  if (elements.tokenDetail.scoreValue) elements.tokenDetail.scoreValue.textContent = String(score.score);
+  if (elements.tokenDetail.scoreCircle) elements.tokenDetail.scoreCircle.className = `score-circle score-${risk}`;
+  if (elements.tokenDetail.riskLabel) elements.tokenDetail.riskLabel.textContent = `${risk.toUpperCase()} RISK`;
   renderUsageIndicator();
 
   if (elements.tokenDetail.viewExplorer instanceof HTMLAnchorElement) {
@@ -734,8 +821,8 @@ function renderTokenDetail(score: TokenScore): void {
 function updateAccountScreen(): void {
   const user = state.userProfile;
   if (!user) {
-    elements.account.email!.textContent = 'Guest';
-    elements.account.tierName!.textContent = 'Free Tier';
+    if (elements.account.email) elements.account.email.textContent = 'Guest';
+    if (elements.account.tierName) elements.account.tierName.textContent = 'Free Tier';
     elements.account.subscriptionInfo?.classList.add('hidden');
     setTierBadgeClass('free');
     applyPlanBranding();
@@ -743,8 +830,8 @@ function updateAccountScreen(): void {
     return;
   }
 
-  elements.account.email!.textContent = user.email;
-  elements.account.tierName!.textContent = formatTier(user.tier);
+  if (elements.account.email) elements.account.email.textContent = user.email;
+  if (elements.account.tierName) elements.account.tierName.textContent = formatTier(user.tier);
   setTierBadgeClass(user.tier);
   applyPlanBranding();
   renderUsageIndicator();
@@ -755,7 +842,7 @@ function updateAccountScreen(): void {
   }
 
   elements.account.subscriptionInfo?.classList.remove('hidden');
-  elements.account.periodEnd!.textContent = user.currentPeriodEnd
+  if (elements.account.periodEnd) elements.account.periodEnd.textContent = user.currentPeriodEnd
     ? new Date(user.currentPeriodEnd).toLocaleDateString()
     : '--';
 }
@@ -900,6 +987,15 @@ function getRuntimeErrorMessage(): string | null {
 }
 
 function sendMessage<T>(message: RuntimeMessage, timeoutMs = 2500): Promise<ApiResponse<T>> {
+  // H-11: Offline detection
+  if (!navigator.onLine) {
+    return Promise.resolve({
+      success: false,
+      error: 'You appear to be offline. Check your connection and try again.',
+      errorType: 'network',
+    } as ApiResponse<T>);
+  }
+
   return new Promise((resolve) => {
     let finished = false;
     const timeoutId = window.setTimeout(() => {
@@ -1126,8 +1222,24 @@ async function handleRegister(): Promise<void> {
     return;
   }
 
-  if (password.length < 8) {
-    setRegisterError('Password must be at least 8 characters.');
+  if (password.length < 12) {
+    setRegisterError('Password must be at least 12 characters.');
+    return;
+  }
+  if (!/[A-Z]/.test(password)) {
+    setRegisterError('Password must contain at least one uppercase letter.');
+    return;
+  }
+  if (!/[a-z]/.test(password)) {
+    setRegisterError('Password must contain at least one lowercase letter.');
+    return;
+  }
+  if (!/[0-9]/.test(password)) {
+    setRegisterError('Password must contain at least one digit.');
+    return;
+  }
+  if (!/[^A-Za-z0-9]/.test(password)) {
+    setRegisterError('Password must contain at least one special character.');
     return;
   }
 
@@ -1214,6 +1326,11 @@ async function handleAnalyze(): Promise<void> {
         return;
       }
 
+      if (response.errorType === 'cooldown') {
+        setManualError(response.error ?? 'Please wait a few seconds before analyzing another token.');
+        return;
+      }
+
       if (response.errorType === 'rate_limit') {
         setManualError(null);
         state.selectedToken = {
@@ -1257,17 +1374,23 @@ async function handleRefreshToken(): Promise<void> {
   const selectedToken = state.selectedToken;
   if (!selectedToken?.address) return;
 
+  // M-12: Store original risk label text before overwriting
+  const originalText = elements.tokenDetail.riskLabel?.textContent ?? '';
+
   const tier = getEffectiveViewerTier();
   if (tier === 'free') {
     if (elements.tokenDetail?.riskLabel) {
       elements.tokenDetail.riskLabel.textContent = 'Upgrade to Rescue Pass to refresh on demand.';
-      setTimeout(() => { if (elements.tokenDetail?.riskLabel) elements.tokenDetail.riskLabel.textContent = ''; }, 3000);
+      setTimeout(() => { if (elements.tokenDetail?.riskLabel) elements.tokenDetail.riskLabel.textContent = originalText; }, 3000);
     }
     return;
   }
 
   const btn = elements.tokenDetail.refreshBtn as HTMLButtonElement | null;
-  if (btn) btn.disabled = true;
+  if (btn) {
+    btn.disabled = true;
+    btn.classList.add('is-refreshing');
+  }
 
   try {
     const response = await sendMessage<TokenScore>({
@@ -1283,11 +1406,14 @@ async function handleRefreshToken(): Promise<void> {
     } else if (response.errorType === 'plan_gate') {
       if (elements.tokenDetail?.riskLabel) {
         elements.tokenDetail.riskLabel.textContent = 'Refresh requires Rescue Pass or Pro.';
-        setTimeout(() => { if (elements.tokenDetail?.riskLabel) elements.tokenDetail.riskLabel.textContent = ''; }, 3000);
+        setTimeout(() => { if (elements.tokenDetail?.riskLabel) elements.tokenDetail.riskLabel.textContent = originalText; }, 3000);
       }
     }
   } finally {
-    if (btn) btn.disabled = false;
+    if (btn) {
+      btn.disabled = false;
+      btn.classList.remove('is-refreshing');
+    }
   }
 }
 
@@ -1398,6 +1524,10 @@ function setupEventListeners(): void {
   elements.login.loginBtn?.addEventListener('click', () => {
     void handleLogin();
   });
+  // M-16: Enter-to-submit on login
+  elements.login.password?.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter') { event.preventDefault(); void handleLogin(); }
+  });
   elements.login.magicLinkBtn?.addEventListener('click', () => {
     void handleMagicLink('login');
   });
@@ -1431,6 +1561,10 @@ function setupEventListeners(): void {
   elements.register.registerBtn?.addEventListener('click', () => {
     void handleRegister();
   });
+  // M-16: Enter-to-submit on register
+  elements.register.passwordConfirm?.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter') { event.preventDefault(); void handleRegister(); }
+  });
   elements.register.magicLinkBtn?.addEventListener('click', () => {
     void handleMagicLink('register');
   });
@@ -1456,7 +1590,7 @@ function setupEventListeners(): void {
     void handleLogout();
   });
 
-  elements.manual.backBtn?.addEventListener('click', () => showScreen('token-detail'));
+  elements.manual.backBtn?.addEventListener('click', () => showScreen(state.selectedToken ? 'token-detail' : 'no-token'));
   elements.manual.analyzeBtn?.addEventListener('click', () => {
     void handleAnalyze();
   });
@@ -1470,6 +1604,10 @@ function setupEventListeners(): void {
   elements.noToken.manualBtn?.addEventListener('click', () => {
     setManualError(null);
     showScreen('manual');
+  });
+  // L-11: Account access from no-token screen
+  document.getElementById('no-token-account-btn')?.addEventListener('click', () => {
+    void handleAccountOpen();
   });
 
   document.addEventListener('keydown', (event) => {

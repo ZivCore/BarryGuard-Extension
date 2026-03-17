@@ -510,27 +510,19 @@ export function initializeContentScript(): void {
         (response) => {
           needsFetch.forEach((address) => pending.delete(address));
 
-          if (response?.success && response.data?.analyses) {
-            const analyses = response.data.analyses as Array<{
-              address: string;
-              score?: number;
-              risk?: string;
-              checks?: Record<string, unknown>;
-              locked?: boolean;
-              error?: string;
-            }>;
+          if (response?.success && response.data?.scores) {
+            const scores = response.data.scores as import('../shared/types').TokenScore[];
 
-            for (const analysis of analyses) {
-              if (analysis.score != null && analysis.risk && !analysis.locked && !analysis.error) {
-                const score = analysis as unknown as import('../shared/types').TokenScore;
-                resolvedScores.set(analysis.address, score);
-                clearRetry(analysis.address);
-                platform.renderScoreBadge(analysis.address, score);
-                if (!hasRenderedBadge(analysis.address)) {
-                  scheduleRenderRetry(analysis.address);
+            for (const score of scores) {
+              if (score.score != null && score.risk && score.address) {
+                resolvedScores.set(score.address, score);
+                clearRetry(score.address);
+                platform.renderScoreBadge(score.address, score);
+                if (!hasRenderedBadge(score.address)) {
+                  scheduleRenderRetry(score.address);
                 }
               } else {
-                platform.renderErrorBadge(analysis.address);
+                platform.renderErrorBadge(score.address);
               }
             }
           } else {
