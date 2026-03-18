@@ -92,7 +92,7 @@ export class BarryGuardApiClient {
   analyzeToken(address: string, chain = 'solana'): Promise<ApiResponse<TokenScore>> {
     return this.request<TokenScore>('/analyze', {
       method: 'POST',
-      body: JSON.stringify({ address, chain }),
+      body: JSON.stringify({ address, chain, mode: 'full' }),
     });
   }
 
@@ -103,7 +103,7 @@ export class BarryGuardApiClient {
   analyzeTokenList(addresses: string[], chain = 'solana', force = false): Promise<ApiResponse<unknown>> {
     return this.request<unknown>('/analyze-list', {
       method: 'POST',
-      body: JSON.stringify({ addresses, chain, force }),
+      body: JSON.stringify({ addresses, chain, force, mode: 'light' }),
     });
   }
 
