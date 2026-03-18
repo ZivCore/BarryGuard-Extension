@@ -239,13 +239,15 @@ async function refreshProfileStateIfNeeded(force = false): Promise<UserProfile |
   if (!storedToken) {
     // No Bearer token — try cookie-based session (user logged in on website)
     const sessionResult = await api.validateSession();
-    if (sessionResult.success && sessionResult.data) {
+    const sessionData = sessionResult.data as Record<string, unknown> | undefined;
+    const sessionValid = sessionResult.success && sessionData && sessionData['valid'] !== false;
+    if (sessionValid && sessionData) {
       // If the session response includes a token (cookie-based login), store it
       // so the extension can use Bearer auth going forward
-      const sessionData = sessionResult.data as UserProfile & { token?: { access_token: string; refresh_token: string } };
-      if (sessionData.token?.access_token) {
-        await chrome.storage.session.set({ [AUTH_KEY]: sessionData.token });
-        api.setAuthToken(sessionData.token as import('../shared/types').AuthToken);
+      const sessionProfile = sessionResult.data as UserProfile & { token?: { access_token: string; refresh_token: string } };
+      if (sessionProfile.token?.access_token) {
+        await chrome.storage.session.set({ [AUTH_KEY]: sessionProfile.token });
+        api.setAuthToken(sessionProfile.token as import('../shared/types').AuthToken);
       }
 
       const tierResult = await api.getUserTier();
@@ -779,10 +781,16 @@ async function getTokenScore(address: string) {
     const normalizedProfile = await refreshProfileStateIfNeeded();
     const tier: TierLevel = normalizedProfile?.tier ?? 'free';
 
-    // 1. Local cache
+    // 1. Local cache (skip if it has locked checks for a paid user — stale free-tier gated result)
     const cached = await cache.get(address, tier);
     if (cached) {
-      return { success: true, data: { ...cached, cached: true } };
+      const cachedHasLocked = cached.checks
+        && Object.values(cached.checks).some(
+          (c) => c && typeof c === 'object' && (c as Record<string, unknown>).locked === true,
+        );
+      if (!(cachedHasLocked && tier !== 'free')) {
+        return { success: true, data: { ...cached, cached: true } };
+      }
     }
 
     // 2. Server cache: GET /api/token/[address]
@@ -790,8 +798,19 @@ async function getTokenScore(address: string) {
     if (existing.success && existing.data) {
       const normalizedExisting = sanitizeTokenScore(existing.data, { expectedAddress: address });
       if (normalizedExisting) {
-        await cache.set(address, normalizedExisting, tier);
-        return { success: true, data: { ...normalizedExisting, cached: true } };
+        // Don't cache or return results with locked checks for paid users —
+        // this means the request went out without proper auth and the backend
+        // returned free-tier gated checks.  Fall through to fresh analysis.
+        const hasLockedChecks = normalizedExisting.checks
+          && Object.values(normalizedExisting.checks).some(
+            (c) => c && typeof c === 'object' && (c as Record<string, unknown>).locked === true,
+          );
+        if (hasLockedChecks && tier !== 'free') {
+          // Skip — proceed to fresh analysis with proper auth
+        } else {
+          await cache.set(address, normalizedExisting, tier);
+          return { success: true, data: { ...normalizedExisting, cached: true } };
+        }
       }
     }
 
