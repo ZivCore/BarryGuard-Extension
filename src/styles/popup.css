@@ -445,31 +445,54 @@ body {
   padding: 12px 10px;
 }
 
-/* Score Donut — replaces old score-circle */
+/* Score Donut — premium arc gauge */
 .score-donut {
   position: relative;
-  width: 96px;
-  height: 96px;
+  width: 104px;
+  height: 104px;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
   margin: 0 auto 8px;
+  filter: drop-shadow(0 0 16px var(--score-glow, rgba(0,0,0,0.1)));
 }
 
+/* Background track */
+.score-donut::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.04);
+}
+
+/* Score arc */
 .score-donut-ring {
   position: absolute;
   inset: 0;
   border-radius: 50%;
-  /* conic-gradient set via JS: --score-deg and --score-color */
   background: conic-gradient(
     var(--score-color) 0deg,
     var(--score-color) var(--score-deg),
-    rgba(0, 0, 0, 0.08) var(--score-deg),
-    rgba(0, 0, 0, 0.08) 360deg
+    transparent var(--score-deg),
+    transparent 360deg
   );
-  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 6px), #fff calc(100% - 6px));
-  mask: radial-gradient(farthest-side, transparent calc(100% - 6px), #fff calc(100% - 6px));
+  -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 8px), #fff calc(100% - 7px), #fff calc(100% - 1px), transparent 100%);
+  mask: radial-gradient(farthest-side, transparent calc(100% - 8px), #fff calc(100% - 7px), #fff calc(100% - 1px), transparent 100%);
+}
+
+/* Arc end dot */
+.score-donut-dot {
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--score-color);
+  box-shadow: 0 0 6px var(--score-color);
+  top: 50%;
+  left: 50%;
+  transform-origin: 0 0;
 }
 
 .score-donut-inner {
@@ -478,23 +501,24 @@ body {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 2px;
+  gap: 1px;
 }
 
 .score-donut-value {
   font-family: Georgia, 'Times New Roman', serif;
-  font-size: 28px;
-  font-weight: 700;
+  font-size: 32px;
+  font-weight: 800;
   line-height: 1;
-  color: var(--text);
+  color: var(--score-color);
 }
 
 .score-donut-label {
   font-size: 8px;
-  font-weight: 700;
-  letter-spacing: 0.1em;
+  font-weight: 800;
+  letter-spacing: 0.14em;
   text-transform: uppercase;
-  color: var(--muted);
+  color: var(--score-color);
+  opacity: 0.7;
 }
 
 /* 5-level risk colors */
@@ -512,14 +536,7 @@ body {
 .risk-label.risk-low { color: #2d7a4f; }
 
 .risk-label {
-  color: var(--deep-blue);
-  font-size: 10px;
-  font-weight: 800;
-  letter-spacing: 0.14em;
-  line-height: 1.2;
-  text-align: center;
-  text-indent: 0.14em;
-  text-transform: uppercase;
+  display: none; /* risk label now shown inside the score donut */
 }
 
 #checks-container {

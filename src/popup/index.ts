@@ -857,9 +857,28 @@ function renderTokenDetail(score: TokenScore): void {
   if (elements.tokenDetail.scoreValue) elements.tokenDetail.scoreValue.textContent = String(score.score);
   if (elements.tokenDetail.scoreDonut) {
     elements.tokenDetail.scoreDonut.className = `score-donut score-${risk}`;
+    const deg = Math.round((score.score / 100) * 360);
+    const glowMap: Record<string, string> = {
+      danger: 'rgba(197,57,47,0.25)', high: 'rgba(212,114,42,0.2)',
+      caution: 'rgba(184,137,70,0.18)', moderate: 'rgba(90,154,107,0.18)', low: 'rgba(45,122,79,0.2)',
+    };
+    elements.tokenDetail.scoreDonut.style.setProperty('--score-glow', glowMap[risk] ?? 'rgba(0,0,0,0.1)');
     if (elements.tokenDetail.scoreDonutRing) {
-      const deg = Math.round((score.score / 100) * 360);
       elements.tokenDetail.scoreDonutRing.style.setProperty('--score-deg', `${deg}deg`);
+    }
+    // Position arc-end dot
+    const dot = document.getElementById('score-donut-dot');
+    if (dot) {
+      const radius = 44; // half of donut size minus ring width
+      dot.style.transform = `rotate(${deg - 90}deg) translateX(${radius}px) translate(-50%, -50%)`;
+    }
+    // Risk label inside donut
+    const donutRiskLabel = document.getElementById('score-donut-risk-label');
+    if (donutRiskLabel) {
+      const RISK_SHORT: Record<string, string> = {
+        danger: 'DANGER', high: 'HIGH', caution: 'CAUTION', moderate: 'MODERATE', low: 'LOW',
+      };
+      donutRiskLabel.textContent = RISK_SHORT[risk] ?? '';
     }
   }
   if (elements.tokenDetail.riskLabel) {
