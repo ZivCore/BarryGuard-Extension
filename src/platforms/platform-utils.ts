@@ -71,7 +71,25 @@ export function setBadgeTooltipData(
 
 let _tooltipElement: HTMLDivElement | null = null;
 let _tooltipHideTimeout: ReturnType<typeof setTimeout> | null = null;
-let _tooltipShowTimeout: ReturnType<typeof setTimeout> | null = null;
+
+function _scheduleTooltipHide(): void {
+  if (_tooltipHideTimeout) {
+    clearTimeout(_tooltipHideTimeout);
+  }
+  _tooltipHideTimeout = setTimeout(() => {
+    if (_tooltipElement) {
+      _tooltipElement.style.display = 'none';
+    }
+    _tooltipHideTimeout = null;
+  }, 200);
+}
+
+function _cancelTooltipHide(): void {
+  if (_tooltipHideTimeout) {
+    clearTimeout(_tooltipHideTimeout);
+    _tooltipHideTimeout = null;
+  }
+}
 
 function getTooltipElement(): HTMLDivElement {
   if (!_tooltipElement) {
@@ -93,6 +111,16 @@ function getTooltipElement(): HTMLDivElement {
       'min-width:220px',
     ].join(';');
     document.body.appendChild(_tooltipElement);
+
+    // Attach tooltip hover listeners once at creation time.
+    // When the user moves from the badge into the tooltip, cancel the
+    // pending hide so they can interact with content (e.g. "Full analysis" link).
+    _tooltipElement.addEventListener('mouseenter', () => {
+      _cancelTooltipHide();
+    });
+    _tooltipElement.addEventListener('mouseleave', () => {
+      _scheduleTooltipHide();
+    });
   }
   return _tooltipElement;
 }
@@ -106,7 +134,6 @@ export function renderBadgeTooltip(
   setBadgeTooltipData(badge, score, risk, reasons);
 
   const tooltip = getTooltipElement();
-  let hideTimeoutId: ReturnType<typeof setTimeout> | null = null;
   let showTimeoutId: ReturnType<typeof setTimeout> | null = null;
 
   function getRiskIcon(riskLevel: string): string {
@@ -165,7 +192,7 @@ export function renderBadgeTooltip(
     const viewportHeight = window.innerHeight;
 
     let left = badgeRect.left;
-    let top = badgeRect.bottom + 8;
+    let top = badgeRect.bottom + 4;
 
     if (top + 140 > viewportHeight) {
       top = badgeRect.top - 140;
@@ -196,13 +223,11 @@ export function renderBadgeTooltip(
 
   function hideTooltip(): void {
     tooltip.style.display = 'none';
-    if (hideTimeoutId) {
-      clearTimeout(hideTimeoutId);
-      hideTimeoutId = null;
-    }
+    _cancelTooltipHide();
   }
 
   badge.addEventListener('mouseenter', (event) => {
+    _cancelTooltipHide();
     if (showTimeoutId) {
       clearTimeout(showTimeoutId);
       showTimeoutId = null;
@@ -218,7 +243,7 @@ export function renderBadgeTooltip(
       clearTimeout(showTimeoutId);
       showTimeoutId = null;
     }
-    hideTooltip();
+    _scheduleTooltipHide();
   });
 }
 
