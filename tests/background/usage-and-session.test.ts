@@ -17,6 +17,11 @@ vi.stubGlobal('chrome', {
         keys.forEach((entry) => delete storageMock[entry]);
       }),
     },
+    session: {
+      get: vi.fn(async () => ({})),
+      set: vi.fn(async () => {}),
+      remove: vi.fn(async () => {}),
+    },
   },
   action: { setIcon: vi.fn(async () => {}) },
   runtime: {
@@ -49,7 +54,10 @@ describe('background guest protection', () => {
     await syncHourlyUsageState(null);
     await incrementHourlyUsage(null, 1);
 
-    expect(storageMock.hourly_usage_state).toBeUndefined();
+    const state = storageMock.hourly_usage_state as { used: number; audience: string } | undefined;
+    expect(state).toBeDefined();
+    expect(state?.used).toBe(1);
+    expect(state?.audience).toBe('anonymous');
   });
 });
 
@@ -75,7 +83,7 @@ describe('background session invalidation', () => {
       .mockResolvedValueOnce({
         ok: true,
         status: 200,
-        json: async () => ({ subscription: { status: 'active', product_name: 'BarryGuard Rescue Pass' } }),
+        json: async () => ({ tier: 'rescue_pass', subscription: { status: 'active', product_name: 'BarryGuard Rescue Pass' } }),
       });
 
     const profile = await refreshProfileStateIfNeeded(true);

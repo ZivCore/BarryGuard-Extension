@@ -261,16 +261,16 @@ describe('renderSubscores', () => {
 // ─── getConfidenceDisplay ─────────────────────────────────────────────────────
 
 describe('getConfidenceDisplay', () => {
-  it('maps high → "Data: Complete" with empty className', () => {
-    expect(getConfidenceDisplay('high')).toEqual({ text: 'Data: Complete', className: '' });
+  it('maps high → "All checks available" with empty className', () => {
+    expect(getConfidenceDisplay('high')).toEqual({ text: 'All checks available', className: '' });
   });
 
-  it('maps medium → "Data: Partial" with medium className', () => {
-    expect(getConfidenceDisplay('medium')).toEqual({ text: 'Data: Partial', className: 'medium' });
+  it('maps medium → "Some checks pending" with medium className', () => {
+    expect(getConfidenceDisplay('medium')).toEqual({ text: 'Some checks pending', className: 'medium' });
   });
 
-  it('maps low → "Data: Limited" with low className', () => {
-    expect(getConfidenceDisplay('low')).toEqual({ text: 'Data: Limited', className: 'low' });
+  it('maps low → "Limited blockchain data" with low className', () => {
+    expect(getConfidenceDisplay('low')).toEqual({ text: 'Limited blockchain data', className: 'low' });
   });
 });
 
@@ -280,12 +280,12 @@ describe('renderAnalysisFooter', () => {
   it('uses score.confidence for badge text — not score.cached', () => {
     const analyzedAtEl = document.createElement('span');
     const badgeEl = document.createElement('span');
-    // cached=true but confidence='medium' — must show 'Data: Partial', not 'Cached data'
+    // cached=true but confidence='medium' — must show 'Some checks pending', not 'Cached data'
     const score = makeScore({ cached: true, confidence: 'medium', analyzedAt: '2026-03-16T10:00:00Z' });
 
     renderAnalysisFooter(score, analyzedAtEl, badgeEl);
 
-    expect(badgeEl.textContent).toBe('Data: Partial');
+    expect(badgeEl.textContent).toBe('Some checks pending');
     expect(badgeEl.classList.contains('medium')).toBe(true);
   });
 
@@ -295,7 +295,7 @@ describe('renderAnalysisFooter', () => {
 
     renderAnalysisFooter(makeScore({ confidence: 'high' }), analyzedAtEl, badgeEl);
 
-    expect(badgeEl.textContent).toBe('Data: Complete');
+    expect(badgeEl.textContent).toBe('All checks available');
     expect(badgeEl.className).toBe('confidence-badge');
   });
 
@@ -305,7 +305,7 @@ describe('renderAnalysisFooter', () => {
 
     renderAnalysisFooter(makeScore({ confidence: 'low' }), analyzedAtEl, badgeEl);
 
-    expect(badgeEl.textContent).toBe('Data: Limited');
+    expect(badgeEl.textContent).toBe('Limited blockchain data');
     expect(badgeEl.classList.contains('low')).toBe(true);
   });
 

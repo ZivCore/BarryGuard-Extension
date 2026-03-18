@@ -635,6 +635,21 @@ async function incrementHourlyUsage(profile: UserProfile | null, amount: number)
   await setHourlyUsageState(updated);
 }
 
+/**
+ * Correct the local hourly usage counter from the backend's authoritative count.
+ * Fixes the case where markUsageExhausted() over-inflated the local counter
+ * (e.g. a batch 429 set local to 1000/1000 while actual backend count is lower).
+ * Only corrects downward to avoid under-counting from stale profile data.
+ */
+async function correctLocalUsageFromBackend(profile: UserProfile | null): Promise<void> {
+  if (!profile || typeof profile.hourlyAnalysesUsed !== 'number') return;
+  const state = await getStoredHourlyUsageState();
+  if (!state) return;
+  if (profile.hourlyAnalysesUsed < state.used) {
+    await setHourlyUsageState({ ...state, used: profile.hourlyAnalysesUsed, updatedAt: Date.now() });
+  }
+}
+
 function mapApiFailure<T>(response: ApiResponse<T>): ApiResponse<T> {
   if (response.success) {
     return response;
@@ -752,6 +767,8 @@ async function getTokenScore(address: string) {
     }
 
     // 3. Cooldown/Limit checks
+    await correctLocalUsageFromBackend(normalizedProfile);
+
     const cooldown = await maybeEnforceSingleCooldown(normalizedProfile);
     if (cooldown) {
       return cooldown;
@@ -778,14 +795,6 @@ async function getTokenScore(address: string) {
         await setSingleAnalysisState({ lastAnalyzeAt: Date.now() });
       }
       await incrementHourlyUsage(normalizedProfile, 1);
-
-      // H-6: Sync local hourly usage from backend (authoritative) if available
-      if (typeof normalizedProfile?.hourlyAnalysesUsed === 'number') {
-        const state = await getStoredHourlyUsageState();
-        if (state) {
-          await setHourlyUsageState({ ...state, used: normalizedProfile.hourlyAnalysesUsed, updatedAt: Date.now() });
-        }
-      }
 
       await cache.set(address, normalizedFresh, tier);
       return { success: true, data: { ...normalizedFresh, cached: false } };
@@ -837,6 +846,8 @@ async function analyzeTokenList(addresses: string[]): Promise<ApiResponse<TokenL
   if (missingAddresses.length === 0) {
     return { success: true, data: { scores, cachedAddresses } };
   }
+
+  await correctLocalUsageFromBackend(normalizedProfile);
 
   const hourlyLimit = await maybeEnforceHourlyLimit(normalizedProfile, missingAddresses.length);
   if (hourlyLimit) {
