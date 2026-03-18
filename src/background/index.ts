@@ -653,14 +653,29 @@ async function incrementHourlyUsage(profile: UserProfile | null, amount: number)
  * Correct the local hourly usage counter from the backend's authoritative count.
  * Fixes the case where markUsageExhausted() over-inflated the local counter
  * (e.g. a batch 429 set local to 1000/1000 while actual backend count is lower).
- * Only corrects downward to avoid under-counting from stale profile data.
+ *
+ * When local state is at the limit (exhausted), forces a fresh profile refresh
+ * to get the latest backend count — the cached profile may be stale from when
+ * the quota was genuinely full but has since rolled over.
  */
 async function correctLocalUsageFromBackend(profile: UserProfile | null): Promise<void> {
-  if (!profile || typeof profile.hourlyAnalysesUsed !== 'number') return;
+  if (!profile) return;
   const state = await getStoredHourlyUsageState();
   if (!state) return;
-  if (profile.hourlyAnalysesUsed < state.used) {
-    await setHourlyUsageState({ ...state, used: profile.hourlyAnalysesUsed, updatedAt: Date.now() });
+
+  let backendUsed = profile.hourlyAnalysesUsed;
+
+  // When local state is at the limit, the cached profile may also report the
+  // stale exhausted count.  Force a fresh fetch to get the real current value.
+  if (state.used >= state.limit) {
+    const freshProfile = await refreshProfileStateIfNeeded(true);
+    if (freshProfile && typeof freshProfile.hourlyAnalysesUsed === 'number') {
+      backendUsed = freshProfile.hourlyAnalysesUsed;
+    }
+  }
+
+  if (typeof backendUsed === 'number' && backendUsed < state.used) {
+    await setHourlyUsageState({ ...state, used: backendUsed, updatedAt: Date.now() });
   }
 }
 
