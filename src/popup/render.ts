@@ -10,11 +10,21 @@ export const CHECK_ORDER = [
   'mintAuthority',
   'freezeAuthority',
   'liquidityLocked',
+  'honeypotSimulation',
+  'lpCreatorMatch',
   'topHolderConcentration',
   'tokenAge',
   'holderCount',
   'developerHistory',
-  'clusterControl',
+  'insiderNetwork',
+  'bundleDetection',
+  'earlyDump',
+  'sniperDominance',
+  'bondingCurveStatus',
+  'liquidityDepth',
+  'metadataLegitimacy',
+  'creatorWalletAge',
+  'priceImpact',
 ] as const;
 
 export const CHECK_METADATA: Record<string, { label: string; teaser: string }> = {
@@ -61,6 +71,42 @@ export const CHECK_METADATA: Record<string, { label: string; teaser: string }> =
   sellability: {
     label: 'Sellability',
     teaser: 'Checks whether the token can actually be sold without anomalies.',
+  },
+  honeypotSimulation: {
+    label: 'Honeypot Detection',
+    teaser: 'Simulates a real sell transaction to detect if the token can actually be sold.',
+  },
+  lpCreatorMatch: {
+    label: 'LP Creator Match',
+    teaser: 'Checks if the token creator also controls the liquidity pool.',
+  },
+  bundleDetection: {
+    label: 'Bundle Detection',
+    teaser: 'Detects if the creator bundled token creation with insider buys.',
+  },
+  insiderNetwork: {
+    label: 'Insider Network',
+    teaser: 'Analyzes if top holders are funded by the same wallet (coordinated buying).',
+  },
+  bondingCurveStatus: {
+    label: 'Bonding Curve',
+    teaser: 'Checks if the token is still on the bonding curve or has graduated.',
+  },
+  liquidityDepth: {
+    label: 'Liquidity Depth',
+    teaser: 'Measures the actual USD value available in the liquidity pool.',
+  },
+  metadataLegitimacy: {
+    label: 'Metadata Check',
+    teaser: 'Checks token name, symbol and image for scam patterns or missing data.',
+  },
+  creatorWalletAge: {
+    label: 'Creator Wallet Age',
+    teaser: 'Checks how old the creator wallet is — fresh wallets are a red flag.',
+  },
+  priceImpact: {
+    label: 'Price Status',
+    teaser: 'Evaluates current market cap and token value relative to age.',
   },
 };
 

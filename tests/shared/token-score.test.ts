@@ -541,13 +541,14 @@ describe('extractTokenScores', () => {
     }, 'rescue_pass')).toBe(true);
   });
 
-  it('marks complete visible checks as ready', () => {
+  it('marks complete visible checks as ready when confidence is high', () => {
     expect(isTokenScoreLikelyIncomplete({
       address: '7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU',
       chain: 'solana',
       score: 84,
       risk: 'low',
       cached: true,
+      confidence: 'high',
       checks: {
         mintAuthority: { status: 'success', value: false, label: '', description: '', tier: 'free' },
         freezeAuthority: { status: 'success', value: false, label: '', description: '', tier: 'free' },

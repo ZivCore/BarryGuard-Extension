@@ -27,7 +27,7 @@ function makeScore(overrides: Partial<TokenScore> = {}): TokenScore {
       tokenAge: { status: 'warning', value: 90, label: 'Token age 1h', description: 'Live for 1h.', tier: 'free' },
       holderCount: { status: 'warning', value: '87', label: '87 holders', description: 'Held by 87 wallets.', tier: 'free' },
       developerHistory: { status: 'danger', value: 'bad', label: 'Developer reputation: bad', description: 'Creator has 8 rugs.', tier: 'free' },
-      clusterControl: { status: 'danger', value: 38.4, label: 'Top 5 wallets: 38.4%', description: 'Top 5 may control 38.4%.', tier: 'free' },
+      insiderNetwork: { status: 'danger', value: 3, label: 'Insider network detected', description: '3 holders share funding source.', tier: 'free' },
     },
     reasons: [
       'Mint authority is still active',
@@ -45,10 +45,10 @@ function makeScore(overrides: Partial<TokenScore> = {}): TokenScore {
 // ─── renderChecks ─────────────────────────────────────────────────────────────
 
 describe('renderChecks', () => {
-  it('renders all 8 checks from score.checks', () => {
+  it('renders all 18 checks from CHECK_ORDER', () => {
     const listEl = document.createElement('div');
     renderChecks(makeScore(), listEl);
-    expect(listEl.querySelectorAll('.check-item').length).toBe(8);
+    expect(listEl.querySelectorAll('.check-item').length).toBe(18);
   });
 
   it('uses ✅ icon for safe/success status', () => {
@@ -129,11 +129,11 @@ describe('renderChecks', () => {
     expect(labels).toContain('Sellability');
   });
 
-  it('does not render Phase C checks when absent from score.checks', () => {
+  it('renders all CHECK_ORDER items even when absent from score.checks', () => {
     const listEl = document.createElement('div');
-    renderChecks(makeScore(), listEl); // makeScore has no earlyDump/sniperDominance/sellability
+    renderChecks(makeScore(), listEl); // makeScore has minimal checks
     const items = listEl.querySelectorAll('.check-item');
-    expect(items.length).toBe(8); // only the 8 required checks
+    expect(items.length).toBe(18); // all 18 ordered checks rendered (missing ones show placeholder)
   });
 });
 
