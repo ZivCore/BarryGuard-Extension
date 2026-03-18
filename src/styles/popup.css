@@ -490,12 +490,26 @@ body {
   gap: 0;
 }
 
+.score-donut-value-row {
+  display: flex;
+  align-items: baseline;
+  gap: 1px;
+}
+
 .score-donut-value {
   font-family: Georgia, 'Times New Roman', serif;
   font-size: 30px;
   font-weight: 800;
   line-height: 1;
   color: var(--score-color);
+}
+
+.score-donut-max {
+  font-family: Georgia, 'Times New Roman', serif;
+  font-size: 13px;
+  font-weight: 700;
+  color: var(--score-color);
+  opacity: 0.35;
 }
 
 .score-donut-label {
