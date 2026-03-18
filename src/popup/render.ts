@@ -286,11 +286,8 @@ export function getConfidenceDisplay(confidence: ConfidenceLevel): { text: strin
  */
 const CHECK_ORDER_SET = new Set<string>(CHECK_ORDER);
 
-export function renderChecks(score: TokenScore, listEl: HTMLElement, tier: string = 'pro'): void {
+export function renderChecks(score: TokenScore, listEl: HTMLElement, _tier: string = 'pro'): void {
   listEl.innerHTML = '';
-
-  const isPaid = tier === 'rescue_pass' || tier === 'pro';
-  let checkIndex = 0;
 
   const extraCheckKeys = Object.keys(score.checks).filter((k) => !CHECK_ORDER_SET.has(k));
   const allCheckKeys: string[] = [...CHECK_ORDER, ...extraCheckKeys];
@@ -299,12 +296,8 @@ export function renderChecks(score: TokenScore, listEl: HTMLElement, tier: strin
     const check = score.checks[checkKey] as CheckResult | undefined;
     if (!check && !CHECK_ORDER_SET.has(checkKey)) continue; // skip missing optional checks
 
-    checkIndex++;
-
-    // Free/anonymous: show 3 checks, blur 4th, hide rest
-    if (!isPaid && checkIndex > 4) continue;
-
-    const isLockedCheck = !isPaid && checkIndex === 4;
+    // Gating is handled server-side via API response (locked flag)
+    const isLockedCheck = check?.locked === true;
 
     const label = normalizeCheckLabel(checkKey, check?.label);
     const description = normalizeCheckDescription(check?.description, checkKey);
