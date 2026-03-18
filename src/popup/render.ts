@@ -25,6 +25,9 @@ export const CHECK_ORDER = [
   'metadataLegitimacy',
   'creatorWalletAge',
   'priceImpact',
+  'updateAuthority',
+  'creatorRetention',
+  'liquidityRatio',
 ] as const;
 
 export const CHECK_METADATA: Record<string, { label: string; teaser: string }> = {
@@ -107,6 +110,18 @@ export const CHECK_METADATA: Record<string, { label: string; teaser: string }> =
   priceImpact: {
     label: 'Price Status',
     teaser: 'Evaluates current market cap and token value relative to age.',
+  },
+  updateAuthority: {
+    label: 'Update Authority',
+    teaser: 'Checks if the token metadata can still be modified by the creator.',
+  },
+  creatorRetention: {
+    label: 'Creator Holdings',
+    teaser: 'Checks how much supply the creator wallet still holds.',
+  },
+  liquidityRatio: {
+    label: 'Liquidity Ratio',
+    teaser: 'Compares pool liquidity to market cap — low ratio means easy manipulation.',
   },
 };
 
