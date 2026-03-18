@@ -221,8 +221,18 @@ async function refreshProfileStateIfNeeded(force = false): Promise<UserProfile |
     // Re-hydrate the API client's in-memory auth token after service worker restarts.
     // Session storage survives restarts but the api instance is re-created empty.
     const token = await getStoredToken();
-    if (token) api.setAuthToken(token);
-    return storedProfile;
+    if (token) {
+      // If the access token is expired (or expires within 60s), fall through to
+      // the full refresh path which handles token renewal via refresh_token.
+      const isExpired = typeof token.expires_at === 'number'
+        && token.expires_at * 1000 <= Date.now() + 60_000;
+      if (isExpired) {
+        // Don't return early — let the full refresh path handle token renewal
+      } else {
+        api.setAuthToken(token);
+        return storedProfile;
+      }
+    }
   }
 
   const storedToken = await getStoredToken();
