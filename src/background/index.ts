@@ -218,6 +218,10 @@ async function refreshProfileStateIfNeeded(force = false): Promise<UserProfile |
   const syncedAt = await getProfileSyncedAt();
   const isFresh = !force && syncedAt !== null && Date.now() - syncedAt <= PROFILE_REFRESH_MAX_AGE_MS;
   if (storedProfile && isFresh) {
+    // Re-hydrate the API client's in-memory auth token after service worker restarts.
+    // Session storage survives restarts but the api instance is re-created empty.
+    const token = await getStoredToken();
+    if (token) api.setAuthToken(token);
     return storedProfile;
   }
 
