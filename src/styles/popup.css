@@ -445,49 +445,40 @@ body {
   padding: 12px 10px;
 }
 
-/* Score Gauge — premium glassmorphic arc */
+/* Score Gauge — clean conic-gradient donut */
 .score-donut {
   position: relative;
-  width: 110px;
-  height: 110px;
+  width: 100px;
+  height: 100px;
   border-radius: 50%;
   display: flex;
   align-items: center;
   justify-content: center;
   margin: 0 auto 6px;
+  /* conic-gradient set via JS: --score-deg and --score-color */
+  background: conic-gradient(
+    var(--score-color) 0deg,
+    var(--score-color) var(--score-deg, 0deg),
+    rgba(0, 0, 0, 0.06) var(--score-deg, 0deg),
+    rgba(0, 0, 0, 0.06) 360deg
+  );
 }
 
-/* Outer glow */
-.score-donut::before {
-  content: '';
+/* White inner circle — creates the donut hole */
+.score-donut-hole {
   position: absolute;
-  inset: 0;
+  inset: 8px;
   border-radius: 50%;
-  box-shadow: 0 0 28px 3px var(--score-glow, rgba(0,0,0,0.08)), inset 0 0 20px 2px var(--score-glow, rgba(0,0,0,0.04));
-}
-
-/* Glass background */
-.score-donut::after {
-  content: '';
-  position: absolute;
-  inset: 3px;
-  border-radius: 50%;
-  background: rgba(255,255,255,0.55);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  border: 1px solid rgba(255,255,255,0.45);
-}
-
-/* SVG gauge lives inside — rendered via JS */
-.score-donut svg {
-  position: absolute;
-  inset: 0;
-  z-index: 1;
+  background: var(--bg, #ede6d8);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
 }
 
 .score-donut-ring,
 .score-donut-dot {
-  display: none; /* replaced by SVG in JS */
+  display: none;
 }
 
 .score-donut-inner {
@@ -501,7 +492,7 @@ body {
 
 .score-donut-value {
   font-family: Georgia, 'Times New Roman', serif;
-  font-size: 34px;
+  font-size: 30px;
   font-weight: 800;
   line-height: 1;
   color: var(--score-color);
