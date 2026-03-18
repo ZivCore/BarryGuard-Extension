@@ -71,6 +71,9 @@ const CHECK_ORDER = [
   'metadataLegitimacy',
   'creatorWalletAge',
   'priceImpact',
+  'updateAuthority',
+  'creatorRetention',
+  'liquidityRatio',
 ] as const;
 const CHECK_KEY_ALIASES: Record<string, string> = {
   mintauthority: 'mintAuthority',
@@ -142,6 +145,15 @@ const CHECK_KEY_ALIASES: Record<string, string> = {
   priceimpact: 'priceImpact',
   price_impact: 'priceImpact',
   'price-impact': 'priceImpact',
+  updateauthority: 'updateAuthority',
+  update_authority: 'updateAuthority',
+  'update-authority': 'updateAuthority',
+  creatorretention: 'creatorRetention',
+  creator_retention: 'creatorRetention',
+  'creator-retention': 'creatorRetention',
+  liquidityratio: 'liquidityRatio',
+  liquidity_ratio: 'liquidityRatio',
+  'liquidity-ratio': 'liquidityRatio',
 };
 
 function canonicalizeCheckKey(key: string): string {

@@ -48,7 +48,7 @@ describe('renderChecks', () => {
   it('renders all 18 checks from CHECK_ORDER', () => {
     const listEl = document.createElement('div');
     renderChecks(makeScore(), listEl);
-    expect(listEl.querySelectorAll('.check-item').length).toBe(18);
+    expect(listEl.querySelectorAll('.check-item').length).toBe(21);
   });
 
   it('uses ✅ icon for safe/success status', () => {
@@ -133,7 +133,7 @@ describe('renderChecks', () => {
     const listEl = document.createElement('div');
     renderChecks(makeScore(), listEl); // makeScore has minimal checks
     const items = listEl.querySelectorAll('.check-item');
-    expect(items.length).toBe(18); // all 18 ordered checks rendered (missing ones show placeholder)
+    expect(items.length).toBe(21); // all 18 ordered checks rendered (missing ones show placeholder)
   });
 });
 
