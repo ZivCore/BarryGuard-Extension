@@ -856,22 +856,47 @@ function renderTokenDetail(score: TokenScore): void {
   updateTokenAddressButton(score.address, score.address);
   if (elements.tokenDetail.scoreValue) elements.tokenDetail.scoreValue.textContent = String(score.score);
   if (elements.tokenDetail.scoreDonut) {
-    elements.tokenDetail.scoreDonut.className = `score-donut score-${risk}`;
-    const deg = Math.round((score.score / 100) * 360);
-    const glowMap: Record<string, string> = {
-      danger: 'rgba(197,57,47,0.25)', high: 'rgba(212,114,42,0.2)',
-      caution: 'rgba(184,137,70,0.18)', moderate: 'rgba(90,154,107,0.18)', low: 'rgba(45,122,79,0.2)',
+    const colorMap: Record<string, string> = {
+      danger: '#c5392f', high: '#d4722a', caution: '#b88946', moderate: '#5a9a6b', low: '#2d7a4f',
     };
-    elements.tokenDetail.scoreDonut.style.setProperty('--score-glow', glowMap[risk] ?? 'rgba(0,0,0,0.1)');
-    if (elements.tokenDetail.scoreDonutRing) {
-      elements.tokenDetail.scoreDonutRing.style.setProperty('--score-deg', `${deg}deg`);
+    const glowMap: Record<string, string> = {
+      danger: 'rgba(197,57,47,0.15)', high: 'rgba(212,114,42,0.12)',
+      caution: 'rgba(184,137,70,0.12)', moderate: 'rgba(90,154,107,0.12)', low: 'rgba(45,122,79,0.12)',
+    };
+    const c = colorMap[risk] ?? '#c5392f';
+    elements.tokenDetail.scoreDonut.className = `score-donut score-${risk}`;
+    elements.tokenDetail.scoreDonut.style.setProperty('--score-color', c);
+    elements.tokenDetail.scoreDonut.style.setProperty('--score-glow', glowMap[risk] ?? 'rgba(0,0,0,0.08)');
+
+    // Render SVG gauge
+    const size = 110;
+    const r = 47; // radius
+    const sw = 8; // stroke width
+    const deg = Math.round((score.score / 100) * 360);
+    const arcLen = (deg / 360) * 2 * Math.PI * r;
+    const fullLen = 2 * Math.PI * r;
+    const dotAngle = ((deg - 90) * Math.PI) / 180;
+    const cx = size / 2;
+    const cy = size / 2;
+    const dotX = cx + r * Math.cos(dotAngle);
+    const dotY = cy + r * Math.sin(dotAngle);
+
+    let existingSvg = elements.tokenDetail.scoreDonut.querySelector('svg');
+    if (!existingSvg) {
+      existingSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+      existingSvg.setAttribute('width', String(size));
+      existingSvg.setAttribute('height', String(size));
+      existingSvg.setAttribute('viewBox', `0 0 ${size} ${size}`);
+      elements.tokenDetail.scoreDonut.insertBefore(existingSvg, elements.tokenDetail.scoreDonut.firstChild);
     }
-    // Position arc-end dot
-    const dot = document.getElementById('score-donut-dot');
-    if (dot) {
-      const radius = 44; // half of donut size minus ring width
-      dot.style.transform = `rotate(${deg - 90}deg) translateX(${radius}px) translate(-50%, -50%)`;
-    }
+    existingSvg.innerHTML = `
+      <circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="rgba(0,0,0,0.06)" stroke-width="${sw}" />
+      <circle cx="${cx}" cy="${cy}" r="${r}" fill="none" stroke="${c}" stroke-width="${sw}"
+        stroke-linecap="round" stroke-dasharray="${arcLen} ${fullLen}"
+        transform="rotate(-90 ${cx} ${cy})" style="filter:drop-shadow(0 0 5px ${c})" />
+      ${score.score > 0 ? `<circle cx="${dotX}" cy="${dotY}" r="6" fill="${c}" style="filter:drop-shadow(0 0 3px ${c})" />` : ''}
+    `;
+
     // Risk label inside donut
     const donutRiskLabel = document.getElementById('score-donut-risk-label');
     if (donutRiskLabel) {
