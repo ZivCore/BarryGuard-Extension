@@ -1,6 +1,6 @@
 {
   "name": "barryguard-extension",
-  "version": "1.0.86",
+  "version": "1.0.87",
   "description": "Browser extension for BarryGuard - Solana token scam detection",
   "type": "module",
   "packageManager": "pnpm@10.6.0",
