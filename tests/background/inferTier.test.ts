@@ -37,53 +37,52 @@ describe('inferTier', () => {
     expect(inferTier({ tier: 'free' })).toBe('free');
   });
 
-  it('reads plan field as alias', () => {
-    expect(inferTier({ plan: 'rescue' })).toBe('rescue_pass');
+  it('ignores plan field — only reads explicit tier', () => {
+    expect(inferTier({ plan: 'rescue' })).toBe('free');
   });
 
   it('does NOT upgrade to rescue_pass based on generic status:active field', () => {
-    // This was the spoofing vector — fixed by removing "status" from pickString keys
     expect(inferTier({ status: 'active' })).toBe('free');
   });
 
-  it('upgrades to rescue_pass based on subscriptionStatus:active', () => {
-    expect(inferTier({ subscriptionStatus: 'active' })).toBe('rescue_pass');
-    expect(inferTier({ subscription_status: 'trialing' })).toBe('rescue_pass');
+  it('does NOT upgrade based on subscriptionStatus fields', () => {
+    expect(inferTier({ subscriptionStatus: 'active' })).toBe('free');
+    expect(inferTier({ subscription_status: 'trialing' })).toBe('free');
   });
 
-  it('upgrades to rescue_pass when nested subscription.status is active', () => {
+  it('does NOT upgrade from nested subscription.status', () => {
     expect(inferTier({
       email: 'paid@barryguard.com',
       subscription: {
         status: 'active',
       },
-    })).toBe('rescue_pass');
+    })).toBe('free');
   });
 
-  it('detects paid tier from nested subscription plan names', () => {
+  it('does NOT infer tier from nested subscription plan names', () => {
     expect(inferTier({
       subscription: {
         product_name: 'BarryGuard Rescue Pass',
       },
-    })).toBe('rescue_pass');
+    })).toBe('free');
     expect(inferTier({
       subscription: {
         plan_name: 'BarryGuard Pro',
       },
-    })).toBe('pro');
+    })).toBe('free');
   });
 
-  it('detects paid tier from boolean subscription flags', () => {
-    expect(inferTier({ hasSubscription: true })).toBe('rescue_pass');
-    expect(inferTier({ subscriptionActive: true })).toBe('rescue_pass');
-    expect(inferTier({ isPro: true })).toBe('pro');
+  it('does NOT upgrade from boolean subscription flags', () => {
+    expect(inferTier({ hasSubscription: true })).toBe('free');
+    expect(inferTier({ subscriptionActive: true })).toBe('free');
+    expect(inferTier({ isPro: true })).toBe('free');
   });
 
-  it('reads tier from nested user object', () => {
-    expect(inferTier({ user: { tier: 'pro' } })).toBe('pro');
+  it('does NOT read tier from nested user object', () => {
+    expect(inferTier({ user: { tier: 'pro' } })).toBe('free');
   });
 
-  it('stops recursing at depth 3 — deep status:active not reached', () => {
+  it('ignores deeply nested fields', () => {
     const deep = { data: { data: { data: { data: { subscriptionStatus: 'active' } } } } };
     expect(inferTier(deep)).toBe('free');
   });

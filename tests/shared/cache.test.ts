@@ -51,13 +51,13 @@ describe('TokenCache', () => {
     expect(result?.score).toBe(75);
   });
 
-  it('returns null for expired free-tier entry (TTL 5min)', async () => {
+  it('returns null for expired free-tier entry (TTL 720min)', async () => {
     vi.useFakeTimers();
     const score = makeScore(50);
     await cache.set('addr2', score, 'free');
 
-    // Advance time past 5 minutes
-    vi.setSystemTime(Date.now() + 6 * 60 * 1000);
+    // Advance time past 720 minutes (12h)
+    vi.setSystemTime(Date.now() + 721 * 60 * 1000);
     const result = await cache.get('addr2', 'free');
     expect(result).toBeNull();
 
@@ -92,12 +92,12 @@ describe('TokenCache', () => {
   it('evicts expired paid-tier entries at init using per-tier TTL (not free TTL)', async () => {
     vi.useFakeTimers();
     const score = makeScore(80);
-    // Write a paid entry that is 3 minutes old (TTL is 2 min for rescue_pass)
-    const threeMinutesAgo = Date.now() - 3 * 60 * 1000;
-    storageMock['barryguard_cache'] = { 'paidAddr': { score, timestamp: threeMinutesAgo, tier: 'rescue_pass' } };
+    // Write a paid entry that is 61 minutes old (TTL is 60 min for rescue_pass)
+    const sixtyOneMinutesAgo = Date.now() - 61 * 60 * 1000;
+    storageMock['barryguard_cache'] = { 'paidAddr': { score, timestamp: sixtyOneMinutesAgo, tier: 'rescue_pass' } };
 
     const freshCache = new TokenCache();
-    await freshCache.init(); // should evict the 3-min-old rescue_pass entry
+    await freshCache.init(); // should evict the 61-min-old rescue_pass entry
     const result = await freshCache.get('paidAddr', 'rescue_pass');
     expect(result).toBeNull();
 

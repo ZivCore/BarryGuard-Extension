@@ -288,6 +288,7 @@ const CHECK_ORDER_SET = new Set<string>(CHECK_ORDER);
 
 export function renderChecks(score: TokenScore, listEl: HTMLElement, _tier: string = 'pro'): void {
   listEl.innerHTML = '';
+  const isPaid = _tier !== 'free';
 
   const extraCheckKeys = Object.keys(score.checks).filter((k) => !CHECK_ORDER_SET.has(k));
   const allCheckKeys: string[] = [...CHECK_ORDER, ...extraCheckKeys];
