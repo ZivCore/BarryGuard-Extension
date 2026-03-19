@@ -13,6 +13,8 @@ import type {
   UserProfile,
   TierLevel,
   AuthToken,
+  WatchlistAlert,
+  WatchlistStatus,
 } from '../shared/types';
 
 const api = new BarryGuardApiClient();
@@ -947,6 +949,76 @@ async function analyzeTokenList(addresses: string[]): Promise<ApiResponse<TokenL
   };
 }
 
+async function getWatchlistStatusForToken(address: string): Promise<ApiResponse<WatchlistStatus>> {
+  if (!isValidSolanaAddress(address)) {
+    return { success: false, error: 'Invalid token address format.', errorType: 'validation' };
+  }
+
+  const profile = await refreshProfileStateIfNeeded();
+  if (!profile) {
+    return { success: false, error: 'No active session.', statusCode: 401 };
+  }
+
+  return mapApiFailure(await api.getWatchlistStatus(address)) as ApiResponse<WatchlistStatus>;
+}
+
+async function addCurrentTokenToWatchlist(address: string): Promise<ApiResponse<WatchlistStatus>> {
+  if (!isValidSolanaAddress(address)) {
+    return { success: false, error: 'Invalid token address format.', errorType: 'validation' };
+  }
+
+  const profile = await refreshProfileStateIfNeeded();
+  if (!profile) {
+    return { success: false, error: 'No active session.', statusCode: 401 };
+  }
+
+  const response = await api.addToWatchlist(address);
+  if (!response.success) {
+    const failure = mapApiFailure(response);
+    return {
+      success: false,
+      error: failure.error,
+      statusCode: failure.statusCode,
+      errorType: failure.errorType,
+      errorCode: failure.errorCode,
+      retryAfterSeconds: failure.retryAfterSeconds,
+    };
+  }
+
+  return getWatchlistStatusForToken(address);
+}
+
+async function removeCurrentTokenFromWatchlist(address: string): Promise<ApiResponse<{ success: boolean }>> {
+  if (!isValidSolanaAddress(address)) {
+    return { success: false, error: 'Invalid token address format.', errorType: 'validation' };
+  }
+
+  const profile = await refreshProfileStateIfNeeded();
+  if (!profile) {
+    return { success: false, error: 'No active session.', statusCode: 401 };
+  }
+
+  return mapApiFailure(await api.removeFromWatchlist(address));
+}
+
+async function getWatchlistAlertsFeed(): Promise<ApiResponse<{ alerts: WatchlistAlert[]; unreadAlerts: number; hasAccess: boolean }>> {
+  const profile = await refreshProfileStateIfNeeded();
+  if (!profile) {
+    return { success: false, error: 'No active session.', statusCode: 401 };
+  }
+
+  return mapApiFailure(await api.getWatchlistAlerts()) as ApiResponse<{ alerts: WatchlistAlert[]; unreadAlerts: number; hasAccess: boolean }>;
+}
+
+async function markWatchlistAlertAsRead(id: string): Promise<ApiResponse<{ success: boolean }>> {
+  const profile = await refreshProfileStateIfNeeded();
+  if (!profile) {
+    return { success: false, error: 'No active session.', statusCode: 401 };
+  }
+
+  return mapApiFailure(await api.markWatchlistAlertRead(id));
+}
+
 async function openPopupForToken(selectedToken: SelectedToken) {
   const hasMetadata = Boolean(
     selectedToken.metadata?.name
@@ -1061,6 +1133,21 @@ export function initializeBackground(): void {
             }
             break;
           }
+          case 'GET_WATCHLIST_STATUS':
+            respond(await getWatchlistStatusForToken(message.payload));
+            break;
+          case 'ADD_TO_WATCHLIST':
+            respond(await addCurrentTokenToWatchlist(message.payload));
+            break;
+          case 'REMOVE_FROM_WATCHLIST':
+            respond(await removeCurrentTokenFromWatchlist(message.payload));
+            break;
+          case 'GET_WATCHLIST_ALERTS':
+            respond(await getWatchlistAlertsFeed());
+            break;
+          case 'MARK_WATCHLIST_ALERT_READ':
+            respond(await markWatchlistAlertAsRead(message.payload));
+            break;
           case 'LOGIN': {
             const result = await api.login(message.payload.email, message.payload.password);
             if (result.success && result.data) {

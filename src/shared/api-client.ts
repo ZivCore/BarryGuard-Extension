@@ -1,5 +1,5 @@
 // src/shared/api-client.ts
-import type { ApiErrorType, ApiResponse, AuthToken, TokenScore, UserProfile } from './types';
+import type { ApiErrorType, ApiResponse, AuthToken, TokenScore, UserProfile, WatchlistAlert, WatchlistStatus } from './types';
 import { getApiBaseUrl } from './runtime-config';
 
 const REQUEST_TIMEOUT_MS = 12000;
@@ -183,6 +183,33 @@ export class BarryGuardApiClient {
     return this.request<TokenScore>(`/token/${address}/refresh`, {
       method: 'POST',
       headers: { 'X-Chain': chain },
+    });
+  }
+
+  getWatchlistStatus(address: string, chain = 'solana'): Promise<ApiResponse<WatchlistStatus>> {
+    return this.request<WatchlistStatus>(`/watchlist/${address}?chain=${chain}`);
+  }
+
+  addToWatchlist(address: string, chain = 'solana'): Promise<ApiResponse<{ success: boolean; entry: WatchlistStatus['entry'] }>> {
+    return this.request<{ success: boolean; entry: WatchlistStatus['entry'] }>('/watchlist', {
+      method: 'POST',
+      body: JSON.stringify({ address, chain }),
+    });
+  }
+
+  removeFromWatchlist(address: string, chain = 'solana'): Promise<ApiResponse<{ success: boolean }>> {
+    return this.request<{ success: boolean }>(`/watchlist/${address}?chain=${chain}`, {
+      method: 'DELETE',
+    });
+  }
+
+  getWatchlistAlerts(): Promise<ApiResponse<{ alerts: WatchlistAlert[]; unreadAlerts: number; hasAccess: boolean }>> {
+    return this.request<{ alerts: WatchlistAlert[]; unreadAlerts: number; hasAccess: boolean }>('/watchlist/alerts');
+  }
+
+  markWatchlistAlertRead(id: string): Promise<ApiResponse<{ success: boolean }>> {
+    return this.request<{ success: boolean }>(`/watchlist/alerts/${id}/read`, {
+      method: 'PATCH',
     });
   }
 }

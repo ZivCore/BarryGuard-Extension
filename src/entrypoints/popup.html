@@ -105,6 +105,17 @@
         <div class="disclaimer-text">
           BarryGuard cannot guarantee safety. Use this as a risk signal, not a guarantee.
         </div>
+
+        <div class="watchlist-panel">
+          <div class="watchlist-header">
+            <div>
+              <div class="watchlist-title">Watchlist</div>
+              <div id="watchlist-meta" class="watchlist-meta">Save this token to track score changes.</div>
+            </div>
+            <button id="watchlist-toggle-btn" class="btn-secondary watchlist-btn" type="button">Save</button>
+          </div>
+          <div id="watchlist-error" class="error-message hidden"></div>
+        </div>
       </div>
 
       <div id="subscores-container" class="subscores-section">
@@ -134,6 +145,11 @@
       <div id="reasons-container" class="reasons-section hidden">
         <h2>Top Concerns</h2>
         <ul id="reasons-list"></ul>
+      </div>
+
+      <div id="watchlist-alerts-section" class="watchlist-alerts hidden">
+        <h2>Risk Alerts</h2>
+        <div id="watchlist-alerts-list"></div>
       </div>
 
       <div id="checks-container">

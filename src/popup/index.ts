@@ -6,6 +6,8 @@ import type {
   TokenMetadata,
   TokenScore,
   UserProfile,
+  WatchlistAlert,
+  WatchlistStatus,
 } from '../shared/types';
 import {
   getAccountUrl,
@@ -42,6 +44,8 @@ interface PopupState {
   userProfile: UserProfile | null;
   selectedToken: SelectedToken | null;
   usageState: HourlyUsageState | null;
+  watchlistStatus: WatchlistStatus | null;
+  watchlistAlerts: WatchlistAlert[];
 }
 
 interface PlanBranding {
@@ -62,6 +66,8 @@ const state: PopupState = {
   userProfile: null,
   selectedToken: null,
   usageState: null,
+  watchlistStatus: null,
+  watchlistAlerts: [],
 };
 
 let isHydratingSelectedTokenMetadata = false;
@@ -110,6 +116,11 @@ const elements = {
     confidenceBadge: document.getElementById('confidence-badge'),
     refreshBtn: document.getElementById('refresh-btn'),
     viewFullAnalysis: document.getElementById('view-full-analysis'),
+    watchlistToggleBtn: document.getElementById('watchlist-toggle-btn') as HTMLButtonElement | null,
+    watchlistMeta: document.getElementById('watchlist-meta'),
+    watchlistError: document.getElementById('watchlist-error'),
+    watchlistAlertsSection: document.getElementById('watchlist-alerts-section'),
+    watchlistAlertsList: document.getElementById('watchlist-alerts-list'),
   },
   login: {
     email: document.getElementById('email') as HTMLInputElement | null,
@@ -482,6 +493,265 @@ function renderUsageIndicator(): void {
   meta.textContent = `${summary.used}/${summary.limit} used this hour`;
 }
 
+function setWatchlistError(message: string | null): void {
+  const errorEl = elements.tokenDetail.watchlistError;
+  if (!errorEl) {
+    return;
+  }
+
+  if (!message) {
+    errorEl.classList.add('hidden');
+    errorEl.textContent = '';
+    return;
+  }
+
+  errorEl.textContent = message;
+  errorEl.classList.remove('hidden');
+}
+
+function renderWatchlistAlerts(): void {
+  const section = elements.tokenDetail.watchlistAlertsSection;
+  const list = elements.tokenDetail.watchlistAlertsList;
+  const currentAddress = state.selectedToken?.address;
+  if (!section || !list || !currentAddress) {
+    section?.classList.add('hidden');
+    return;
+  }
+
+  const relevantAlerts = state.watchlistAlerts
+    .filter((alert) => alert.token_address === currentAddress)
+    .slice(0, 3);
+
+  if (relevantAlerts.length === 0) {
+    section.classList.add('hidden');
+    list.textContent = '';
+    return;
+  }
+
+  section.classList.remove('hidden');
+  list.textContent = '';
+
+  for (const alert of relevantAlerts) {
+    const item = document.createElement('div');
+    item.className = `mini-alert ${alert.read_at ? 'is-read' : 'is-unread'}`;
+
+    const title = document.createElement('div');
+    title.className = 'mini-alert-title';
+    title.textContent = alert.title;
+
+    const message = document.createElement('div');
+    message.className = 'mini-alert-message';
+    message.textContent = alert.message;
+
+    const actions = document.createElement('div');
+    actions.className = 'mini-alert-actions';
+
+    const openLink = document.createElement('a');
+    openLink.href = `https://barryguard.com/check/${alert.token_address}`;
+    openLink.target = '_blank';
+    openLink.rel = 'noopener noreferrer';
+    openLink.textContent = 'Open full check';
+    actions.appendChild(openLink);
+
+    if (!alert.read_at) {
+      const markReadBtn = document.createElement('button');
+      markReadBtn.type = 'button';
+      markReadBtn.textContent = 'Mark read';
+      markReadBtn.addEventListener('click', () => {
+        void handleWatchlistAlertRead(alert.id);
+      });
+      actions.appendChild(markReadBtn);
+    }
+
+    item.append(title, message, actions);
+    list.appendChild(item);
+  }
+}
+
+function renderWatchlistState(): void {
+  const button = elements.tokenDetail.watchlistToggleBtn;
+  const meta = elements.tokenDetail.watchlistMeta;
+  if (!button || !meta) {
+    return;
+  }
+
+  const currentAddress = state.selectedToken?.address;
+  if (!currentAddress) {
+    button.disabled = true;
+    button.textContent = 'Watchlist';
+    meta.textContent = 'Select a token first.';
+    setWatchlistError(null);
+    renderWatchlistAlerts();
+    return;
+  }
+
+  if (!state.isLoggedIn || !state.userProfile) {
+    button.disabled = false;
+    button.textContent = 'Sign in';
+    meta.textContent = 'Sign in with Rescue Pass or Pro to save tokens and receive alerts.';
+    setWatchlistError(null);
+    renderWatchlistAlerts();
+    return;
+  }
+
+  if (state.watchlistStatus && !state.watchlistStatus.hasAccess) {
+    button.disabled = false;
+    button.textContent = 'Upgrade';
+    meta.textContent = 'Watchlist and alerts are available on Rescue Pass and Pro.';
+    setWatchlistError(null);
+    renderWatchlistAlerts();
+    return;
+  }
+
+  if (!state.watchlistStatus) {
+    button.disabled = true;
+    button.textContent = 'Loading...';
+    meta.textContent = 'Loading watchlist state...';
+    setWatchlistError(null);
+    renderWatchlistAlerts();
+    return;
+  }
+
+  button.disabled = false;
+  button.textContent = state.watchlistStatus.saved ? 'Remove' : 'Save';
+
+  const delta = state.watchlistStatus.entry?.last_delta;
+  const unread = state.watchlistStatus.unreadAlerts;
+  const deltaText = typeof delta === 'number' && delta !== 0
+    ? ` Last delta ${delta > 0 ? '+' : ''}${delta}.`
+    : '';
+  const unreadText = unread > 0
+    ? ` ${unread} unread alert${unread === 1 ? '' : 's'}.`
+    : '';
+
+  meta.textContent = state.watchlistStatus.saved
+    ? `Saved to your watchlist.${deltaText}${unreadText}`.trim()
+    : 'Save this token to monitor score changes and alert on worsening risk.';
+  renderWatchlistAlerts();
+}
+
+async function refreshWatchlistForSelectedToken(): Promise<void> {
+  const currentAddress = state.selectedToken?.address;
+  if (!currentAddress) {
+    state.watchlistStatus = null;
+    state.watchlistAlerts = [];
+    renderWatchlistState();
+    return;
+  }
+
+  if (!state.isLoggedIn || !state.userProfile) {
+    state.watchlistStatus = null;
+    state.watchlistAlerts = [];
+    renderWatchlistState();
+    return;
+  }
+
+  state.watchlistStatus = null;
+  renderWatchlistState();
+
+  const [statusResponse, alertsResponse] = await Promise.all([
+    sendMessage<WatchlistStatus>({ type: 'GET_WATCHLIST_STATUS', payload: currentAddress }, 5000),
+    sendMessage<{ alerts: WatchlistAlert[]; unreadAlerts: number; hasAccess: boolean }>({ type: 'GET_WATCHLIST_ALERTS' }, 5000),
+  ]);
+
+  if (statusResponse.success && statusResponse.data) {
+    state.watchlistStatus = statusResponse.data;
+  } else if (statusResponse.statusCode === 401) {
+    state.watchlistStatus = null;
+  } else {
+    state.watchlistStatus = {
+      saved: false,
+      hasAccess: state.userProfile.tier === 'rescue_pass' || state.userProfile.tier === 'pro',
+      unreadAlerts: 0,
+      entry: null,
+    };
+    setWatchlistError(statusResponse.error ?? null);
+  }
+
+  if (alertsResponse.success && alertsResponse.data) {
+    state.watchlistAlerts = alertsResponse.data.alerts ?? [];
+    if (state.watchlistStatus) {
+      state.watchlistStatus.unreadAlerts = state.watchlistStatus.saved
+        ? (state.watchlistAlerts.filter((alert) => alert.token_address === currentAddress && !alert.read_at).length)
+        : 0;
+    }
+  } else {
+    state.watchlistAlerts = [];
+  }
+
+  renderWatchlistState();
+}
+
+async function handleWatchlistToggle(): Promise<void> {
+  const currentAddress = state.selectedToken?.address;
+  if (!currentAddress) {
+    return;
+  }
+
+  if (!state.isLoggedIn || !state.userProfile) {
+    showScreen('login');
+    return;
+  }
+
+  if (state.watchlistStatus && !state.watchlistStatus.hasAccess) {
+    openExternal(getPricingUrl());
+    return;
+  }
+
+  const button = elements.tokenDetail.watchlistToggleBtn;
+  if (button) {
+    button.disabled = true;
+    button.textContent = 'Working...';
+  }
+  setWatchlistError(null);
+
+  try {
+    const response = state.watchlistStatus?.saved
+      ? await sendMessage<{ success: boolean }>({ type: 'REMOVE_FROM_WATCHLIST', payload: currentAddress }, 5000)
+      : await sendMessage<WatchlistStatus>({ type: 'ADD_TO_WATCHLIST', payload: currentAddress }, 5000);
+
+    if (!response.success) {
+      if (response.statusCode === 401) {
+        showScreen('login');
+        return;
+      }
+
+      if (response.errorType === 'plan_gate' || response.statusCode === 403) {
+        openExternal(getPricingUrl());
+        return;
+      }
+
+      setWatchlistError(response.error ?? 'Watchlist update failed.');
+      return;
+    }
+
+    await refreshWatchlistForSelectedToken();
+  } finally {
+    if (button) {
+      button.disabled = false;
+    }
+  }
+}
+
+async function handleWatchlistAlertRead(id: string): Promise<void> {
+  const response = await sendMessage<{ success: boolean }>({ type: 'MARK_WATCHLIST_ALERT_READ', payload: id }, 5000);
+  if (!response.success) {
+    return;
+  }
+
+  state.watchlistAlerts = state.watchlistAlerts.map((alert) => (
+    alert.id === id
+      ? { ...alert, read_at: new Date().toISOString() }
+      : alert
+  ));
+  if (state.watchlistStatus?.saved && state.selectedToken?.address) {
+    state.watchlistStatus.unreadAlerts = state.watchlistAlerts.filter(
+      (alert) => alert.token_address === state.selectedToken?.address && !alert.read_at,
+    ).length;
+  }
+  renderWatchlistState();
+}
+
 function getLimitUpgradeCopy(): { title: string; body: string; buttonLabel: string } {
   switch (state.userProfile?.tier) {
     case 'rescue_pass':
@@ -557,6 +827,7 @@ function renderEmptyState(): void {
   if (elements.tokenDetail.viewExplorer instanceof HTMLAnchorElement) {
     elements.tokenDetail.viewExplorer.dataset.address = '';
   }
+  renderWatchlistState();
 }
 
 function renderUsageLimitState(): void {
@@ -665,6 +936,7 @@ function renderUsageLimitState(): void {
   if (elements.tokenDetail.viewExplorer instanceof HTMLAnchorElement) {
     elements.tokenDetail.viewExplorer.dataset.address = tokenAddress ?? '';
   }
+  renderWatchlistState();
 }
 
 
@@ -741,6 +1013,7 @@ function renderAnonDailyLimitState(): void {
   if (elements.tokenDetail.viewExplorer instanceof HTMLAnchorElement) {
     elements.tokenDetail.viewExplorer.dataset.address = '';
   }
+  renderWatchlistState();
 }
 
 function renderLoadingTokenState(address: string): void {
@@ -786,6 +1059,7 @@ function renderLoadingTokenState(address: string): void {
   if (elements.tokenDetail.viewExplorer instanceof HTMLAnchorElement) {
     elements.tokenDetail.viewExplorer.dataset.address = address;
   }
+  renderWatchlistState();
 }
 
 function renderPrimaryTokenState(): void {
@@ -946,6 +1220,7 @@ function renderTokenDetail(score: TokenScore): void {
   if (elements.tokenDetail.checksList) {
     renderChecks(score, elements.tokenDetail.checksList, getEffectiveViewerTier());
   }
+  renderWatchlistState();
 }
 
 function updateAccountScreen(): void {
@@ -996,6 +1271,7 @@ function handleSelectedTokenUpdate(selectedToken: SelectedToken | null): void {
   }
 
   renderPrimaryTokenState();
+  void refreshWatchlistForSelectedToken();
 
   if (selectedToken?.score) {
     void hydrateSelectedTokenMetadata(selectedToken);
@@ -1172,17 +1448,21 @@ function sendMessage<T>(message: RuntimeMessage, timeoutMs = 2500): Promise<ApiR
 async function loadUserProfile(): Promise<boolean> {
   const response = await sendMessage<UserProfile>({ type: 'GET_USER_TIER' });
   if (!response.success || !response.data) {
-    state.isLoggedIn = false;
-    state.userProfile = null;
-    applyPlanBranding();
-    renderUsageIndicator();
-    return false;
+  state.isLoggedIn = false;
+  state.userProfile = null;
+  applyPlanBranding();
+  renderUsageIndicator();
+  state.watchlistStatus = null;
+  state.watchlistAlerts = [];
+  renderWatchlistState();
+  return false;
   }
 
   state.isLoggedIn = true;
   state.userProfile = response.data;
   applyPlanBranding();
   renderUsageIndicator();
+  await refreshWatchlistForSelectedToken();
   return true;
 }
 
@@ -1248,6 +1528,7 @@ async function refreshSelectedTokenScore(): Promise<void> {
   state.selectedToken = nextToken;
   renderTokenDetail(response.data);
   await chrome.storage.local.set({ selectedToken: nextToken });
+  await refreshWatchlistForSelectedToken();
   scheduleSelectedTokenScoreRefresh();
 }
 
@@ -1285,6 +1566,7 @@ async function handleLogin(): Promise<void> {
     applyPlanBranding();
     renderUsageIndicator();
     await refreshSelectedTokenScore();
+    await refreshWatchlistForSelectedToken();
     showCurrentOrEmptyToken();
     showScreen('token-detail');
   } finally {
@@ -1396,6 +1678,7 @@ async function handleRegister(): Promise<void> {
     applyPlanBranding();
     renderUsageIndicator();
     await refreshSelectedTokenScore();
+    await refreshWatchlistForSelectedToken();
     showCurrentOrEmptyToken();
     showScreen('token-detail');
   } finally {
@@ -1410,6 +1693,8 @@ async function handleLogout(): Promise<void> {
   state.isLoggedIn = false;
   state.userProfile = null;
   state.usageState = null;
+  state.watchlistStatus = null;
+  state.watchlistAlerts = [];
   applyPlanBranding();
   renderUsageIndicator();
   showCurrentOrEmptyToken();
@@ -1488,6 +1773,7 @@ async function handleAnalyze(): Promise<void> {
     };
     await chrome.storage.local.set({ selectedToken: state.selectedToken });
     renderTokenDetail(response.data);
+    await refreshWatchlistForSelectedToken();
     showScreen('token-detail');
   } finally {
     elements.manual.analyzeBtn.disabled = false;
@@ -1528,6 +1814,7 @@ async function handleRefreshToken(): Promise<void> {
       state.selectedToken = nextToken;
       renderTokenDetail(response.data);
       await chrome.storage.local.set({ selectedToken: nextToken });
+      await refreshWatchlistForSelectedToken();
     } else if (response.errorType === 'plan_gate') {
       if (elements.tokenDetail?.riskLabel) {
         elements.tokenDetail.riskLabel.textContent = 'Refresh requires Rescue Pass or Pro.';
@@ -1589,12 +1876,14 @@ function setupEventListeners(): void {
     if (changes.user_profile) {
       const previousTier = state.userProfile?.tier ?? null;
       state.userProfile = (changes.user_profile.newValue as UserProfile | undefined) ?? null;
+      state.isLoggedIn = Boolean(state.userProfile);
       applyPlanBranding();
       renderUsageIndicator();
       if (state.currentScreen === 'account') {
         updateAccountScreen();
       }
       renderPrimaryTokenState();
+      void refreshWatchlistForSelectedToken();
       if (previousTier !== (state.userProfile?.tier ?? null)) {
         void refreshSelectedTokenScore();
       }
@@ -1624,6 +1913,9 @@ function setupEventListeners(): void {
 
   elements.tokenDetail.refreshBtn?.addEventListener('click', () => {
     void handleRefreshToken();
+  });
+  elements.tokenDetail.watchlistToggleBtn?.addEventListener('click', () => {
+    void handleWatchlistToggle();
   });
 
   elements.tokenDetail.viewFullAnalysis?.addEventListener('click', (event) => {
