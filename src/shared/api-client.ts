@@ -2,6 +2,8 @@
 import type { ApiErrorType, ApiResponse, AuthToken, TokenScore, UserProfile } from './types';
 import { getApiBaseUrl } from './runtime-config';
 
+const REQUEST_TIMEOUT_MS = 12000;
+
 export class BarryGuardApiClient {
   private authToken: AuthToken | null = null;
 
@@ -29,12 +31,18 @@ export class BarryGuardApiClient {
       headers['Authorization'] = `Bearer ${this.authToken.access_token}`;
     }
 
+    let timeoutId: ReturnType<typeof setTimeout> | null = null;
     try {
+      const controller = new AbortController();
+      timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
       const res = await fetch(`${baseUrl}${path}`, {
         ...options,
         credentials: 'include',
         headers,
+        signal: controller.signal,
       });
+      clearTimeout(timeoutId);
+      timeoutId = null;
       if (res.ok) {
         return { success: true, data: await res.json() as T, statusCode: res.status };
       }
@@ -81,11 +89,22 @@ export class BarryGuardApiClient {
         ...(retryAfterSeconds !== undefined ? { retryAfterSeconds } : {}),
       };
     } catch (e) {
+      if (e instanceof DOMException && e.name === 'AbortError') {
+        return {
+          success: false,
+          error: 'Request timed out. Please try again.',
+          errorType: 'network',
+        };
+      }
       return {
         success: false,
         error: e instanceof Error ? e.message : 'Network error',
         errorType: 'network',
       };
+    } finally {
+      if (timeoutId !== null) {
+        clearTimeout(timeoutId);
+      }
     }
   }
 

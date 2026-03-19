@@ -1,6 +1,8 @@
 import type {
   CheckResult,
+  ConfidenceLevel,
   RiskLevel,
+  Subscores,
   TierLevel,
   TokenMetadata,
   TokenScore,
@@ -179,25 +181,42 @@ function sanitizeString(value: unknown): string | undefined {
   return trimmed ? trimmed : undefined;
 }
 
-function sanitizeSubscores(value: unknown): Record<string, number> | undefined {
+function sanitizeSubscores(value: unknown): Subscores | undefined {
   const record = asRecord(value);
   if (!record) {
     return undefined;
   }
 
-  const result: Record<string, number> = {};
+  const result: Partial<Subscores> = {};
   for (const key of ['contract', 'marketStructure', 'market_structure', 'behavior']) {
     const val = record[key];
     if (typeof val === 'number' && Number.isFinite(val)) {
-      const normalizedKey = key === 'market_structure' ? 'marketStructure' : key;
-      result[normalizedKey] = val;
+      if (key === 'marketStructure' || key === 'market_structure') {
+        result.marketStructure = val;
+      } else if (key === 'contract') {
+        result.contract = val;
+      } else if (key === 'behavior') {
+        result.behavior = val;
+      }
     }
   }
 
-  return Object.keys(result).length > 0 ? result : undefined;
+  if (
+    typeof result.contract === 'number'
+    && typeof result.marketStructure === 'number'
+    && typeof result.behavior === 'number'
+  ) {
+    return {
+      contract: result.contract,
+      marketStructure: result.marketStructure,
+      behavior: result.behavior,
+    };
+  }
+
+  return undefined;
 }
 
-function sanitizeConfidence(value: unknown): string | undefined {
+function sanitizeConfidence(value: unknown): ConfidenceLevel | undefined {
   if (typeof value !== 'string') {
     return undefined;
   }
@@ -212,7 +231,7 @@ function sanitizeReasons(value: unknown): string[] | undefined {
   if (!Array.isArray(value)) {
     return undefined;
   }
-  const filtered = value.filter((v): v is string => typeof v === 'string' && v.trim()).map((v) => v.trim());
+  const filtered = value.filter((v): v is string => typeof v === 'string' && v.trim().length > 0).map((v) => v.trim());
   return filtered.length > 0 ? filtered : undefined;
 }
 
@@ -457,7 +476,7 @@ function hasPlaceholderNumericValue(key: string, value: unknown): boolean {
     && (key === 'topHolderConcentration' || key === 'holderCount');
 }
 
-export function isTokenScoreLikelyIncomplete(score: TokenScore): boolean {
+export function isTokenScoreLikelyIncomplete(score: TokenScore, _tier?: TierLevel): boolean {
   if (score.confidence === 'high') return false;
 
   for (const key of CHECK_ORDER) {

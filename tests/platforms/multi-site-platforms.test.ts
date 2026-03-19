@@ -516,10 +516,11 @@ describe('additional Solana platforms', () => {
 
     const score = { address: TOKEN_A, chain: 'solana', score: 55, risk: 'medium' as const, checks: {}, cached: false };
     const selected = platform.buildSelectedToken(TOKEN_A, score);
+    const name = selected.metadata?.name ?? '';
 
-    expect(selected.metadata.name).not.toContain('SCREENER');
-    expect(selected.metadata.name).not.toContain('DexScreener');
-    expect(selected.metadata.name).toBe('muddafudda');
+    expect(name).not.toContain('SCREENER');
+    expect(name).not.toContain('DexScreener');
+    expect(name).toBe('muddafudda');
   });
 
   it('renders a Dexscreener detail badge below the token name h2', () => {

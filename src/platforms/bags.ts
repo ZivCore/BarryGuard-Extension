@@ -191,7 +191,7 @@ export class BagsPlatform extends GenericSolanaPlatform {
 
     const containerCandidates = exactLeafMatches
       .map((candidate) => candidate.parentElement)
-      .filter((candidate): candidate is Element => Boolean(candidate))
+      .filter((candidate): candidate is HTMLElement => candidate instanceof HTMLElement)
       .filter((candidate) =>
         candidate !== root
         && !candidate.closest('[data-barryguard="true"]')

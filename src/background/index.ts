@@ -254,7 +254,7 @@ async function refreshProfileStateIfNeeded(force = false): Promise<UserProfile |
       const storedProfile = await getStoredNormalizedProfile();
       const merged = tierResult.success && tierResult.data
         ? normalizeProfile({ ...sessionResult.data, ...tierResult.data })
-        : mergeProfileWithFallback(sessionResult.data, storedProfile);
+        : mergeProfileWithFallback(sessionResult.data ?? {}, storedProfile);
 
       await persistProfileState(merged);
       return merged;
@@ -786,7 +786,7 @@ async function getTokenScore(address: string) {
     if (cached) {
       const cachedHasLocked = cached.checks
         && Object.values(cached.checks).some(
-          (c) => c && typeof c === 'object' && (c as Record<string, unknown>).locked === true,
+          (c) => c && typeof c === 'object' && (c as unknown as Record<string, unknown>).locked === true,
         );
       if (!(cachedHasLocked && tier !== 'free')) {
         return { success: true, data: { ...cached, cached: true } };
@@ -803,7 +803,7 @@ async function getTokenScore(address: string) {
         // returned free-tier gated checks.  Fall through to fresh analysis.
         const hasLockedChecks = normalizedExisting.checks
           && Object.values(normalizedExisting.checks).some(
-            (c) => c && typeof c === 'object' && (c as Record<string, unknown>).locked === true,
+            (c) => c && typeof c === 'object' && (c as unknown as Record<string, unknown>).locked === true,
           );
         if (hasLockedChecks && tier !== 'free') {
           // Skip — proceed to fresh analysis with proper auth

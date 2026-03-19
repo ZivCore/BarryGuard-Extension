@@ -35,9 +35,7 @@ export default defineConfig({
       '128': 'icons/icon128.png',
     },
     content_security_policy: {
-      // TODO: Remove 'unsafe-inline' from style-src once inline style attributes are
-      // replaced with CSS classes (currently used in renderAnonDailyLimitState and platform badges).
-      extension_pages: "script-src 'self'; object-src 'none'; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://pump.fun https://images.pump.fun https://cf-ipfs.com https://ipfs.io https://api.dexscreener.com https://dd.dexscreener.com https://birdeye.so; connect-src https://pump.fun https://amm.pump.fun https://swap.pump.fun https://raydium.io https://letsbonk.fun https://bonk.fun https://moonshot.money https://dexscreener.com https://api.dexscreener.com https://birdeye.so https://bags.fm https://solscan.io https://barryguard.com https://www.barryguard.com",
+      extension_pages: "script-src 'self'; object-src 'none'; style-src 'self'; img-src 'self' data: https://pump.fun https://images.pump.fun https://cf-ipfs.com https://ipfs.io https://api.dexscreener.com https://dd.dexscreener.com https://birdeye.so; connect-src https://pump.fun https://amm.pump.fun https://swap.pump.fun https://raydium.io https://letsbonk.fun https://bonk.fun https://moonshot.money https://dexscreener.com https://api.dexscreener.com https://birdeye.so https://bags.fm https://solscan.io https://barryguard.com https://www.barryguard.com",
     },
   },
   zip: {
