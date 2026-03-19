@@ -51,6 +51,12 @@
               <path d="m21 21-4.35-4.35"></path>
             </svg>
           </button>
+          <button id="watchlist-toggle-btn" class="icon-btn watchlist-icon-btn" title="Watchlist" aria-label="Watchlist">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+              <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path>
+            </svg>
+            <span id="watchlist-badge" class="watchlist-badge hidden" aria-hidden="true"></span>
+          </button>
           <button id="refresh-btn" class="icon-btn" title="Refresh analysis" aria-label="Refresh analysis">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
               <path d="M23 4v6h-6"></path>
@@ -106,16 +112,8 @@
           BarryGuard cannot guarantee safety. Use this as a risk signal, not a guarantee.
         </div>
 
-        <div class="watchlist-panel">
-          <div class="watchlist-header">
-            <div>
-              <div class="watchlist-title">Watchlist</div>
-              <div id="watchlist-meta" class="watchlist-meta">Save this token to track score changes.</div>
-            </div>
-            <button id="watchlist-toggle-btn" class="btn-secondary watchlist-btn" type="button">Save</button>
-          </div>
-          <div id="watchlist-error" class="error-message hidden"></div>
-        </div>
+        <div id="watchlist-meta" class="hidden" aria-hidden="true"></div>
+        <div id="watchlist-error" class="error-message hidden watchlist-inline-error"></div>
       </div>
 
       <div id="subscores-container" class="subscores-section">

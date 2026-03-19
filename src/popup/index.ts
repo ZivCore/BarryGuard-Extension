@@ -117,6 +117,7 @@ const elements = {
     refreshBtn: document.getElementById('refresh-btn'),
     viewFullAnalysis: document.getElementById('view-full-analysis'),
     watchlistToggleBtn: document.getElementById('watchlist-toggle-btn') as HTMLButtonElement | null,
+    watchlistBadge: document.getElementById('watchlist-badge'),
     watchlistMeta: document.getElementById('watchlist-meta'),
     watchlistError: document.getElementById('watchlist-error'),
     watchlistAlertsSection: document.getElementById('watchlist-alerts-section'),
@@ -570,15 +571,38 @@ function renderWatchlistAlerts(): void {
 
 function renderWatchlistState(): void {
   const button = elements.tokenDetail.watchlistToggleBtn;
+  const badge = elements.tokenDetail.watchlistBadge;
   const meta = elements.tokenDetail.watchlistMeta;
-  if (!button || !meta) {
+  if (!button || !meta || !badge) {
     return;
   }
 
+  const setButtonState = (input: {
+    disabled: boolean;
+    title: string;
+    active?: boolean;
+    attention?: boolean;
+    badgeText?: string | null;
+  }) => {
+    button.disabled = input.disabled;
+    button.title = input.title;
+    button.setAttribute('aria-label', input.title);
+    button.classList.toggle('is-active', Boolean(input.active));
+    button.classList.toggle('is-attention', Boolean(input.attention));
+
+    const badgeText = input.badgeText?.trim() ?? '';
+    if (badgeText) {
+      badge.textContent = badgeText;
+      badge.classList.remove('hidden');
+    } else {
+      badge.textContent = '';
+      badge.classList.add('hidden');
+    }
+  };
+
   const currentAddress = state.selectedToken?.address;
   if (!currentAddress) {
-    button.disabled = true;
-    button.textContent = 'Watchlist';
+    setButtonState({ disabled: true, title: 'Watchlist unavailable' });
     meta.textContent = 'Select a token first.';
     setWatchlistError(null);
     renderWatchlistAlerts();
@@ -586,8 +610,7 @@ function renderWatchlistState(): void {
   }
 
   if (!state.isLoggedIn || !state.userProfile) {
-    button.disabled = false;
-    button.textContent = 'Sign in';
+    setButtonState({ disabled: false, title: 'Sign in to use watchlist' });
     meta.textContent = 'Sign in with Rescue Pass or Pro to save tokens and receive alerts.';
     setWatchlistError(null);
     renderWatchlistAlerts();
@@ -595,8 +618,7 @@ function renderWatchlistState(): void {
   }
 
   if (state.watchlistStatus && !state.watchlistStatus.hasAccess) {
-    button.disabled = false;
-    button.textContent = 'Upgrade';
+    setButtonState({ disabled: false, title: 'Upgrade for watchlist access' });
     meta.textContent = 'Watchlist and alerts are available on Rescue Pass and Pro.';
     setWatchlistError(null);
     renderWatchlistAlerts();
@@ -604,16 +626,12 @@ function renderWatchlistState(): void {
   }
 
   if (!state.watchlistStatus) {
-    button.disabled = true;
-    button.textContent = 'Loading...';
+    setButtonState({ disabled: true, title: 'Loading watchlist state' });
     meta.textContent = 'Loading watchlist state...';
     setWatchlistError(null);
     renderWatchlistAlerts();
     return;
   }
-
-  button.disabled = false;
-  button.textContent = state.watchlistStatus.saved ? 'Remove' : 'Save';
 
   const delta = state.watchlistStatus.entry?.last_delta;
   const unread = state.watchlistStatus.unreadAlerts;
@@ -623,6 +641,14 @@ function renderWatchlistState(): void {
   const unreadText = unread > 0
     ? ` ${unread} unread alert${unread === 1 ? '' : 's'}.`
     : '';
+
+  setButtonState({
+    disabled: false,
+    title: state.watchlistStatus.saved ? 'Remove from watchlist' : 'Save to watchlist',
+    active: state.watchlistStatus.saved,
+    attention: unread > 0,
+    badgeText: unread > 0 ? `${Math.min(unread, 9)}${unread > 9 ? '+' : ''}` : null,
+  });
 
   meta.textContent = state.watchlistStatus.saved
     ? `Saved to your watchlist.${deltaText}${unreadText}`.trim()
@@ -701,7 +727,8 @@ async function handleWatchlistToggle(): Promise<void> {
   const button = elements.tokenDetail.watchlistToggleBtn;
   if (button) {
     button.disabled = true;
-    button.textContent = 'Working...';
+    button.title = 'Updating watchlist...';
+    button.setAttribute('aria-label', 'Updating watchlist...');
   }
   setWatchlistError(null);
 
