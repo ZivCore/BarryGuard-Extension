@@ -118,7 +118,6 @@ const elements = {
     viewFullAnalysis: document.getElementById('view-full-analysis'),
     watchlistToggleBtn: document.getElementById('watchlist-toggle-btn') as HTMLButtonElement | null,
     watchlistBadge: document.getElementById('watchlist-badge'),
-    watchlistMeta: document.getElementById('watchlist-meta'),
     watchlistError: document.getElementById('watchlist-error'),
     watchlistAlertsSection: document.getElementById('watchlist-alerts-section'),
     watchlistAlertsList: document.getElementById('watchlist-alerts-list'),
@@ -572,8 +571,7 @@ function renderWatchlistAlerts(): void {
 function renderWatchlistState(): void {
   const button = elements.tokenDetail.watchlistToggleBtn;
   const badge = elements.tokenDetail.watchlistBadge;
-  const meta = elements.tokenDetail.watchlistMeta;
-  if (!button || !meta || !badge) {
+  if (!button || !badge) {
     return;
   }
 
@@ -603,7 +601,6 @@ function renderWatchlistState(): void {
   const currentAddress = state.selectedToken?.address;
   if (!currentAddress) {
     setButtonState({ disabled: true, title: 'Watchlist unavailable' });
-    meta.textContent = 'Select a token first.';
     setWatchlistError(null);
     renderWatchlistAlerts();
     return;
@@ -611,7 +608,6 @@ function renderWatchlistState(): void {
 
   if (!state.isLoggedIn || !state.userProfile) {
     setButtonState({ disabled: false, title: 'Sign in to use watchlist' });
-    meta.textContent = 'Sign in with Rescue Pass or Pro to save tokens and receive alerts.';
     setWatchlistError(null);
     renderWatchlistAlerts();
     return;
@@ -619,7 +615,6 @@ function renderWatchlistState(): void {
 
   if (state.watchlistStatus && !state.watchlistStatus.hasAccess) {
     setButtonState({ disabled: false, title: 'Upgrade for watchlist access' });
-    meta.textContent = 'Watchlist and alerts are available on Rescue Pass and Pro.';
     setWatchlistError(null);
     renderWatchlistAlerts();
     return;
@@ -627,20 +622,12 @@ function renderWatchlistState(): void {
 
   if (!state.watchlistStatus) {
     setButtonState({ disabled: true, title: 'Loading watchlist state' });
-    meta.textContent = 'Loading watchlist state...';
     setWatchlistError(null);
     renderWatchlistAlerts();
     return;
   }
 
-  const delta = state.watchlistStatus.entry?.last_delta;
   const unread = state.watchlistStatus.unreadAlerts;
-  const deltaText = typeof delta === 'number' && delta !== 0
-    ? ` Last delta ${delta > 0 ? '+' : ''}${delta}.`
-    : '';
-  const unreadText = unread > 0
-    ? ` ${unread} unread alert${unread === 1 ? '' : 's'}.`
-    : '';
 
   setButtonState({
     disabled: false,
@@ -649,10 +636,6 @@ function renderWatchlistState(): void {
     attention: unread > 0,
     badgeText: unread > 0 ? `${Math.min(unread, 9)}${unread > 9 ? '+' : ''}` : null,
   });
-
-  meta.textContent = state.watchlistStatus.saved
-    ? `Saved to your watchlist.${deltaText}${unreadText}`.trim()
-    : 'Save this token to monitor score changes and alert on worsening risk.';
   renderWatchlistAlerts();
 }
 
