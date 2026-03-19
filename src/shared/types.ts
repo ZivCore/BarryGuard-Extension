@@ -108,3 +108,36 @@ export interface TokenListAnalysisData {
   cachedAddresses: string[];
   lockedCount?: number;
 }
+
+export interface WatchlistEntry {
+  id: string;
+  token_address: string;
+  token_name?: string | null;
+  token_symbol?: string | null;
+  token_logo_url?: string | null;
+  last_score?: number | null;
+  previous_score?: number | null;
+  last_delta?: number | null;
+  last_risk?: string | null;
+  last_analyzed_at?: string | null;
+}
+
+export interface WatchlistAlert {
+  id: string;
+  token_address: string;
+  title: string;
+  message: string;
+  severity: string;
+  previous_score?: number | null;
+  current_score?: number | null;
+  delta_score?: number | null;
+  created_at: string;
+  read_at?: string | null;
+}
+
+export interface WatchlistStatus {
+  saved: boolean;
+  hasAccess: boolean;
+  unreadAlerts: number;
+  entry: WatchlistEntry | null;
+}
