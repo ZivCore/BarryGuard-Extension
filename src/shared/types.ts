@@ -1,6 +1,6 @@
 // src/shared/types.ts
 
-export type RiskLevel = 'danger' | 'high' | 'caution' | 'moderate' | 'low';
+export type RiskLevel = 'danger' | 'high' | 'caution' | 'moderate' | 'medium' | 'low';
 export type TierLevel = 'free' | 'rescue_pass' | 'pro';
 export type ApiErrorType = 'plan_gate' | 'rate_limit' | 'cooldown' | 'server' | 'network' | 'busy' | 'validation' | 'anon_daily_limit';
 
@@ -37,10 +37,10 @@ export interface TokenScore {
   chain: string;
   score: number;
   risk: RiskLevel;
-  subscores: Subscores;
+  subscores?: Subscores;
   checks: Record<string, CheckResult>;
-  reasons: string[];
-  confidence: ConfidenceLevel;
+  reasons?: string[];
+  confidence?: ConfidenceLevel;
   cached: boolean;
   analyzedAt?: string;
   tokenName?: string;
