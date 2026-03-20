@@ -359,9 +359,19 @@ describe('renderAnalysisFooter', () => {
     const badgeEl = document.createElement('span');
     const fiveMinAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
 
-    renderAnalysisFooter(makeScore({ analyzedAt: fiveMinAgo }), analyzedAtEl, badgeEl);
+    renderAnalysisFooter(makeScore({ analyzedAt: fiveMinAgo, cached: false }), analyzedAtEl, badgeEl);
 
     expect(analyzedAtEl.textContent).toBe('Analyzed 5m ago');
+  });
+
+  it('marks cached popup results as cached snapshots', () => {
+    const analyzedAtEl = document.createElement('span');
+    const badgeEl = document.createElement('span');
+    const fiveMinAgo = new Date(Date.now() - 5 * 60 * 1000).toISOString();
+
+    renderAnalysisFooter(makeScore({ analyzedAt: fiveMinAgo, cached: true }), analyzedAtEl, badgeEl);
+
+    expect(analyzedAtEl.textContent).toBe('Analyzed 5m ago · cached snapshot');
   });
 
   it('shows "Analyzed just now" for very recent timestamps', () => {
@@ -369,7 +379,7 @@ describe('renderAnalysisFooter', () => {
     const badgeEl = document.createElement('span');
     const justNow = new Date(Date.now() - 10 * 1000).toISOString();
 
-    renderAnalysisFooter(makeScore({ analyzedAt: justNow }), analyzedAtEl, badgeEl);
+    renderAnalysisFooter(makeScore({ analyzedAt: justNow, cached: false }), analyzedAtEl, badgeEl);
 
     expect(analyzedAtEl.textContent).toBe('Analyzed just now');
   });

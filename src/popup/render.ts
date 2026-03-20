@@ -480,6 +480,9 @@ export function renderAnalysisFooter(
     } else {
       timeText = date.toLocaleDateString();
     }
+    if (score.cached === true) {
+      timeText += ' · cached snapshot';
+    }
     analyzedAtEl.textContent = timeText;
   }
 
