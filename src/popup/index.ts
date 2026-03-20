@@ -415,6 +415,12 @@ function getEffectiveViewerTier(): TierLevel {
   return state.userProfile?.tier ?? 'free';
 }
 
+function scoreHasLockedChecks(score: TokenScore): boolean {
+  return Object.values(score.checks ?? {}).some(
+    (check) => Boolean(check && typeof check === 'object' && check.locked === true),
+  );
+}
+
 function getUsageSummary(): { limit: number; used: number; remaining: number; ratio: number } | null {
   // Prefer local hourly usage state tracked by the background service worker.
   // It is incremented after every analysis and is more current than the profile
@@ -1297,7 +1303,9 @@ function clearScheduledScoreRefresh(): void {
 }
 
 function shouldKeepRefreshingScore(score: TokenScore): boolean {
-  return score.cached === false || isTokenScoreLikelyIncomplete(score);
+  const viewerTier = getEffectiveViewerTier();
+  const staleLockedScoreForPaidViewer = viewerTier !== 'free' && scoreHasLockedChecks(score);
+  return score.cached === false || isTokenScoreLikelyIncomplete(score) || staleLockedScoreForPaidViewer;
 }
 
 function shouldRetryScoreRefresh(response: ApiResponse<TokenScore>): boolean {
