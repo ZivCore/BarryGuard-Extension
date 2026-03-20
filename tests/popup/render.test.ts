@@ -135,6 +135,51 @@ describe('renderChecks', () => {
     const items = listEl.querySelectorAll('.check-item');
     expect(items.length).toBe(21); // all 18 ordered checks rendered (missing ones show placeholder)
   });
+
+  it('shows upgrade overlay for locked checks on free tier', () => {
+    const listEl = document.createElement('div');
+    const score = makeScore({
+      checks: {
+        ...makeScore().checks,
+        liquidityDepth: {
+          status: 'warning',
+          value: 0,
+          label: 'Liquidity depth locked',
+          description: 'Locked for free tier.',
+          tier: 'rescue_pass',
+          locked: true,
+        },
+      },
+    });
+
+    renderChecks(score, listEl, 'free');
+
+    expect(listEl.querySelectorAll('.check-upgrade-overlay').length).toBeGreaterThan(0);
+    expect(listEl.textContent).toContain('Upgrade for full report');
+  });
+
+  it('does not show upgrade overlay for locked checks on pro tier', () => {
+    const listEl = document.createElement('div');
+    const score = makeScore({
+      checks: {
+        ...makeScore().checks,
+        liquidityDepth: {
+          status: 'warning',
+          value: 0,
+          label: 'Liquidity depth locked',
+          description: 'Locked for free tier.',
+          tier: 'rescue_pass',
+          locked: true,
+        },
+      },
+    });
+
+    renderChecks(score, listEl, 'pro');
+
+    expect(listEl.querySelector('.check-upgrade-overlay')).toBeNull();
+    expect(listEl.textContent).not.toContain('Upgrade for full report');
+    expect(listEl.textContent).toContain('Refreshing full check details for your plan.');
+  });
 });
 
 // ─── CHECK_METADATA Phase C entries ───────────────────────────────────────────

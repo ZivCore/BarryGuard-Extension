@@ -349,8 +349,10 @@ export function renderChecks(score: TokenScore, listEl: HTMLElement, _tier: stri
       item.append(icon, content);
     }
 
-    // Locked check overlay for free/anonymous tier
-    if (isLockedCheck) {
+    // Locked checks should only render as upgrade overlays for free/anonymous viewers.
+    // Paid users can briefly see stale free-tier payloads during auth/cache refreshes;
+    // in that case show a neutral pending state instead of an upsell.
+    if (isLockedCheck && !isPaid) {
       item.className = 'check-item check-item-locked';
 
       const lockSvg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
@@ -378,6 +380,11 @@ export function renderChecks(score: TokenScore, listEl: HTMLElement, _tier: stri
       overlayLink.className = 'check-upgrade-overlay';
       overlayLink.append(lockSvg, text);
       item.appendChild(overlayLink);
+    } else if (isLockedCheck && isPaid) {
+      const descriptionEl = item.querySelector('.check-description');
+      if (descriptionEl) {
+        descriptionEl.textContent = 'Refreshing full check details for your plan.';
+      }
     }
 
     listEl.appendChild(item);

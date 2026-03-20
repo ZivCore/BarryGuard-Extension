@@ -326,6 +326,8 @@ async function initialize(): Promise<void> {
   await syncCacheTTLsFromApi();
   // M-8: Periodic re-sync of cache TTLs from backend (every 30 minutes)
   setInterval(() => { void syncCacheTTLsFromApi(); }, 30 * 60 * 1000);
+  // Periodically re-check website session (catches login when barryguard.com tab is not open)
+  setInterval(() => { void refreshProfileStateIfNeeded(false); }, 5 * 60 * 1000);
   await refreshProfileStateIfNeeded(true);
   console.log('[BarryGuard] Background worker initialized');
 }
@@ -1214,6 +1216,16 @@ export function initializeBackground(): void {
             await chrome.storage.local.remove([PROFILE_KEY, PROFILE_SYNC_AT_KEY, HOURLY_USAGE_KEY]);
             await syncHourlyUsageState(null);
             await updateActionIcon(null);
+            respond({ success: true });
+            break;
+          case 'WEBSITE_SESSION_DETECTED':
+            // Website has auth cookie — validate session and extract token
+            await refreshProfileStateIfNeeded(true);
+            respond({ success: true });
+            break;
+          case 'WEBSITE_SESSION_LOST':
+            // Website logged out — clear extension session
+            await clearSessionState();
             respond({ success: true });
             break;
           default:
