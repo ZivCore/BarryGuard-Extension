@@ -678,12 +678,22 @@ async function correctLocalUsageFromBackend(profile: UserProfile | null): Promis
   // stale value. Force a fresh session call — the server computes hourlyAnalysesUsed
   // correctly (resets to 0 when the hour has passed) even if the DB counter is stale.
   if (state.used >= state.limit) {
+    // Try session first (has full profile), fall back to tier endpoint
     const sessionResult = await api.validateSession();
     if (sessionResult.success && sessionResult.data) {
       const freshProfile = normalizeProfile(sessionResult.data);
       await persistProfileState(freshProfile);
       if (typeof freshProfile.hourlyAnalysesUsed === 'number') {
         backendUsed = freshProfile.hourlyAnalysesUsed;
+      }
+    } else {
+      const tierResult = await api.getUserTier();
+      if (tierResult.success && tierResult.data) {
+        const freshProfile = normalizeProfile(tierResult.data);
+        await persistProfileState(freshProfile);
+        if (typeof freshProfile.hourlyAnalysesUsed === 'number') {
+          backendUsed = freshProfile.hourlyAnalysesUsed;
+        }
       }
     }
   }
