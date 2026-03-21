@@ -164,7 +164,12 @@ async function getStoredNormalizedProfile(): Promise<UserProfile | null> {
   return storedProfile ? normalizeProfile(storedProfile) : null;
 }
 
-async function clearSessionState(): Promise<void> {
+async function clearSessionState(force = false): Promise<void> {
+  // Guard: don't clear a profile that was just set by WEBSITE_SESSION_DETECTED
+  if (!force) {
+    const syncedAt = await getProfileSyncedAt();
+    if (syncedAt && Date.now() - syncedAt < 5000) return;
+  }
   // Auth token lives in session storage; profile data lives in local storage
   await chrome.storage.session.remove(AUTH_KEY);
   await chrome.storage.local.remove([PROFILE_KEY, PROFILE_SYNC_AT_KEY, HOURLY_USAGE_KEY]);
@@ -339,9 +344,9 @@ async function initialize(): Promise<void> {
   await syncCacheTTLsFromApi();
   // M-8: Periodic re-sync of cache TTLs from backend (every 30 minutes)
   setInterval(() => { void syncCacheTTLsFromApi(); }, 30 * 60 * 1000);
-  // Periodically re-check website session (catches login when barryguard.com tab is not open)
-  setInterval(() => { void refreshProfileStateIfNeeded(false); }, 5 * 60 * 1000);
-  await refreshProfileStateIfNeeded(true);
+  // Content script is the sole auth authority — no periodic background refresh.
+  // Load stored profile on startup (non-forced, won't clear if stale).
+  await refreshProfileStateIfNeeded(false);
   console.log('[BarryGuard] Background worker initialized');
 }
 
@@ -682,32 +687,17 @@ async function correctLocalUsageFromBackend(profile: UserProfile | null): Promis
   const state = await getStoredHourlyUsageState();
   if (!state) return;
 
-  let backendUsed = profile.hourlyAnalysesUsed;
+  // If the bucket key has changed (new hour), syncHourlyUsageState already reset to 0.
+  const currentBucketKey = getUsageBucketKey(profile.tier, profile ? 'authenticated' : 'anonymous');
+  if (state.bucketKey !== currentBucketKey) return;
 
-  // When local state shows exhausted, the cached profile likely has the same
-  // stale value. Force a fresh session call — the server computes hourlyAnalysesUsed
-  // correctly (resets to 0 when the hour has passed) even if the DB counter is stale.
-  if (state.used >= state.limit) {
-    // Try session first (has full profile), fall back to tier endpoint
-    const sessionResult = await api.validateSession();
-    if (sessionResult.success && sessionResult.data) {
-      const freshProfile = normalizeProfile(sessionResult.data);
-      await persistProfileState(freshProfile);
-      if (typeof freshProfile.hourlyAnalysesUsed === 'number') {
-        backendUsed = freshProfile.hourlyAnalysesUsed;
-      }
-    } else {
-      const tierResult = await api.getUserTier();
-      if (tierResult.success && tierResult.data) {
-        const freshProfile = normalizeProfile(tierResult.data);
-        await persistProfileState(freshProfile);
-        if (typeof freshProfile.hourlyAnalysesUsed === 'number') {
-          backendUsed = freshProfile.hourlyAnalysesUsed;
-        }
-      }
-    }
-  }
+  // Not exhausted — nothing to correct
+  if (state.used < state.limit) return;
 
+  // Use the profile's hourlyAnalysesUsed (set by content script via session response).
+  // The server computes this correctly (resets to 0 when hour passes).
+  // No API calls from background — they can't authenticate reliably.
+  const backendUsed = profile.hourlyAnalysesUsed;
   if (typeof backendUsed === 'number' && backendUsed < state.used) {
     await setHourlyUsageState({ ...state, used: backendUsed, updatedAt: Date.now() });
   }
@@ -1131,7 +1121,8 @@ export function initializeBackground(): void {
             break;
           }
           case 'GET_USER_TIER': {
-            const profile = await refreshProfileStateIfNeeded(true);
+            // Prefer stored profile — it was set by the content script (sole auth authority)
+            const profile = await getStoredNormalizedProfile() ?? await refreshProfileStateIfNeeded(false);
             respond(profile ? { success: true, data: profile } : { success: false, error: 'No active session.' });
             break;
           }
@@ -1247,27 +1238,17 @@ export function initializeBackground(): void {
             respond({ success: true });
             break;
           case 'WEBSITE_SESSION_DETECTED': {
-            // Website has auth cookie — content script fetches token from page origin
+            // Content script is the sole auth authority — trust its session data directly
             const sessionPayload = message.payload as { token?: { access_token: string; refresh_token: string; expires_at?: number | null; token_type?: string }; profile?: unknown } | undefined;
             if (sessionPayload?.token?.access_token) {
-              // Store token and set on API client
               await chrome.storage.session.set({ [AUTH_KEY]: sessionPayload.token });
               api.setAuthToken(sessionPayload.token as import('../shared/types').AuthToken);
-
-              // Always fetch fresh profile with the new token to get correct tier
-              const tierResult = await api.getUserTier();
-              console.log('[BarryGuard] WEBSITE_SESSION_DETECTED tierResult:', JSON.stringify(tierResult));
-              if (tierResult.success && tierResult.data) {
-                const sessionData = sessionPayload.profile ?? {};
-                const merged = normalizeProfile({ ...sessionData as Record<string, unknown>, ...tierResult.data as Record<string, unknown> });
-                console.log('[BarryGuard] Merged profile tier:', merged.tier);
-                await persistProfileState(merged);
-              } else if (sessionPayload.profile) {
-                const merged = normalizeProfile(sessionPayload.profile as import('../shared/types').UserProfile);
-                console.log('[BarryGuard] Fallback profile tier:', merged.tier);
-                await persistProfileState(merged);
-              }
+            }
+            if (sessionPayload?.profile) {
+              const profile = normalizeProfile(sessionPayload.profile as import('../shared/types').UserProfile);
+              await persistProfileState(profile);
             } else {
+              // Content script detected cookies but couldn't fetch session — try background refresh
               await refreshProfileStateIfNeeded(true);
             }
             respond({ success: true });
@@ -1284,8 +1265,8 @@ export function initializeBackground(): void {
             break;
           }
           case 'WEBSITE_SESSION_LOST':
-            // Website logged out — clear extension session
-            await clearSessionState();
+            // Website logged out — force-clear extension session
+            await clearSessionState(true);
             respond({ success: true });
             break;
           default:
