@@ -113,6 +113,9 @@ function mergeRecords(...records: Array<JsonRecord | null>): JsonRecord {
 function inferTier(data: unknown): TierLevel {
   if (!data || typeof data !== 'object') return 'free';
   const record = data as Record<string, unknown>;
+  // Admins always get pro regardless of subscription tier
+  const role = record['role'];
+  if (role === 'admin') return 'pro';
   const tier = record['tier'];
   if (typeof tier === 'string' && VALID_TIERS.includes(tier as TierLevel)) {
     return tier as TierLevel;
