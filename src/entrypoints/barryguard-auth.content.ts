@@ -1,5 +1,4 @@
 import { defineContentScript } from 'wxt/utils/define-content-script';
-import { getApiBaseUrl } from '@/shared/runtime-config';
 
 export default defineContentScript({
   matches: [
@@ -30,8 +29,8 @@ export default defineContentScript({
       // Content script runs in the page origin — it CAN send cookies.
       // Fetch the session token here and pass it to the background worker.
       try {
-        const baseUrl = getApiBaseUrl();
-        const res = await fetch(`${baseUrl}/auth/session`, {
+        // Use the page's own origin — the content script runs in the page context
+        const res = await fetch(`${window.location.origin}/api/auth/session`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           credentials: 'include',
