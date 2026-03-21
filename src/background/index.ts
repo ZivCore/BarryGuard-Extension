@@ -674,12 +674,17 @@ async function correctLocalUsageFromBackend(profile: UserProfile | null): Promis
 
   let backendUsed = profile.hourlyAnalysesUsed;
 
-  // When local state is at the limit, the cached profile may also report the
-  // stale exhausted count.  Force a fresh fetch to get the real current value.
+  // When local state shows exhausted, the cached profile likely has the same
+  // stale value. Force a fresh session call — the server computes hourlyAnalysesUsed
+  // correctly (resets to 0 when the hour has passed) even if the DB counter is stale.
   if (state.used >= state.limit) {
-    const freshProfile = await refreshProfileStateIfNeeded(true);
-    if (freshProfile && typeof freshProfile.hourlyAnalysesUsed === 'number') {
-      backendUsed = freshProfile.hourlyAnalysesUsed;
+    const sessionResult = await api.validateSession();
+    if (sessionResult.success && sessionResult.data) {
+      const freshProfile = normalizeProfile(sessionResult.data);
+      await persistProfileState(freshProfile);
+      if (typeof freshProfile.hourlyAnalysesUsed === 'number') {
+        backendUsed = freshProfile.hourlyAnalysesUsed;
+      }
     }
   }
 
