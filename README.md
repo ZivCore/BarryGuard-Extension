@@ -1,5 +1,5 @@
 <div align="center">
-  <img src="logo.jpg" alt="BarryGuard Logo" width="700" />
+  <img src="public/logo-banner.jpg" alt="BarryGuard Logo" width="700" />
 
   # BarryGuard
 
