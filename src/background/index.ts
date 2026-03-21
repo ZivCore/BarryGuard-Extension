@@ -282,15 +282,18 @@ async function refreshProfileStateIfNeeded(force = false): Promise<UserProfile |
     return result.response.data;
   }
 
-  if (result.shouldClearSession) {
-    await clearSessionState();
-    return null;
-  }
-
+  // When token refresh fails but we have a stored profile, keep it.
+  // The content script on the website will deliver a fresh token within seconds.
+  // Clearing aggressively causes tier loss between refresh cycles.
   if (storedProfile) {
     await chrome.storage.local.set({ [PROFILE_SYNC_AT_KEY]: Date.now() });
     await applyProfileState(storedProfile);
     return storedProfile;
+  }
+
+  if (result.shouldClearSession) {
+    await clearSessionState();
+    return null;
   }
 
   await applyProfileState(null);
