@@ -1,5 +1,6 @@
 // src/shared/cache.ts
 import type { TokenScore, TierLevel, CacheEntry } from './types';
+import { sanitizeTokenScore } from './token-score';
 
 const CACHE_KEY = 'barryguard_cache';
 const MAX_ENTRIES = 1000;
@@ -35,7 +36,15 @@ export class TokenCache {
     try {
       const stored = await chrome.storage.local.get(CACHE_KEY);
       if (stored[CACHE_KEY]) {
-        this.cache = new Map(Object.entries(stored[CACHE_KEY] as Record<string, CacheEntry>));
+        const raw = stored[CACHE_KEY] as Record<string, unknown>;
+        for (const [key, value] of Object.entries(raw)) {
+          const entry = value as { score?: unknown; timestamp?: number; tier?: string };
+          if (!entry || typeof entry.timestamp !== 'number' || typeof entry.tier !== 'string') continue;
+          const validated = sanitizeTokenScore(entry.score);
+          if (validated) {
+            this.cache.set(key, { score: validated, timestamp: entry.timestamp, tier: entry.tier as TierLevel });
+          }
+        }
         this.evictExpired();
       }
     } catch {

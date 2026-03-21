@@ -61,7 +61,7 @@ function withSafeRuntime<T>(action: () => T): T | undefined {
 
 function sendRuntimeMessage(
   message: { type: string; payload?: unknown },
-  callback: (response: any) => void,
+  callback: (response: { success: boolean; data?: unknown; error?: string }) => void,
 ): void {
   withSafeRuntime(() => {
     chrome.runtime.sendMessage(message, (response) => {
@@ -510,8 +510,9 @@ export function initializeContentScript(): void {
         (response) => {
           needsFetch.forEach((address) => pending.delete(address));
 
-          if (response?.success && response.data?.scores) {
-            const scores = response.data.scores as import('../shared/types').TokenScore[];
+          const responseData = response?.data as Record<string, unknown> | undefined
+          if (response?.success && responseData?.scores) {
+            const scores = responseData.scores as import('../shared/types').TokenScore[];
 
             for (const score of scores) {
               if (score.score != null && score.risk && score.address) {
