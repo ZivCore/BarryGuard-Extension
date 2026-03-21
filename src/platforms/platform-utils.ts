@@ -171,26 +171,47 @@ export function renderBadgeTooltip(
     const riskIcon = getRiskIcon(riskValue);
     const riskLabel = formatRiskLabel(riskValue);
 
-    let html = `<div style="font-weight:600;font-size:12.5px;margin-bottom:8px;">${riskIcon} Risk: ${riskLabel}${scoreValue ? ` (${scoreValue})` : ''}</div>`;
+    // Safe DOM construction — no innerHTML with API-sourced data (XSS prevention)
+    tooltip.textContent = '';
+
+    const header = document.createElement('div');
+    Object.assign(header.style, { fontWeight: '600', fontSize: '12.5px', marginBottom: '8px' });
+    header.textContent = `${riskIcon} Risk: ${riskLabel}${scoreValue ? ` (${scoreValue})` : ''}`;
+    tooltip.appendChild(header);
+
     if (coverageRisk === 'high' || coverageRisk === 'severe') {
-      const dqLabel = coverageRisk === 'severe' ? 'Very limited' : 'Limited';
-      html += `<div style="font-size:10px;color:#f59e0b;margin-bottom:6px;">Data quality: ${dqLabel}</div>`;
+      const dqEl = document.createElement('div');
+      Object.assign(dqEl.style, { fontSize: '10px', color: '#f59e0b', marginBottom: '6px' });
+      dqEl.textContent = `Data quality: ${coverageRisk === 'severe' ? 'Very limited' : 'Limited'}`;
+      tooltip.appendChild(dqEl);
     }
-    html += `<div style="height:1px;background:#334155;margin:6px 0"></div>`;
+
+    const divider = document.createElement('div');
+    Object.assign(divider.style, { height: '1px', background: '#334155', margin: '6px 0' });
+    tooltip.appendChild(divider);
 
     if (reasonsData.length > 0) {
       reasonsData.slice(0, 3).forEach((reason) => {
-        const trimmed = reason.substring(0, 55);
-        html += `<div style="padding-left:8px;margin-bottom:4px;">• ${trimmed}${reason.length > 55 ? '…' : ''}</div>`;
+        const row = document.createElement('div');
+        Object.assign(row.style, { paddingLeft: '8px', marginBottom: '4px' });
+        row.textContent = `• ${reason.substring(0, 55)}${reason.length > 55 ? '…' : ''}`;
+        tooltip.appendChild(row);
       });
     } else {
-      html += '<div style="color:#94a3b8;font-style:italic;">No major concerns detected</div>';
+      const noIssues = document.createElement('div');
+      Object.assign(noIssues.style, { color: '#94a3b8', fontStyle: 'italic' });
+      noIssues.textContent = 'No major concerns detected';
+      tooltip.appendChild(noIssues);
     }
 
-    html += `<div style="height:10px"></div>`;
-    html += `<div style="font-size:11px;color:#60a5fa;text-align:center;cursor:pointer;">Full analysis ↗</div>`;
+    const spacer = document.createElement('div');
+    spacer.style.height = '10px';
+    tooltip.appendChild(spacer);
 
-    tooltip.innerHTML = html;
+    const cta = document.createElement('div');
+    Object.assign(cta.style, { fontSize: '11px', color: '#60a5fa', textAlign: 'center', cursor: 'pointer' });
+    cta.textContent = 'Full analysis ↗';
+    tooltip.appendChild(cta);
 
     const badgeRect = badge.getBoundingClientRect();
     const viewportWidth = window.innerWidth;
@@ -230,6 +251,10 @@ export function renderBadgeTooltip(
     tooltip.style.display = 'none';
     _cancelTooltipHide();
   }
+
+  // Guard against duplicate listeners on re-renders
+  if (badge.dataset.bgTooltipBound) return;
+  badge.dataset.bgTooltipBound = 'true';
 
   badge.addEventListener('mouseenter', (event) => {
     _cancelTooltipHide();

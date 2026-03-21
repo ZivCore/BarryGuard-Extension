@@ -72,7 +72,6 @@ export class BagsPlatform extends GenericSolanaPlatform {
       childList: true,
       subtree: true,
       characterData: true,
-      attributes: true,
     });
   }
 

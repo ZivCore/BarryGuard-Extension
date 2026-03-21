@@ -116,7 +116,7 @@ export class BarryGuardApiClient {
   }
 
   getTokenScore(address: string, chain = 'solana'): Promise<ApiResponse<TokenScore>> {
-    return this.request<TokenScore>(`/token/${address}?chain=${chain}`);
+    return this.request<TokenScore>(`/token/${encodeURIComponent(address)}?chain=${encodeURIComponent(chain)}`);
   }
 
   analyzeTokenList(addresses: string[], chain = 'solana', force = false): Promise<ApiResponse<unknown>> {
@@ -180,14 +180,14 @@ export class BarryGuardApiClient {
   }
 
   refreshTokenScore(address: string, chain = 'solana'): Promise<ApiResponse<TokenScore>> {
-    return this.request<TokenScore>(`/token/${address}/refresh`, {
+    return this.request<TokenScore>(`/token/${encodeURIComponent(address)}/refresh`, {
       method: 'POST',
       headers: { 'X-Chain': chain },
     });
   }
 
   getWatchlistStatus(address: string, chain = 'solana'): Promise<ApiResponse<WatchlistStatus>> {
-    return this.request<WatchlistStatus>(`/watchlist/${address}?chain=${chain}`);
+    return this.request<WatchlistStatus>(`/watchlist/${encodeURIComponent(address)}?chain=${encodeURIComponent(chain)}`);
   }
 
   addToWatchlist(address: string, chain = 'solana'): Promise<ApiResponse<{ success: boolean; entry: WatchlistStatus['entry'] }>> {
@@ -198,7 +198,7 @@ export class BarryGuardApiClient {
   }
 
   removeFromWatchlist(address: string, chain = 'solana'): Promise<ApiResponse<{ success: boolean }>> {
-    return this.request<{ success: boolean }>(`/watchlist/${address}?chain=${chain}`, {
+    return this.request<{ success: boolean }>(`/watchlist/${encodeURIComponent(address)}?chain=${encodeURIComponent(chain)}`, {
       method: 'DELETE',
     });
   }
@@ -208,7 +208,7 @@ export class BarryGuardApiClient {
   }
 
   markWatchlistAlertRead(id: string): Promise<ApiResponse<{ success: boolean }>> {
-    return this.request<{ success: boolean }>(`/watchlist/alerts/${id}/read`, {
+    return this.request<{ success: boolean }>(`/watchlist/alerts/${encodeURIComponent(id)}/read`, {
       method: 'PATCH',
     });
   }

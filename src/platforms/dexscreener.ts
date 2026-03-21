@@ -203,7 +203,10 @@ export class DexScreenerPlatform extends GenericSolanaPlatform {
 
         let response: Response;
         try {
-          response = await fetch(url);
+          const controller = new AbortController();
+          const timeoutId = setTimeout(() => controller.abort(), 10_000);
+          response = await fetch(url, { signal: controller.signal });
+          clearTimeout(timeoutId);
         } catch {
           continue;
         }

@@ -113,7 +113,6 @@ export class BirdeyePlatform extends GenericSolanaPlatform {
       childList: true,
       subtree: true,
       characterData: true,
-      attributes: true,
     });
   }
 

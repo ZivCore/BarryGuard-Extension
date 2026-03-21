@@ -85,7 +85,6 @@ export class SolscanPlatform extends GenericSolanaPlatform {
       childList: true,
       subtree: true,
       characterData: true,
-      attributes: true,
     });
   }
 
