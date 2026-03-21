@@ -265,7 +265,14 @@ async function refreshProfileStateIfNeeded(force = false): Promise<UserProfile |
       return merged;
     }
 
-    // No valid session — clear stale profile data
+    // No valid session from cookies/token — but if we have a stored profile
+    // (e.g. from a recent content script delivery), keep it instead of clearing.
+    if (storedProfile) {
+      await chrome.storage.local.set({ [PROFILE_SYNC_AT_KEY]: Date.now() });
+      await applyProfileState(storedProfile);
+      return storedProfile;
+    }
+
     await chrome.storage.local.remove([PROFILE_KEY, PROFILE_SYNC_AT_KEY, HOURLY_USAGE_KEY]);
     await applyProfileState(null);
     return null;
@@ -1249,12 +1256,15 @@ export function initializeBackground(): void {
 
               // Always fetch fresh profile with the new token to get correct tier
               const tierResult = await api.getUserTier();
+              console.log('[BarryGuard] WEBSITE_SESSION_DETECTED tierResult:', JSON.stringify(tierResult));
               if (tierResult.success && tierResult.data) {
                 const sessionData = sessionPayload.profile ?? {};
                 const merged = normalizeProfile({ ...sessionData as Record<string, unknown>, ...tierResult.data as Record<string, unknown> });
+                console.log('[BarryGuard] Merged profile tier:', merged.tier);
                 await persistProfileState(merged);
               } else if (sessionPayload.profile) {
                 const merged = normalizeProfile(sessionPayload.profile as import('../shared/types').UserProfile);
+                console.log('[BarryGuard] Fallback profile tier:', merged.tier);
                 await persistProfileState(merged);
               }
             } else {
@@ -1265,8 +1275,11 @@ export function initializeBackground(): void {
           }
           case 'REFRESH_USAGE': {
             // Popup requests a fresh usage state — correct from backend if exhausted
-            const currentProfile = await refreshProfileStateIfNeeded();
+            // Use stored profile to avoid overwriting a valid tier with a failed refresh
+            const currentProfile = await getStoredNormalizedProfile() ?? await refreshProfileStateIfNeeded();
             await correctLocalUsageFromBackend(currentProfile);
+            // Also re-sync the hourly state with current profile tier
+            await syncHourlyUsageState(currentProfile);
             respond({ success: true });
             break;
           }
