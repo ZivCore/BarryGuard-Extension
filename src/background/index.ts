@@ -1240,12 +1240,20 @@ export function initializeBackground(): void {
             respond({ success: true });
             break;
           case 'WEBSITE_SESSION_DETECTED': {
-            // Website has auth cookie — content script may have already fetched the token
+            // Website has auth cookie — content script fetches token from page origin
             const sessionPayload = message.payload as { token?: { access_token: string; refresh_token: string; expires_at?: number | null; token_type?: string }; profile?: unknown } | undefined;
             if (sessionPayload?.token?.access_token) {
+              // Store token and set on API client
               await chrome.storage.session.set({ [AUTH_KEY]: sessionPayload.token });
               api.setAuthToken(sessionPayload.token as import('../shared/types').AuthToken);
-              if (sessionPayload.profile) {
+
+              // Always fetch fresh profile with the new token to get correct tier
+              const tierResult = await api.getUserTier();
+              if (tierResult.success && tierResult.data) {
+                const sessionData = sessionPayload.profile ?? {};
+                const merged = normalizeProfile({ ...sessionData as Record<string, unknown>, ...tierResult.data as Record<string, unknown> });
+                await persistProfileState(merged);
+              } else if (sessionPayload.profile) {
                 const merged = normalizeProfile(sessionPayload.profile as import('../shared/types').UserProfile);
                 await persistProfileState(merged);
               }
