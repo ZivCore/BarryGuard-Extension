@@ -52,7 +52,6 @@ const CHECK_FALLBACK_TIERS: Record<string, TierLevel> = {
   liquidityDepth: 'free',
   earlyDump: 'free',
   sniperDominance: 'free',
-  sellability: 'free',
 };
 const CHECK_ORDER = [
   'mintAuthority',
@@ -116,9 +115,10 @@ const CHECK_KEY_ALIASES: Record<string, string> = {
   sniperBot: 'sniperDominance',
   'sniper-bot': 'sniperDominance',
   bot_dominance: 'sniperDominance',
-  sell_ability: 'sellability',
-  'sell-ability': 'sellability',
-  sellable: 'sellability',
+  sellability: 'honeypotSimulation',
+  sell_ability: 'honeypotSimulation',
+  'sell-ability': 'honeypotSimulation',
+  sellable: 'honeypotSimulation',
   honeypotsimulation: 'honeypotSimulation',
   honeypot_simulation: 'honeypotSimulation',
   'honeypot-simulation': 'honeypotSimulation',
