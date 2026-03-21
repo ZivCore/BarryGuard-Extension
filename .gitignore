@@ -1,18 +1,43 @@
-docs
+# Dependencies
 node_modules/
-package-lock.json
+.pnpm-store/
+
+# Build output
 dist/
 .output/
+.next/
+
+# Generated types
 .wxt/
-.playwright/
+
+# Test artifacts
 playwright-report/
 test-results/
-.claude/
+coverage/
+.playwright/
+.playwright-mcp/
+
+# Environment
 .env
 .env.local
 .env.*.local
-coverage/
-.superpowers
-.playwright-mcp/
-*.png
+
+# Development tools
+.claude/
+.superpowers/
 .tmp*
+
+# Internal planning docs (not for public review)
+docs/superpowers/
+docs/barryguard-zusatzanforderung-*.md
+
+# OS / IDE
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Lockfile (npm — project uses pnpm)
+package-lock.json
