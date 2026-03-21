@@ -29,7 +29,6 @@ coverage/
 
 # Internal planning docs (not for public review)
 docs/superpowers/
-docs/barryguard-zusatzanforderung-*.md
 
 # OS / IDE
 .DS_Store
