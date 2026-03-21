@@ -1263,6 +1263,13 @@ export function initializeBackground(): void {
             respond({ success: true });
             break;
           }
+          case 'REFRESH_USAGE': {
+            // Popup requests a fresh usage state — correct from backend if exhausted
+            const currentProfile = await refreshProfileStateIfNeeded();
+            await correctLocalUsageFromBackend(currentProfile);
+            respond({ success: true });
+            break;
+          }
           case 'WEBSITE_SESSION_LOST':
             // Website logged out — clear extension session
             await clearSessionState();

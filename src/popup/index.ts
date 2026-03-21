@@ -2066,6 +2066,8 @@ async function init(): Promise<void> {
 
   try {
     await loadUserProfile();
+    // Ask background worker to correct stale usage before reading it
+    await sendMessage({ type: 'REFRESH_USAGE' }, 3000).catch(() => {});
     await loadUsageState();
     await loadSelectedToken();
     await refreshSelectedTokenScore();
