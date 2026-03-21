@@ -86,7 +86,7 @@ export class RaydiumPlatform extends GenericSolanaPlatform {
       safeSendPopupMessage(this.buildSelectedToken(address, score));
     };
 
-    renderBadgeTooltip(badge, score.score, score.risk, score.reasons ?? []);
+    renderBadgeTooltip(badge, score.score, score.risk, score.reasons ?? [], score.coverageRisk);
 
     this.insertRaydiumBadge(address, badge, placement);
   }

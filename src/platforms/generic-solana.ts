@@ -178,7 +178,7 @@ export class GenericSolanaPlatform implements IPlatform {
       safeSendPopupMessage(this.buildSelectedToken(address, score));
     };
 
-    renderBadgeTooltip(badge, score.score, score.risk, score.reasons ?? []);
+    renderBadgeTooltip(badge, score.score, score.risk, score.reasons ?? [], score.coverageRisk);
 
     if (!existingBadge || this.shouldReinsertBadge(address, existingBadge)) {
       this.insertBadge(address, target, badge);

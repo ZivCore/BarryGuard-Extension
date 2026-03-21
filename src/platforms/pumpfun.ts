@@ -83,7 +83,7 @@ export class PumpFunPlatform implements IPlatform {
       safeSendPopupMessage(this.buildSelectedToken(address, score));
     };
 
-    renderBadgeTooltip(badge, score.score, score.risk, score.reasons ?? []);
+    renderBadgeTooltip(badge, score.score, score.risk, score.reasons ?? [], score.coverageRisk);
 
     if (!this.getBadge(address)) {
       this.insertBadge(address, target, badge);

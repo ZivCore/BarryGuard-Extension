@@ -495,4 +495,21 @@ export function renderAnalysisFooter(
       confidenceBadgeEl.classList.add(className);
     }
   }
+
+  // Coverage risk / data quality — shown below confidence when high or severe
+  const coverageEl = document.getElementById('coverage-risk');
+  if (coverageEl) {
+    const cr = score.coverageRisk;
+    if (cr && (cr === 'high' || cr === 'severe')) {
+      const label = cr === 'severe' ? 'Very limited' : 'Limited';
+      coverageEl.textContent = `Data quality: ${label}`;
+      coverageEl.className = 'coverage-risk visible';
+    } else if (cr === 'moderate') {
+      coverageEl.textContent = 'Data quality: Partial';
+      coverageEl.className = 'coverage-risk moderate visible';
+    } else {
+      coverageEl.textContent = '';
+      coverageEl.className = 'coverage-risk';
+    }
+  }
 }

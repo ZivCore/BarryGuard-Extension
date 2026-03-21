@@ -1,6 +1,7 @@
 import type {
   CheckResult,
   ConfidenceLevel,
+  CoverageRisk,
   RiskLevel,
   Subscores,
   TierLevel,
@@ -222,6 +223,17 @@ function sanitizeConfidence(value: unknown): ConfidenceLevel | undefined {
   }
   const trimmed = value.trim().toLowerCase();
   if (trimmed === 'high' || trimmed === 'medium' || trimmed === 'low') {
+    return trimmed;
+  }
+  return undefined;
+}
+
+function sanitizeCoverageRisk(value: unknown): CoverageRisk | undefined {
+  if (typeof value !== 'string') {
+    return undefined;
+  }
+  const trimmed = value.trim().toLowerCase();
+  if (trimmed === 'low' || trimmed === 'moderate' || trimmed === 'high' || trimmed === 'severe') {
     return trimmed;
   }
   return undefined;
@@ -528,6 +540,7 @@ export function sanitizeTokenScore(value: unknown, options: TokenScoreSanitizati
   const subscores = sanitizeSubscores(record.subscores);
   const reasons = sanitizeReasons(record.reasons);
   const confidence = sanitizeConfidence(record.confidence);
+  const coverageRisk = sanitizeCoverageRisk(record.coverageRisk);
   const tokenName = sanitizeString(record.tokenName);
   const tokenSymbol = sanitizeString(record.tokenSymbol);
   const tokenLogoUrl = sanitizeString(record.tokenLogoUrl);
@@ -541,6 +554,7 @@ export function sanitizeTokenScore(value: unknown, options: TokenScoreSanitizati
     checks: sanitizeChecks(record.checks, record),
     reasons: reasons ?? [],
     confidence: confidence ?? 'medium',
+    coverageRisk: coverageRisk ?? null,
     cached: record.cached === true,
     ...(analyzedAt ? { analyzedAt } : {}),
     ...(tokenName ? { tokenName } : {}),

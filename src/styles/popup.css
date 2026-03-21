@@ -1236,6 +1236,21 @@ body {
   color: var(--danger-text);
 }
 
+.coverage-risk {
+  display: none;
+  text-align: center;
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--warning-text);
+  padding: 2px 0 0;
+}
+.coverage-risk.visible {
+  display: block;
+}
+.coverage-risk.moderate {
+  color: var(--muted);
+}
+
 .footer-right {
   display: flex;
   gap: 6px;

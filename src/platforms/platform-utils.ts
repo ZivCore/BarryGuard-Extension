@@ -130,6 +130,7 @@ export function renderBadgeTooltip(
   score: number,
   risk: string,
   reasons: string[],
+  coverageRisk?: string | null,
 ): void {
   setBadgeTooltipData(badge, score, risk, reasons);
 
@@ -171,6 +172,10 @@ export function renderBadgeTooltip(
     const riskLabel = formatRiskLabel(riskValue);
 
     let html = `<div style="font-weight:600;font-size:12.5px;margin-bottom:8px;">${riskIcon} Risk: ${riskLabel}${scoreValue ? ` (${scoreValue})` : ''}</div>`;
+    if (coverageRisk === 'high' || coverageRisk === 'severe') {
+      const dqLabel = coverageRisk === 'severe' ? 'Very limited' : 'Limited';
+      html += `<div style="font-size:10px;color:#f59e0b;margin-bottom:6px;">Data quality: ${dqLabel}</div>`;
+    }
     html += `<div style="height:1px;background:#334155;margin:6px 0"></div>`;
 
     if (reasonsData.length > 0) {
