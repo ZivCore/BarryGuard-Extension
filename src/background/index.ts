@@ -1221,11 +1221,22 @@ export function initializeBackground(): void {
             await updateActionIcon(null);
             respond({ success: true });
             break;
-          case 'WEBSITE_SESSION_DETECTED':
-            // Website has auth cookie — validate session and extract token
-            await refreshProfileStateIfNeeded(true);
+          case 'WEBSITE_SESSION_DETECTED': {
+            // Website has auth cookie — content script may have already fetched the token
+            const sessionPayload = message.payload as { token?: { access_token: string; refresh_token: string; expires_at?: number | null; token_type?: string }; profile?: unknown } | undefined;
+            if (sessionPayload?.token?.access_token) {
+              await chrome.storage.session.set({ [AUTH_KEY]: sessionPayload.token });
+              api.setAuthToken(sessionPayload.token as import('../shared/types').AuthToken);
+              if (sessionPayload.profile) {
+                const merged = normalizeProfile(sessionPayload.profile as import('../shared/types').UserProfile);
+                await persistProfileState(merged);
+              }
+            } else {
+              await refreshProfileStateIfNeeded(true);
+            }
             respond({ success: true });
             break;
+          }
           case 'WEBSITE_SESSION_LOST':
             // Website logged out — clear extension session
             await clearSessionState();
