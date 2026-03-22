@@ -53,10 +53,18 @@ export class BarryGuardApiClient {
         code?: string;
         errorCode?: string;
         errorType?: string;
+        details?: string;
         retryAfterSeconds?: number;
+        limit?: number;
+        used?: number;
+        remaining?: number;
       };
       const errorCode = err.code ?? err.errorCode;
       const errorType = err.errorType as ApiErrorType | undefined;
+      const details = typeof err.details === 'string' && err.details.trim() ? err.details : undefined;
+      const limit = typeof err.limit === 'number' && Number.isFinite(err.limit) ? err.limit : undefined;
+      const used = typeof err.used === 'number' && Number.isFinite(err.used) ? err.used : undefined;
+      const remaining = typeof err.remaining === 'number' && Number.isFinite(err.remaining) ? err.remaining : undefined;
       let retryAfterSeconds = typeof err.retryAfterSeconds === 'number' && Number.isFinite(err.retryAfterSeconds)
         ? err.retryAfterSeconds
         : undefined;
@@ -86,6 +94,10 @@ export class BarryGuardApiClient {
         statusCode: res.status,
         ...(errorCode ? { errorCode } : {}),
         ...(errorType ? { errorType } : {}),
+        ...(details ? { details } : {}),
+        ...(limit !== undefined ? { limit } : {}),
+        ...(used !== undefined ? { used } : {}),
+        ...(remaining !== undefined ? { remaining } : {}),
         ...(retryAfterSeconds !== undefined ? { retryAfterSeconds } : {}),
       };
     } catch (e) {

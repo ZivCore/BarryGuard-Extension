@@ -404,18 +404,104 @@ body {
 .token-logo-loading {
   position: absolute;
   inset: 0;
+  align-items: center;
+  background:
+    radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.92), rgba(255, 255, 255, 0.1) 40%, transparent 60%),
+    linear-gradient(160deg, rgba(23, 59, 99, 0.08), rgba(197, 57, 47, 0.16));
+  border: 1px solid rgba(23, 59, 99, 0.12);
   border-radius: 16px;
-  border: 2px solid rgba(23, 59, 99, 0.08);
-  border-top-color: var(--swiss-red, #c5392f);
-  animation: logo-spin 0.8s linear infinite;
+  display: flex;
+  justify-content: center;
+  overflow: hidden;
 }
 
 .token-logo-loading.hidden {
   display: none;
 }
 
-@keyframes logo-spin {
-  to { transform: rotate(360deg); }
+.token-logo-loading-ring,
+.token-logo-loading-core,
+.token-logo-loading-scan {
+  position: absolute;
+  border-radius: 999px;
+}
+
+.token-logo-loading-ring {
+  border: 1px solid rgba(23, 59, 99, 0.16);
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.12);
+}
+
+.token-logo-loading-ring-outer {
+  inset: 5px;
+  animation: token-radar-breathe 1.9s ease-in-out infinite;
+}
+
+.token-logo-loading-ring-middle {
+  inset: 12px;
+  border-color: rgba(197, 57, 47, 0.26);
+  animation: token-radar-breathe 1.9s ease-in-out infinite reverse;
+}
+
+.token-logo-loading-core {
+  width: 12px;
+  height: 12px;
+  background: radial-gradient(circle, #ffffff 0%, #d44a3f 45%, #9f231a 100%);
+  box-shadow:
+    0 0 0 4px rgba(197, 57, 47, 0.10),
+    0 0 18px rgba(197, 57, 47, 0.35);
+  animation: token-core-pulse 1.1s ease-in-out infinite;
+}
+
+.token-logo-loading-scan {
+  width: 60px;
+  height: 60px;
+  background: conic-gradient(
+    from 0deg,
+    transparent 0deg,
+    transparent 300deg,
+    rgba(197, 57, 47, 0.05) 325deg,
+    rgba(197, 57, 47, 0.72) 348deg,
+    rgba(255, 255, 255, 0.92) 360deg
+  );
+  mix-blend-mode: screen;
+  animation: token-radar-sweep 1.35s linear infinite;
+}
+
+@keyframes token-radar-sweep {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@keyframes token-radar-breathe {
+  0%, 100% {
+    transform: scale(0.94);
+    opacity: 0.58;
+  }
+  50% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+
+@keyframes token-core-pulse {
+  0%, 100% {
+    transform: scale(0.88);
+    opacity: 0.78;
+  }
+  50% {
+    transform: scale(1.08);
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .token-logo-loading-ring-outer,
+  .token-logo-loading-ring-middle,
+  .token-logo-loading-core,
+  .token-logo-loading-scan {
+    animation: none;
+  }
 }
 
 .token-name {

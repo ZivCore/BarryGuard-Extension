@@ -91,6 +91,10 @@ export interface ApiResponse<T> {
   errorType?: ApiErrorType;
   errorCode?: string;
   retryAfterSeconds?: number;
+  details?: string;
+  limit?: number;
+  used?: number;
+  remaining?: number;
 }
 
 export interface CacheEntry {

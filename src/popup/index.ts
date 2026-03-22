@@ -467,6 +467,38 @@ function getUsageSummary(): { limit: number; used: number; remaining: number; ra
   return null;
 }
 
+function isQuotaExhaustedForUi(): boolean {
+  const summary = getUsageSummary();
+  if (!summary || summary.remaining > 0) {
+    return false;
+  }
+
+  const profile = state.userProfile;
+  if (
+    profile
+    && typeof profile.hourlyAnalysesLimit === 'number'
+    && Number.isFinite(profile.hourlyAnalysesLimit)
+    && profile.hourlyAnalysesLimit > 0
+  ) {
+    const profileRemaining = profile.hourlyAnalysesRemaining;
+    const profileUsed = profile.hourlyAnalysesUsed;
+
+    if (typeof profileRemaining === 'number' && Number.isFinite(profileRemaining) && profileRemaining > 0) {
+      return false;
+    }
+
+    if (
+      typeof profileUsed === 'number'
+      && Number.isFinite(profileUsed)
+      && profileUsed < profile.hourlyAnalysesLimit
+    ) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
 function syncProfileUsageFromState(): void {
   const local = state.usageState;
   const profile = state.userProfile;
@@ -486,8 +518,7 @@ function syncProfileUsageFromState(): void {
 }
 
 function hasExhaustedUsage(): boolean {
-  const summary = getUsageSummary();
-  return Boolean(summary && summary.remaining <= 0);
+  return isQuotaExhaustedForUi();
 }
 
 function renderUsageIndicator(): void {
@@ -1853,6 +1884,13 @@ async function handleAnalyze(): Promise<void> {
 
       if (response.errorType === 'rate_limit') {
         setManualError(null);
+        await sendMessage({ type: 'REFRESH_USAGE' }, 3000).catch(() => {});
+        await loadUsageState();
+        if (!isQuotaExhaustedForUi()) {
+          renderPrimaryTokenState();
+          showScreen('token-detail');
+          return;
+        }
         state.selectedToken = {
           address,
           score: undefined,

@@ -662,6 +662,41 @@ async function markUsageExhausted(profile: UserProfile | null): Promise<void> {
   await setHourlyUsageState(exhausted);
 }
 
+async function syncUsageFromQuotaError<T>(profile: UserProfile | null, response: ApiResponse<T>): Promise<void> {
+  const state = await syncHourlyUsageState(profile);
+  if (!state) return;
+
+  const limit = typeof response.limit === 'number' && Number.isFinite(response.limit)
+    ? Math.max(0, response.limit)
+    : state.limit;
+  const used = typeof response.used === 'number' && Number.isFinite(response.used)
+    ? Math.max(0, response.used)
+    : limit;
+
+  await setHourlyUsageState({
+    ...state,
+    limit,
+    used: Math.min(used, limit),
+    updatedAt: Date.now(),
+  });
+}
+
+function isQuotaExceededResponse<T>(response: ApiResponse<T>): boolean {
+  if (response.statusCode !== 429) {
+    return false;
+  }
+
+  if (response.errorType !== 'rate_limit' || response.errorCode !== 'RATE_LIMIT') {
+    return false;
+  }
+
+  return typeof response.limit === 'number'
+    && Number.isFinite(response.limit)
+    && typeof response.used === 'number'
+    && Number.isFinite(response.used)
+    && response.used >= response.limit;
+}
+
 async function incrementHourlyUsage(profile: UserProfile | null, amount: number): Promise<void> {
   const state = await syncHourlyUsageState(profile);
   if (!state) return;
@@ -710,6 +745,14 @@ function mapApiFailure<T>(response: ApiResponse<T>): ApiResponse<T> {
   }
 
   if (response.statusCode === 429) {
+    if (response.errorType === 'cooldown') {
+      return {
+        ...response,
+        errorType: 'cooldown',
+        error: response.error ?? 'Cooldown active. Please try again shortly.',
+      };
+    }
+
     // Check for anonymous daily limit vs hourly rate limit
     if (response.errorCode === 'ANON_DAILY_LIMIT') {
       return {
@@ -720,7 +763,7 @@ function mapApiFailure<T>(response: ApiResponse<T>): ApiResponse<T> {
     }
     return {
       ...response,
-      errorType: 'rate_limit',
+      errorType: response.errorType ?? 'rate_limit',
       error: response.error ?? 'Rate limit reached. Please try again later.',
     };
   }
@@ -878,8 +921,8 @@ async function getTokenScore(address: string) {
       return { success: true, data: { ...normalizedFresh, cached: false } };
     }
 
-    if (fresh.statusCode === 429) {
-      await markUsageExhausted(normalizedProfile);
+    if (isQuotaExceededResponse(fresh)) {
+      await syncUsageFromQuotaError(normalizedProfile, fresh);
     }
 
     return mapApiFailure(fresh);
@@ -934,8 +977,8 @@ async function analyzeTokenList(addresses: string[]): Promise<ApiResponse<TokenL
 
   const response = await api.analyzeTokenList(missingAddresses);
   if (!response.success) {
-    if (response.statusCode === 429) {
-      await markUsageExhausted(normalizedProfile);
+    if (isQuotaExceededResponse(response)) {
+      await syncUsageFromQuotaError(normalizedProfile, response);
     }
     return mapApiFailure(response) as ApiResponse<TokenListAnalysisData>;
   }

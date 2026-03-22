@@ -79,7 +79,12 @@
             <div class="token-logo-wrapper">
               <img id="token-logo" class="token-logo hidden" alt="Token logo">
               <div id="token-logo-placeholder" class="token-logo-placeholder">?</div>
-              <div id="token-logo-loading" class="token-logo-loading hidden"></div>
+              <div id="token-logo-loading" class="token-logo-loading hidden" aria-hidden="true">
+                <span class="token-logo-loading-ring token-logo-loading-ring-outer"></span>
+                <span class="token-logo-loading-ring token-logo-loading-ring-middle"></span>
+                <span class="token-logo-loading-core"></span>
+                <span class="token-logo-loading-scan"></span>
+              </div>
             </div>
             <div class="token-copy">
               <div class="token-name" id="token-name">Loading...</div>
