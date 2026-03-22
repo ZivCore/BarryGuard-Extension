@@ -144,27 +144,29 @@ export class PumpFunPlatform implements IPlatform {
   }
 
   observeDOMChanges(callback: () => void): void {
+    let debounceTimer: ReturnType<typeof setTimeout> | null = null;
+
     const observer = new MutationObserver((mutations) => {
       const isDetailPage = Boolean(this.getCurrentPageAddress());
 
-      const hasRelevantNodes = mutations.some((mutation) =>
-        Array.from(mutation.addedNodes).some((node) => {
-          if (node.nodeType !== Node.ELEMENT_NODE) {
-            return false;
-          }
-
-          const element = node as Element;
-
-          if (isDetailPage) {
-            // On coin pages, re-scan when h1 appears (page hydrated after SPA nav or initial load)
-            return element.matches('h1') || !!element.querySelector('h1');
-          }
-
-          return element.matches('a[href]') || !!element.querySelector('a[href]');
-        }));
+      // On detail pages, trigger on ANY element addition (React hydration
+      // may not add a standalone <h1> — it can appear inside a larger subtree).
+      // On list pages, only trigger when new links appear.
+      const hasRelevantNodes = isDetailPage
+        ? mutations.some((m) => m.addedNodes.length > 0)
+        : mutations.some((mutation) =>
+            Array.from(mutation.addedNodes).some((node) => {
+              if (node.nodeType !== Node.ELEMENT_NODE) return false;
+              const element = node as Element;
+              return element.matches('a[href]') || !!element.querySelector('a[href]');
+            }));
 
       if (hasRelevantNodes) {
-        setTimeout(callback, 100);
+        if (debounceTimer) clearTimeout(debounceTimer);
+        debounceTimer = setTimeout(() => {
+          debounceTimer = null;
+          callback();
+        }, 100);
       }
     });
 
@@ -200,6 +202,8 @@ export class PumpFunPlatform implements IPlatform {
     return createBadgeElement(address);
   }
 
+  private detailBadgeGuard: MutationObserver | null = null;
+
   private insertBadge(address: string, target: Element, badge: HTMLDivElement): void {
     if (this.isCurrentTokenPage(address)) {
       document
@@ -209,6 +213,19 @@ export class PumpFunPlatform implements IPlatform {
       badge.style.marginLeft = '0';
       badge.style.marginTop = '8px';
       target.insertAdjacentElement('afterend', badge);
+
+      // Guard: when React re-renders and removes the badge, re-insert it.
+      if (this.detailBadgeGuard) this.detailBadgeGuard.disconnect();
+      this.detailBadgeGuard = new MutationObserver(() => {
+        if (!document.contains(badge)) {
+          const h1 = this.getDetailTitle();
+          if (h1) {
+            h1.insertAdjacentElement('afterend', badge);
+          }
+        }
+      });
+      this.detailBadgeGuard.observe(document.body, { childList: true, subtree: true });
+
       return;
     }
 

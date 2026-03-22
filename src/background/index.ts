@@ -1086,6 +1086,43 @@ export {
 };
 
 export function initializeBackground(): void {
+  // Re-inject content script after Next.js soft navigations that kill the content script context.
+  // Try sending a message first; if the content script is alive it responds. If dead, re-inject.
+  const SUPPORTED_HOST_PATTERNS = [
+    /^(www\.)?pump\.fun$/,
+    /^amm\.pump\.fun$/,
+    /^swap\.pump\.fun$/,
+    /^(www\.)?raydium\.io$/,
+    /^(www\.)?letsbonk\.fun$/,
+    /^(www\.)?bonk\.fun$/,
+    /^(www\.)?moonshot\.money$/,
+    /^(www\.)?dexscreener\.com$/,
+    /^(www\.)?birdeye\.so$/,
+    /^(www\.)?bags\.fm$/,
+    /^(.+\.)?solscan\.io$/,
+  ];
+
+  chrome.tabs.onUpdated.addListener((tabId, changeInfo) => {
+    if (!changeInfo.url) return;
+    try {
+      const url = new URL(changeInfo.url);
+      if (!SUPPORTED_HOST_PATTERNS.some((p) => p.test(url.hostname))) return;
+
+      chrome.tabs.sendMessage(tabId, { type: 'PING' }).then((response) => {
+        if (response?.pong) {
+          // Content script alive — just tell it to re-scan
+          chrome.tabs.sendMessage(tabId, { type: 'TAB_URL_CHANGED', url: changeInfo.url }).catch(() => {});
+        }
+      }).catch(() => {
+        // Content script dead — re-inject it
+        chrome.scripting.executeScript({
+          target: { tabId },
+          files: ['content-scripts/pumpfun.js'],
+        }).catch(() => { /* tab closed or no permission */ });
+      });
+    } catch { /* invalid URL */ }
+  });
+
   chrome.runtime.onMessage.addListener((message, sender, respond) => {
     // Only accept messages from this extension's own pages (popup, content scripts, background)
     if (sender.id !== chrome.runtime.id) {

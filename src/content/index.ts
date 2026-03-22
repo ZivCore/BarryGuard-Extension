@@ -538,13 +538,14 @@ export function initializeContentScript(): void {
     }
   }
 
+  let badgeVerifyTimer: ReturnType<typeof setInterval> | null = null;
+
   function handleUrlChange(): void {
     const currentUrl = window.location.href;
     if (currentUrl === lastUrl) {
       return;
     }
 
-    const previousUrl = lastUrl;
     lastUrl = currentUrl;
 
     // Clear resolved scores so stale badges don't persist across navigations
@@ -552,14 +553,55 @@ export function initializeContentScript(): void {
       clearAddressState(address);
     }
 
+    // Stop any previous badge verification loop
+    if (badgeVerifyTimer) {
+      clearInterval(badgeVerifyTimer);
+      badgeVerifyTimer = null;
+    }
+
     scanAll();
-    // React/Next.js may not have rendered yet — retry with increasing delays
-    setTimeout(scanAll, 150);
-    setTimeout(scanAll, 500);
-    setTimeout(scanAll, 1200);
+
+    // React/Next.js re-renders the entire page after SPA navigation (3-5s).
+    // We must keep re-inserting the badge until React settles.
+    // Retry at increasing intervals, then verify periodically.
+    setTimeout(scanAll, 200);
+    setTimeout(scanAll, 600);
+    setTimeout(scanAll, 1500);
+    setTimeout(scanAll, 3000);
+    setTimeout(scanAll, 5000);
+
+    // After initial retries, verify every 2s for 30s that badge still exists
+    let verifyCount = 0;
+    badgeVerifyTimer = setInterval(() => {
+      verifyCount++;
+      if (verifyCount > 15) {
+        if (badgeVerifyTimer) clearInterval(badgeVerifyTimer);
+        badgeVerifyTimer = null;
+        return;
+      }
+      const addr = platform.getCurrentPageAddress();
+      if (addr && !hasRenderedBadge(addr)) {
+        scanAll();
+      }
+    }, 2000);
   }
 
   platform.observeDOMChanges(scanAll);
+
+  // Listen for messages from the background script
+  withSafeRuntime(() => {
+    chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+      if (message?.type === 'PING') {
+        sendResponse({ pong: true });
+        return;
+      }
+      if (message?.type === 'TAB_URL_CHANGED') {
+        handleUrlChange();
+        setTimeout(handleUrlChange, 200);
+        setTimeout(handleUrlChange, 800);
+      }
+    });
+  });
 
   withSafeRuntime(() => {
     chrome.storage.onChanged.addListener((changes, areaName) => {
@@ -604,6 +646,16 @@ export function initializeContentScript(): void {
   // Catches SPA frameworks that save a reference to pushState before our
   // content script runs, or that use the Navigation API.
   setInterval(handleUrlChange, 500);
+
+  // Detect link clicks that may trigger navigation — schedule scans after click
+  document.addEventListener('click', (event) => {
+    const link = (event.target as Element).closest?.('a[href]');
+    if (!link) return;
+    setTimeout(handleUrlChange, 50);
+    setTimeout(handleUrlChange, 200);
+    setTimeout(handleUrlChange, 600);
+    setTimeout(handleUrlChange, 1200);
+  }, true);
 
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', () => {
