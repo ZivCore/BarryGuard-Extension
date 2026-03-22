@@ -76,7 +76,11 @@
       <div class="analysis-overview">
         <div id="token-info">
           <div class="token-header">
-            <img id="token-logo" class="token-logo" src="/icons/icon48.png" alt="Token logo">
+            <div class="token-logo-wrapper">
+              <img id="token-logo" class="token-logo hidden" alt="Token logo">
+              <div id="token-logo-placeholder" class="token-logo-placeholder">?</div>
+              <div id="token-logo-loading" class="token-logo-loading hidden"></div>
+            </div>
             <div class="token-copy">
               <div class="token-name" id="token-name">Loading...</div>
               <div class="token-symbol" id="token-symbol"></div>
@@ -92,7 +96,6 @@
                 <line x1="10" y1="14" x2="21" y2="3"></line>
               </svg>
             </a>
-            <span class="analyzed-at" id="analyzed-at">Analyzed just now</span>
           </div>
           <div id="copy-toast" class="copy-toast hidden" aria-live="polite">Copied</div>
         </div>
@@ -106,13 +109,15 @@
               <div class="score-donut-label" id="score-donut-risk-label"></div>
             </div>
           </div>
+          <div class="score-label-large">SCORE</div>
+          <div id="coverage-risk" class="coverage-risk"></div>
         </div>
-
-        <div id="coverage-risk" class="coverage-risk"></div>
 
         <div class="disclaimer-text">
           BarryGuard cannot guarantee safety. Use this as a risk signal, not a guarantee.
         </div>
+
+        <div class="analyzed-at" id="analyzed-at">Analyzed just now</div>
 
       </div>
 

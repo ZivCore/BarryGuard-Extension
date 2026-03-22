@@ -21,6 +21,7 @@ import {
   sanitizeExternalNavigationUrl,
   sanitizeOAuthNavigationUrl,
 } from '../shared/runtime-config';
+import { shortenAddress } from '../shared/format';
 import { isTokenScoreLikelyIncomplete } from '../shared/token-score';
 import {
   getRiskLevel,
@@ -393,11 +394,7 @@ function canAccessTier(userTier: TierLevel, requiredTier: TierLevel): boolean {
 
 
 function truncateAddress(address: string): string {
-  if (address.length <= 16) {
-    return address;
-  }
-
-  return `${address.slice(0, 8)}...${address.slice(-6)}`;
+  return shortenAddress(address, 8, 6);
 }
 
 function formatTier(tier: TierLevel): string {
@@ -857,7 +854,7 @@ function renderUsageLimitState(): void {
   const tokenName = state.selectedToken?.metadata?.name;
   const tokenSymbol = state.selectedToken?.metadata?.symbol;
   const shortAddress = tokenAddress
-    ? `${tokenAddress.slice(0, 6)}…${tokenAddress.slice(-4)}`
+    ? shortenAddress(tokenAddress, 8, 6)
     : null;
 
   if (elements.tokenDetail.tokenLogo) {
@@ -1037,11 +1034,14 @@ function renderLoadingTokenState(address: string): void {
   if (rugBanner) rugBanner.remove();
 
   const branding = getPlanBranding(state.userProfile?.tier);
-  const short = `${address.slice(0, 6)}…${address.slice(-4)}`;
+  const short = shortenAddress(address, 8, 6);
 
   if (elements.tokenDetail.tokenLogo) {
-    elements.tokenDetail.tokenLogo.src = branding.tokenFallbackLogo;
-    elements.tokenDetail.tokenLogo.alt = 'BarryGuard loading';
+    elements.tokenDetail.tokenLogo.classList.add('hidden');
+    const logoPlaceholder = document.getElementById('token-logo-placeholder');
+    const logoLoading = document.getElementById('token-logo-loading');
+    logoLoading?.classList.remove('hidden');
+    logoPlaceholder?.classList.add('hidden');
   }
 
   if (elements.tokenDetail.tokenName) elements.tokenDetail.tokenName.textContent = 'Analyzing…';
@@ -1131,19 +1131,55 @@ function renderTokenDetail(score: TokenScore): void {
   const tokenLogo = score.tokenLogoUrl || meta?.imageUrl;
 
   if (elements.tokenDetail.tokenLogo) {
-    elements.tokenDetail.tokenLogo.src = tokenLogo || branding.tokenFallbackLogo;
-    elements.tokenDetail.tokenLogo.alt = tokenName;
-    elements.tokenDetail.tokenLogo.onerror = () => {
-      if (elements.tokenDetail.tokenLogo) {
-        elements.tokenDetail.tokenLogo.onerror = null;
-        elements.tokenDetail.tokenLogo.src = branding.tokenFallbackLogo;
+    const logoPlaceholder = document.getElementById('token-logo-placeholder');
+    const logoLoading = document.getElementById('token-logo-loading');
+    const initial = tokenName.charAt(0).toUpperCase() || '?';
+
+    // If logo is already visible with a loaded image, don't touch it on re-renders without logo data
+    const alreadyLoaded = !elements.tokenDetail.tokenLogo.classList.contains('hidden')
+      && elements.tokenDetail.tokenLogo.naturalWidth > 0;
+    if (!tokenLogo && alreadyLoaded) {
+      // Keep current logo, just update alt
+      elements.tokenDetail.tokenLogo.alt = tokenName;
+    } else if (tokenLogo) {
+      // Only reload if src actually changed
+      if (elements.tokenDetail.tokenLogo.src !== tokenLogo) {
+        elements.tokenDetail.tokenLogo.classList.add('hidden');
+        logoPlaceholder?.classList.add('hidden');
+        logoLoading?.classList.remove('hidden');
+
+        elements.tokenDetail.tokenLogo.onload = () => {
+          elements.tokenDetail.tokenLogo!.classList.remove('hidden');
+          logoLoading?.classList.add('hidden');
+          logoPlaceholder?.classList.add('hidden');
+        };
+        elements.tokenDetail.tokenLogo.onerror = () => {
+          if (!elements.tokenDetail.tokenLogo) return;
+          elements.tokenDetail.tokenLogo.onerror = null;
+          elements.tokenDetail.tokenLogo.classList.add('hidden');
+          logoLoading?.classList.add('hidden');
+          if (logoPlaceholder) {
+            logoPlaceholder.textContent = initial;
+            logoPlaceholder.classList.remove('hidden');
+          }
+        };
+        elements.tokenDetail.tokenLogo.src = tokenLogo;
       }
-    };
+      elements.tokenDetail.tokenLogo.alt = tokenName;
+    } else {
+      // No logo URL and nothing loaded — show placeholder
+      elements.tokenDetail.tokenLogo.classList.add('hidden');
+      logoLoading?.classList.add('hidden');
+      if (logoPlaceholder) {
+        logoPlaceholder.textContent = initial;
+        logoPlaceholder.classList.remove('hidden');
+      }
+    }
   }
 
   if (elements.tokenDetail.tokenName) elements.tokenDetail.tokenName.textContent = tokenName;
   if (elements.tokenDetail.tokenSymbol) elements.tokenDetail.tokenSymbol.textContent = tokenSymbol;
-  updateTokenAddressButton(score.address, score.address);
+  updateTokenAddressButton(shortenAddress(score.address, 8, 6), score.address);
   if (elements.tokenDetail.scoreValue) elements.tokenDetail.scoreValue.textContent = String(score.score);
   if (elements.tokenDetail.scoreDonut) {
     const colorMap: Record<string, string> = {
@@ -1275,6 +1311,18 @@ function handleSelectedTokenUpdate(selectedToken: SelectedToken | null): void {
     scoreRefreshAttempts = 0;
   }
 
+  // Preserve existing metadata if the incoming update has less info
+  // (prevents content script overwrites from clearing hydrated metadata)
+  if (selectedToken && state.selectedToken?.address === selectedToken.address && state.selectedToken.metadata) {
+    selectedToken = {
+      ...selectedToken,
+      metadata: {
+        ...state.selectedToken.metadata,
+        ...(selectedToken.metadata ?? {}),
+      },
+    };
+  }
+
   state.selectedToken = selectedToken;
 
   if (!selectedToken && state.initialized) {
@@ -1292,6 +1340,9 @@ function handleSelectedTokenUpdate(selectedToken: SelectedToken | null): void {
   if (selectedToken?.score) {
     void hydrateSelectedTokenMetadata(selectedToken);
     scheduleSelectedTokenScoreRefresh();
+  } else if (selectedToken?.address) {
+    // No score yet — popup fetches it directly instead of waiting for content script
+    void refreshSelectedTokenScore();
   }
 }
 
@@ -1517,8 +1568,15 @@ async function loadSelectedToken(): Promise<void> {
 
 async function refreshSelectedTokenScore(): Promise<void> {
   const selectedToken = state.selectedToken;
-  // Only refresh when score already exists (content script handles initial fetch)
-  if (!selectedToken?.score || !shouldKeepRefreshingScore(selectedToken.score)) {
+  if (!selectedToken?.address) {
+    return;
+  }
+
+  // If score is missing, fetch it (content script may not have persisted it yet)
+  const needsInitialFetch = !selectedToken.score;
+
+  // If score exists, only refresh if it's still worth refreshing
+  if (!needsInitialFetch && !shouldKeepRefreshingScore(selectedToken.score)) {
     return;
   }
 
@@ -1528,7 +1586,7 @@ async function refreshSelectedTokenScore(): Promise<void> {
   }, 5000);
 
   if (!response.success || !response.data) {
-    if (shouldRetryScoreRefresh(response)) {
+    if (needsInitialFetch || shouldRetryScoreRefresh(response)) {
       scheduleSelectedTokenScoreRefresh();
     }
     return;

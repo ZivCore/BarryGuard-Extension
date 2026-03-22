@@ -395,7 +395,7 @@ export function initializeContentScript(): void {
           clearRenderRetry(address);
         }
 
-        if (platform.getCurrentPageAddress() === address && document.hasFocus()) {
+        if (platform.getCurrentPageAddress() === address) {
           const selectedToken = platform.buildSelectedToken(address, score);
           sendRuntimeMessage({ type: 'GET_TOKEN_METADATA', payload: address }, (metadataResponse) => {
             const metadata = {
@@ -422,10 +422,9 @@ export function initializeContentScript(): void {
         platform.renderErrorBadge(address);
       }
 
-      // Bug fix: when on detail page and rate limited, persist selectedToken
-      // with the current address (no score) so the popup shows the right token
-      // instead of a stale previous token
-      if (platform.getCurrentPageAddress() === address && document.hasFocus()) {
+      // Persist selectedToken on detail page even without focus so
+      // the popup always reflects the current token state
+      if (platform.getCurrentPageAddress() === address) {
         if (rateLimited) {
           persistSelectedToken({ address });
         } else {
