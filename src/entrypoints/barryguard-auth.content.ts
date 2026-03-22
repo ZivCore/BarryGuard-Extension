@@ -1,4 +1,5 @@
 import { defineContentScript } from 'wxt/utils/define-content-script';
+import { buildWebsiteSessionPayload } from '../shared/website-session';
 
 export default defineContentScript({
   matches: [
@@ -27,14 +28,12 @@ export default defineContentScript({
         }
 
         const data = await res.json();
-        if (data?.valid && data?.token?.access_token) {
+        const payload = buildWebsiteSessionPayload(data);
+        if (payload) {
           chrome.runtime
             .sendMessage({
               type: 'WEBSITE_SESSION_DETECTED',
-              payload: {
-                token: data.token,
-                profile: data,
-              },
+              payload,
             })
             .catch(() => {});
         } else {

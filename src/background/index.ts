@@ -52,21 +52,6 @@ const DEFAULT_ACTION_ICON_PATHS = {
   128: 'icons/icon128.png',
 } as const;
 
-const PAID_ACTION_ICON_PATHS: Record<'rescue_pass' | 'pro', Record<number, string>> = {
-  rescue_pass: {
-    16: 'silver256.png',
-    32: 'silver256.png',
-    48: 'silver256.png',
-    128: 'silver256.png',
-  },
-  pro: {
-    16: 'gold256.png',
-    32: 'gold256.png',
-    48: 'gold256.png',
-    128: 'gold256.png',
-  },
-};
-
 type JsonRecord = Record<string, unknown>;
 
 const VALID_TIERS = ['free', 'rescue_pass', 'pro'] as const;
@@ -135,6 +120,7 @@ async function getStoredProfile(): Promise<UserProfile | null> {
 }
 
 async function persistProfileState(profile: UserProfile): Promise<void> {
+  console.log('[BarryGuard] persistProfileState called, hourlyAnalysesUsed:', profile.hourlyAnalysesUsed);
   // H-7: Clear cache when tier changes so stale data from a lower/higher tier doesn't persist
   const previousProfile = await getStoredProfile();
   const previousTier = previousProfile?.tier;
@@ -355,11 +341,6 @@ async function initialize(): Promise<void> {
 
 async function updateActionIcon(profile: UserProfile | null): Promise<void> {
   try {
-    if (profile?.tier === 'pro' || profile?.tier === 'rescue_pass') {
-      await chrome.action.setIcon({ path: PAID_ACTION_ICON_PATHS[profile.tier] });
-      return;
-    }
-
     await chrome.action.setIcon({ path: DEFAULT_ACTION_ICON_PATHS });
   } catch {
     // Ignore icon update failures in unsupported environments.
@@ -704,11 +685,13 @@ async function correctLocalUsageFromBackend(profile: UserProfile | null): Promis
   const currentBucketKey = getUsageBucketKey(profile.tier, profile ? 'authenticated' : 'anonymous');
   if (state.bucketKey !== currentBucketKey) return;
 
-  // Always correct local counter when backend reports a different value.
-  // Backend is source of truth — local can drift from batch mismatches,
-  // 429 over-inflation, or concurrent request races.
+  // Only correct downward — backend reporting lower usage means local over-counted
+  // (from 429 over-inflation, batch mismatches, etc.). Never correct upward because
+  // the stored profile may have stale hourlyAnalysesUsed from a previous hour.
   const backendUsed = profile.hourlyAnalysesUsed;
-  if (typeof backendUsed === 'number' && backendUsed !== state.used) {
+  console.log('[BarryGuard] correctLocalUsage:', { localUsed: state.used, backendUsed, bucketKey: state.bucketKey, willCorrect: typeof backendUsed === 'number' && backendUsed < state.used });
+  if (typeof backendUsed === 'number' && backendUsed < state.used) {
+    console.log('[BarryGuard] Correcting usage:', state.used, '->', backendUsed);
     await setHourlyUsageState({ ...state, used: backendUsed, updatedAt: Date.now() });
   }
 }
@@ -775,22 +758,37 @@ async function maybeEnforceHourlyLimit(
   profile: UserProfile | null,
   requestedUnits = 1,
 ): Promise<ApiResponse<never> | null> {
-  const state = await syncHourlyUsageState(profile);
+  let state = await syncHourlyUsageState(profile);
   if (!state) return null;
 
-  if (state.used + requestedUnits > state.limit) {
-    // Compute seconds until the next hourly bucket starts
-    const msUntilReset = 3600000 - (Date.now() % 3600000);
-    const retryAfterSeconds = Math.ceil(msUntilReset / 1000);
-    return {
-      success: false,
-      error: `Hourly limit reached (${state.used}/${state.limit}). Resets in ${retryAfterSeconds}s.`,
-      statusCode: 429,
-      errorType: 'rate_limit',
-      retryAfterSeconds,
-    };
+  if (state.used + requestedUnits <= state.limit) {
+    return null;
   }
-  return null;
+
+  // Local extension state can be stale across hour boundaries or after 429 over-inflation.
+  // Before blocking a user, force-refresh the profile once and reconcile from the backend.
+  if (profile) {
+    const refreshedProfile = await refreshProfileStateIfNeeded(true);
+    if (refreshedProfile) {
+      await syncHourlyUsageState(refreshedProfile);
+      await correctLocalUsageFromBackend(refreshedProfile);
+      state = await syncHourlyUsageState(refreshedProfile) ?? state;
+      if (state.used + requestedUnits <= state.limit) {
+        return null;
+      }
+    }
+  }
+
+  // Compute seconds until the next hourly bucket starts
+  const msUntilReset = 3600000 - (Date.now() % 3600000);
+  const retryAfterSeconds = Math.ceil(msUntilReset / 1000);
+  return {
+    success: false,
+    error: `Hourly limit reached (${state.used}/${state.limit}). Resets in ${retryAfterSeconds}s.`,
+    statusCode: 429,
+    errorType: 'rate_limit',
+    retryAfterSeconds,
+  };
 }
 
 const SOLANA_ADDRESS_RE = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;

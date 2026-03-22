@@ -467,6 +467,24 @@ function getUsageSummary(): { limit: number; used: number; remaining: number; ra
   return null;
 }
 
+function syncProfileUsageFromState(): void {
+  const local = state.usageState;
+  const profile = state.userProfile;
+  if (!local || !profile || local.audience !== 'authenticated') {
+    return;
+  }
+
+  const currentBucketKey = `authenticated:${profile.tier}:${Math.floor(Date.now() / 3600000)}`;
+  if (local.bucketKey !== currentBucketKey || local.limit <= 0) {
+    return;
+  }
+
+  const used = Math.max(0, Math.min(local.used, local.limit));
+  profile.hourlyAnalysesUsed = used;
+  profile.hourlyAnalysesLimit = local.limit;
+  profile.hourlyAnalysesRemaining = Math.max(0, local.limit - used);
+}
+
 function hasExhaustedUsage(): boolean {
   const summary = getUsageSummary();
   return Boolean(summary && summary.remaining <= 0);
@@ -1311,15 +1329,22 @@ function handleSelectedTokenUpdate(selectedToken: SelectedToken | null): void {
     scoreRefreshAttempts = 0;
   }
 
-  // Preserve existing metadata if the incoming update has less info
-  // (prevents content script overwrites from clearing hydrated metadata)
-  if (selectedToken && state.selectedToken?.address === selectedToken.address && state.selectedToken.metadata) {
+  // Preserve existing score/metadata if the incoming update has less info.
+  // Content scripts frequently persist { address } on detail pages while a score
+  // is still loading or being reconciled; that must not wipe the popup state.
+  if (selectedToken && state.selectedToken?.address === selectedToken.address) {
     selectedToken = {
+      ...state.selectedToken,
       ...selectedToken,
-      metadata: {
-        ...state.selectedToken.metadata,
-        ...(selectedToken.metadata ?? {}),
-      },
+      ...(state.selectedToken.metadata || selectedToken.metadata
+        ? {
+            metadata: {
+              ...(state.selectedToken.metadata ?? {}),
+              ...(selectedToken.metadata ?? {}),
+            },
+          }
+        : {}),
+      score: selectedToken.score ?? state.selectedToken.score,
     };
   }
 
@@ -1542,6 +1567,9 @@ async function handleAccountOpen(): Promise<void> {
   }
 
   await loadUserProfile();
+  await sendMessage({ type: 'REFRESH_USAGE' }, 3000).catch(() => {});
+  await loadUsageState();
+  updateAccountScreen();
   showScreen(state.isLoggedIn ? 'account' : 'login');
 }
 
@@ -1553,7 +1581,11 @@ async function loadUsageState(): Promise<void> {
     state.usageState = null;
   }
 
+  syncProfileUsageFromState();
   renderUsageIndicator();
+  if (state.selectedToken?.address) {
+    renderPrimaryTokenState();
+  }
 }
 
 async function loadSelectedToken(): Promise<void> {
@@ -1572,11 +1604,13 @@ async function refreshSelectedTokenScore(): Promise<void> {
     return;
   }
 
+  const currentScore = selectedToken.score;
+
   // If score is missing, fetch it (content script may not have persisted it yet)
-  const needsInitialFetch = !selectedToken.score;
+  const needsInitialFetch = !currentScore;
 
   // If score exists, only refresh if it's still worth refreshing
-  if (!needsInitialFetch && !shouldKeepRefreshingScore(selectedToken.score)) {
+  if (currentScore && !shouldKeepRefreshingScore(currentScore)) {
     return;
   }
 
@@ -1967,8 +2001,12 @@ function setupEventListeners(): void {
 
     if (changes.hourly_usage_state) {
       state.usageState = (changes.hourly_usage_state.newValue as HourlyUsageState | undefined) ?? null;
+      syncProfileUsageFromState();
       renderUsageIndicator();
-      if (!state.selectedToken?.score) {
+      if (state.currentScreen === 'account') {
+        updateAccountScreen();
+      }
+      if (state.selectedToken?.address || state.currentScreen === 'token-detail') {
         renderPrimaryTokenState();
       }
     }
@@ -2069,7 +2107,10 @@ function setupEventListeners(): void {
     void handleOAuth();
   });
 
-  elements.account.backBtn?.addEventListener('click', () => showScreen('token-detail'));
+  elements.account.backBtn?.addEventListener('click', () => {
+    showCurrentOrEmptyToken();
+    showScreen('token-detail');
+  });
   elements.account.manageBtn?.addEventListener('click', () => {
     const trustedPortalUrl = state.userProfile?.customerPortalUrl
       ? sanitizeCustomerPortalUrl(state.userProfile.customerPortalUrl)
