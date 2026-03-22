@@ -525,6 +525,12 @@ async function loadProfileFromApi(): Promise<ApiResponse<UserProfile>> {
     return session;
   }
 
+  // /auth/session returns HTTP 200 with { valid: false } when token is expired.
+  // Treat this as a 401 so fetchFreshProfile() triggers token refresh.
+  if ((session.data as unknown as { valid?: boolean }).valid === false) {
+    return { success: false, error: 'Session invalid', statusCode: 401 };
+  }
+
   const tierResult = await api.getUserTier();
   if (!tierResult.success || !tierResult.data) {
     const storedProfile = await getStoredNormalizedProfile();
