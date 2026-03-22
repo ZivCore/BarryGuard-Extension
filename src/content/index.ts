@@ -544,8 +544,19 @@ export function initializeContentScript(): void {
       return;
     }
 
+    const previousUrl = lastUrl;
     lastUrl = currentUrl;
+
+    // Clear resolved scores so stale badges don't persist across navigations
+    for (const address of resolvedScores.keys()) {
+      clearAddressState(address);
+    }
+
     scanAll();
+    // React/Next.js may not have rendered yet — retry with increasing delays
+    setTimeout(scanAll, 150);
+    setTimeout(scanAll, 500);
+    setTimeout(scanAll, 1200);
   }
 
   platform.observeDOMChanges(scanAll);
@@ -588,6 +599,11 @@ export function initializeContentScript(): void {
     originalReplaceState(...args);
     setTimeout(handleUrlChange, 0);
   };
+
+  // Fallback: poll for URL changes every 500ms.
+  // Catches SPA frameworks that save a reference to pushState before our
+  // content script runs, or that use the Navigation API.
+  setInterval(handleUrlChange, 500);
 
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', () => {
