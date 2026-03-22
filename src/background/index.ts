@@ -150,7 +150,10 @@ async function persistProfileState(profile: UserProfile): Promise<void> {
     await cache.clear();
   }
 
+  // Sync hourly bucket (resets on hour change), then correct local counter
+  // from the fresh profile's hourlyAnalysesUsed (backend is source of truth).
   await syncHourlyUsageState(profile);
+  await correctLocalUsageFromBackend(profile);
   await updateActionIcon(profile);
 }
 
@@ -668,7 +671,13 @@ async function syncHourlyUsageState(profile: UserProfile | null): Promise<Hourly
 async function markUsageExhausted(profile: UserProfile | null): Promise<void> {
   const state = await syncHourlyUsageState(profile);
   if (!state) return;
-  const exhausted: HourlyUsageState = { ...state, used: state.limit, updatedAt: Date.now() };
+  // Use backend count if available and higher than local, otherwise set to limit.
+  // Prevents over-inflation when a batch 429 fires after only a few tokens were counted.
+  const backendUsed = profile?.hourlyAnalysesUsed;
+  const used = typeof backendUsed === 'number' && backendUsed > state.used
+    ? backendUsed
+    : state.limit;
+  const exhausted: HourlyUsageState = { ...state, used, updatedAt: Date.now() };
   await setHourlyUsageState(exhausted);
 }
 
@@ -681,12 +690,10 @@ async function incrementHourlyUsage(profile: UserProfile | null, amount: number)
 
 /**
  * Correct the local hourly usage counter from the backend's authoritative count.
- * Fixes the case where markUsageExhausted() over-inflated the local counter
- * (e.g. a batch 429 set local to 1000/1000 while actual backend count is lower).
- *
- * When local state is at the limit (exhausted), forces a fresh profile refresh
- * to get the latest backend count — the cached profile may be stale from when
- * the quota was genuinely full but has since rolled over.
+ * Always syncs when the backend reports a different value — covers drift from
+ * batch parse mismatches, 429 over-inflation, and concurrent request races.
+ * Relies on profile.hourlyAnalysesUsed being delivered by the content script
+ * on barryguard.com (via WEBSITE_SESSION_DETECTED, every 60s).
  */
 async function correctLocalUsageFromBackend(profile: UserProfile | null): Promise<void> {
   if (!profile) return;
@@ -697,14 +704,11 @@ async function correctLocalUsageFromBackend(profile: UserProfile | null): Promis
   const currentBucketKey = getUsageBucketKey(profile.tier, profile ? 'authenticated' : 'anonymous');
   if (state.bucketKey !== currentBucketKey) return;
 
-  // Not exhausted — nothing to correct
-  if (state.used < state.limit) return;
-
-  // Use the profile's hourlyAnalysesUsed (set by content script via session response).
-  // The server computes this correctly (resets to 0 when hour passes).
-  // No API calls from background — they can't authenticate reliably.
+  // Always correct local counter when backend reports a different value.
+  // Backend is source of truth — local can drift from batch mismatches,
+  // 429 over-inflation, or concurrent request races.
   const backendUsed = profile.hourlyAnalysesUsed;
-  if (typeof backendUsed === 'number' && backendUsed < state.used) {
+  if (typeof backendUsed === 'number' && backendUsed !== state.used) {
     await setHourlyUsageState({ ...state, used: backendUsed, updatedAt: Date.now() });
   }
 }
@@ -939,7 +943,8 @@ async function analyzeTokenList(addresses: string[]): Promise<ApiResponse<TokenL
   }
 
   const networkScores = extractTokenScores(response.data, { allowedAddresses: missingAddresses });
-  await incrementHourlyUsage(normalizedProfile, networkScores.length);
+  // Increment by requested count, not parsed count — backend counts all requested tokens
+  await incrementHourlyUsage(normalizedProfile, missingAddresses.length);
   for (const score of networkScores) {
     await cache.set(score.address, score, tier);
     scores.push({ ...score, cached: false });
@@ -1298,12 +1303,11 @@ export function initializeBackground(): void {
             break;
           }
           case 'REFRESH_USAGE': {
-            // Popup requests a fresh usage state — correct from backend if exhausted
-            // Use stored profile to avoid overwriting a valid tier with a failed refresh
+            // Popup requests a fresh usage state — always correct from backend profile
             const currentProfile = await getStoredNormalizedProfile() ?? await refreshProfileStateIfNeeded();
-            await correctLocalUsageFromBackend(currentProfile);
-            // Also re-sync the hourly state with current profile tier
+            // FIRST sync (resets counter to 0 on hour change), THEN correct from backend
             await syncHourlyUsageState(currentProfile);
+            await correctLocalUsageFromBackend(currentProfile);
             respond({ success: true });
             break;
           }

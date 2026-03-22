@@ -11,25 +11,8 @@ export default defineContentScript({
   main() {
     let lastAuthState: boolean | null = null;
 
-    async function checkAuth(): Promise<void> {
-      const hasAuth = document.cookie
-        .split(';')
-        .some((c) => c.trim().startsWith('sb-'));
-
-      if (hasAuth === lastAuthState) return;
-      lastAuthState = hasAuth;
-
-      if (!hasAuth) {
-        chrome.runtime
-          .sendMessage({ type: 'WEBSITE_SESSION_LOST' })
-          .catch(() => {});
-        return;
-      }
-
-      // Content script runs in the page origin — it CAN send cookies.
-      // Fetch the session token here and pass it to the background worker.
+    async function fetchAndDeliverSession(): Promise<void> {
       try {
-        // Use the page's own origin — the content script runs in the page context
         const res = await fetch(`${window.location.origin}/api/auth/session`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -66,10 +49,37 @@ export default defineContentScript({
       }
     }
 
+    async function checkAuth(): Promise<void> {
+      const hasAuth = document.cookie
+        .split(';')
+        .some((c) => c.trim().startsWith('sb-'));
+
+      if (hasAuth === lastAuthState) return;
+      lastAuthState = hasAuth;
+
+      if (!hasAuth) {
+        chrome.runtime
+          .sendMessage({ type: 'WEBSITE_SESSION_LOST' })
+          .catch(() => {});
+        return;
+      }
+
+      await fetchAndDeliverSession();
+    }
+
     // Check immediately on page load
     void checkAuth();
 
-    // Re-check periodically (catches login/logout while the page is open)
+    // Re-check login/logout state every 10s
     setInterval(() => void checkAuth(), 10_000);
+
+    // Periodically deliver fresh session data (incl. hourlyAnalysesUsed)
+    // even when login state hasn't changed, so the background gets
+    // up-to-date usage counters from the backend.
+    setInterval(() => {
+      if (lastAuthState) {
+        void fetchAndDeliverSession();
+      }
+    }, 60_000);
   },
 });
