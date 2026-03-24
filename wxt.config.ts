@@ -8,7 +8,7 @@ export default defineConfig({
   outDir: '.output',
   manifest: {
     name: 'BarryGuard',
-    description: 'Live Solana token risk scores on Pump.fun, PumpSwap, Raydium, Dexscreener and 5 more. 23 checks. No wallet access.',
+    description: 'Solana token risk overlays on Pump.fun, PumpSwap, Raydium & 6 more platforms. 23 on-chain checks. No wallet access.',
     homepage_url: 'https://barryguard.com',
     permissions: ['storage', 'scripting'],
     host_permissions: [

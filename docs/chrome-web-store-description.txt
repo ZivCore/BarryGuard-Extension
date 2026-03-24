@@ -1,0 +1,48 @@
+Live risk overlays directly on Pump.fun, PumpSwap, Raydium, LetsBonk, Moonshot, Dexscreener, Birdeye, Bags and Solscan. 23 automated on-chain checks. No wallet access. No private keys.
+
+BarryGuard shows you a risk score for any Solana token directly on the pages where you trade — without leaving the tab.
+
+
+LIVE ON 9 PLATFORMS
+
+Pump.fun · PumpSwap · Raydium · LetsBonk · Moonshot · Dexscreener · Birdeye · Bags · Solscan
+
+
+23 ON-CHAIN CHECKS IN 3 CATEGORIES
+
+Contract (7 checks): Mint authority · Freeze authority · Liquidity lock status · Update authority · Honeypot simulation · LP creator match · Token-2022 Permanent Delegate detection
+
+Market (8 checks): Top holder concentration · Holder count · Token age · Liquidity depth · Bonding curve status · Price impact · Liquidity ratio · Post-rug detection
+
+Behavior (8 checks): Developer history · Insider network detection · Bundle detection · Early dump analysis · Sniper bot dominance · Metadata legitimacy · Creator wallet age · Creator retention
+
+
+WHAT BARRYGUARD DETECTS
+
+- Serial ruggers: creators with a rug history are flagged automatically
+- Insider networks: multiple top holders funded by the same wallet
+- Bundle launches: creator bought before anyone else using Jito bundles
+- Token-2022 Permanent Delegate: the extension that allows stealing tokens from any holder's wallet
+- Post-rug tokens: large holder count but empty liquidity pool — already rugged
+- Honeypots: tokens that can be bought but not sold
+
+
+SCORING
+
+Each check produces a score. The weighted average gives a total risk score from 1–99, plus three subscores. Result levels: Danger · High · Caution · Moderate · Low.
+
+
+PRIVACY
+
+BarryGuard reads token addresses from pages you visit on supported platforms. It does not access your wallet. It does not request private keys or seed phrases. It does not track your trades or balances. Full privacy policy: barryguard.com/privacy
+
+
+FREE TIER
+
+The free tier shows all 23 check results with no credit card required. Rescue Pass (CHF 9/month) adds live extension scanning, no cooldown, batch scanning, watchlist alerts and a higher hourly rate limit. Pro (CHF 19/month) adds the highest hourly rate limit and API access.
+
+
+Open-source extension: github.com/ZivCore/BarryGuard-Extension
+Built in Switzerland by Zivcore, Dällikon.
+
+BarryGuard provides risk indicators based on on-chain data. It is not investment advice. A low risk score does not mean a token is safe. Always do your own research.

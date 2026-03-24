@@ -1,7 +1,7 @@
 # BarryGuard Chrome Web Store Copy
 
 ## Kurzbeschreibung (max 132 Zeichen)
-Live Solana token risk scores on Pump.fun, PumpSwap, Raydium, Dexscreener and 5 more. 23 checks. No wallet access.
+Solana token risk overlays on Pump.fun, PumpSwap, Raydium & 6 more platforms. 23 on-chain checks. No wallet access.
 
 ## Ausfuehrliche Beschreibung
 Live risk overlays directly on Pump.fun, PumpSwap, Raydium, LetsBonk, Moonshot, Dexscreener, Birdeye, Bags and Solscan. 23 automated on-chain checks. No wallet access. No private keys.
@@ -32,8 +32,8 @@ Pump.fun, PumpSwap, Raydium, LetsBonk, Moonshot, Dexscreener, Birdeye, Bags, Sol
 
 ### Plans
 - Free: all checks visible, 30 analyses per hour, 10-second cooldown, 7-day history
-- Rescue Pass (CHF 9/mo): live extension scanning, 1,000 analyses per hour, no cooldown, watchlist with alerts, full history
-- Pro (CHF 19/mo): 10,000 analyses per hour, batch scan, API access
+- Rescue Pass (CHF 9/mo): live extension scanning, 250 analyses per hour, no cooldown, batch scan, watchlist with alerts, full history
+- Pro (CHF 19/mo): 1,000 analyses per hour, batch scan, API access, 250 watchlist slots
 
 Built in Switzerland. Open analysis methodology at barryguard.com/methodology
 
