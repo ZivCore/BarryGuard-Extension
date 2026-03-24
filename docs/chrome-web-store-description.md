@@ -1,39 +1,41 @@
 # BarryGuard Chrome Web Store Copy
 
-## Kurzbeschreibung
-BarryGuard zeigt dir Risiko-Scores fuer Solana-Tokens direkt auf unterstuetzten Solana-Sites und hilft dir, Scam-Risiken schneller zu erkennen.
-
-## Alternative Kurzbeschreibung
-Realtime Solana token risk analysis on supported Solana sites with clear BarryGuard scores, warnings, and fast manual token checks.
+## Kurzbeschreibung (max 132 Zeichen)
+Live Solana token risk scores on Pump.fun, PumpSwap, Raydium, Dexscreener and 5 more. 23 checks. No wallet access.
 
 ## Ausfuehrliche Beschreibung
-BarryGuard ist eine Browser-Extension fuer Solana-Trader, die Risiko-Scores direkt auf unterstuetzten Solana-Sites anzeigt und Tokens in Sekunden analysiert.
+Live risk overlays directly on Pump.fun, PumpSwap, Raydium, LetsBonk, Moonshot, Dexscreener, Birdeye, Bags and Solscan. 23 automated on-chain checks. No wallet access. No private keys.
 
-Statt jede Coin manuell zu pruefen, siehst du mit BarryGuard sofort eine klare Risikoeinschaetzung direkt neben dem Token. So kannst du schneller erkennen, ob ein Token eher unauffaellig wirkt oder ob Warnsignale vorliegen.
+BarryGuard analyzes Solana tokens in real time and shows a clear risk score directly on the page you are already on. No extra tabs, no copy-pasting addresses.
 
-### Was BarryGuard macht
-- Zeigt BarryGuard-Scores direkt auf unterstuetzten Solana-Sites an
-- Analysiert Solana-Tokens in Echtzeit
-- Oeffnet zu jedem Token eine Detailansicht mit Risikofaktoren
-- Erlaubt manuelle Analyse jeder Solana-Token-Adresse
-- Hilft dir, riskante Projekte frueher zu erkennen
+### 23 On-Chain Checks
+Every token is scored across three dimensions:
+- Contract Risk — mint authority, freeze authority, update authority, Token-2022 permanent delegate detection
+- Market Structure — liquidity lock status, holder concentration, top wallet analysis
+- Behavior — creator history, insider network detection, post-rug pattern recognition, bundle detection
 
-### Warum BarryGuard hilfreich ist
-- Du musst die unterstuetzte Solana-Site nicht verlassen, um einen ersten Risiko-Check zu sehen
-- Die Bewertung ist schnell, klar und direkt im Flow sichtbar
-- Die Extension spart Zeit bei der ersten Selektion von Tokens
-- Auch ausserhalb der unterstuetzten Solana-Sites kannst du Token-Adressen manuell pruefen
+### 9 Supported Platforms
+Risk overlays appear automatically on:
+Pump.fun, PumpSwap, Raydium, LetsBonk, Moonshot, Dexscreener, Birdeye, Bags, Solscan
 
-### Fuer wen BarryGuard gedacht ist
-BarryGuard ist fuer Nutzer gedacht, die auf Solana aktiv handeln, neue Tokens beobachten und Scam-Risiken schneller einordnen wollen.
+### Privacy First
+- No wallet connection required
+- No private keys accessed
+- No transaction signing
+- Read-only on-chain analysis
 
-### Wichtiger Hinweis
-BarryGuard liefert Risiko-Indikatoren auf Basis von On-Chain-Daten. Die Extension ist keine Finanzberatung. Ein niedriger Risiko-Score bedeutet nicht, dass ein Token sicher ist. Bitte immer selbst recherchieren und nur Kapital einsetzen, dessen Verlust du tragen kannst.
+### How It Works
+1. Visit any supported Solana site
+2. BarryGuard overlays a risk score on every token automatically
+3. Click for full details: 23 checks, three subscores, risk reasons
+4. Manual check: enter any Solana token address in the extension popup
 
-## Promo Text Vorschlaege
-- Clear token risk signals for supported Solana sites
-- Solana token checks in seconds
-- BarryGuard scores directly where you trade
+### Plans
+- Free: all checks visible, 30 analyses per hour, 10-second cooldown, 7-day history
+- Rescue Pass (CHF 9/mo): live extension scanning, 1,000 analyses per hour, no cooldown, watchlist with alerts, full history
+- Pro (CHF 19/mo): 10,000 analyses per hour, batch scan, API access
+
+Built in Switzerland. Open analysis methodology at barryguard.com/methodology
 
 ## Suchbegriffe
-BarryGuard, Solana, Pump.fun, PumpSwap, Raydium, Dexscreener, Birdeye, Moonshot, LetsBonk, token scanner, risk score, scam detection, rug pull, memecoin, crypto safety, token analysis
+BarryGuard, Solana, Pump.fun, PumpSwap, Raydium, Dexscreener, Birdeye, Moonshot, LetsBonk, Solscan, Bags, token scanner, risk score, scam detection, rug pull, memecoin, crypto safety, token analysis, Token-2022, permanent delegate
