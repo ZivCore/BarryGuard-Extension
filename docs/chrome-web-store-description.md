@@ -31,9 +31,9 @@ Pump.fun, PumpSwap, Raydium, LetsBonk, Moonshot, Dexscreener, Birdeye, Bags, Sol
 4. Manual check: enter any Solana token address in the extension popup
 
 ### Plans
-- Free: all checks visible, 30 analyses per hour, 10-second cooldown, 7-day history
-- Rescue Pass (CHF 9/mo): live extension scanning, 250 analyses per hour, no cooldown, batch scan, watchlist with alerts, full history
-- Pro (CHF 19/mo): 1,000 analyses per hour, batch scan, API access, 250 watchlist slots
+- Free: 3 checks per category, 30 analyses per hour, 10-second cooldown, batch scan up to 3, auto-refresh every 24h, 24-hour history
+- Rescue Pass (CHF 9/mo): all checks, 250 analyses per hour, no cooldown, batch scan, auto-refresh every 60min, watchlist with alerts, full history
+- Pro (CHF 19/mo): all checks, 1,000 analyses per hour, no cooldown, batch scan, auto-refresh every 10min, 250 watchlist slots, full history
 
 Built in Switzerland. Open analysis methodology at barryguard.com/methodology
 

@@ -39,7 +39,11 @@ BarryGuard reads token addresses from pages you visit on supported platforms. It
 
 FREE TIER
 
-The free tier shows all 23 check results with no credit card required. Rescue Pass (CHF 9/month) adds live extension scanning, no cooldown, batch scanning, watchlist alerts and a higher hourly rate limit. Pro (CHF 19/month) adds the highest hourly rate limit and API access.
+The free tier shows 3 check results per category with no credit card required. Batch scan up to 3 tokens. Auto-refresh every 24 hours. 24-hour analysis history.
+
+Rescue Pass (CHF 9/month) unlocks all check results, no cooldown, unlimited batch scan, auto-refresh every 60 minutes, watchlist with alerts, and full history.
+
+Pro (CHF 19/month) adds 1,000 analyses per hour, auto-refresh every 10 minutes, and 250 watchlist slots.
 
 
 Open-source extension: github.com/ZivCore/BarryGuard-Extension
