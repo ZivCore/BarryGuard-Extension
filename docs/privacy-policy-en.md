@@ -16,7 +16,7 @@ The controller responsible for data processing in connection with the BarryGuard
 
 This Privacy Policy explains how BarryGuard processes personal data in connection with the BarryGuard browser extension.
 
-BarryGuard is a browser extension for analyzing Solana tokens on supported websites. The extension displays risk scores, token metadata, and plan-based features directly in the browser. BarryGuard is designed to operate across supported parts of the Solana ecosystem. The current release supports Pump.fun, PumpSwap, Raydium, LetsBonk, Moonshot, Dexscreener, Birdeye, and Solscan.
+BarryGuard is a browser extension for analyzing Solana tokens on supported websites. The extension displays risk scores, token metadata, and plan-based features directly in the browser. BarryGuard is designed to operate across supported parts of the Solana ecosystem. The current release supports Pump.fun, PumpSwap, Raydium, LetsBonk, Moonshot, Dexscreener, Birdeye, Bags, Solscan, and DexTools.
 
 ## 3. What Data Is Processed
 
@@ -52,7 +52,7 @@ To provide the core product functionality, the extension processes data visible 
 - token logos
 - the current page context of a supported token detail page or token list view
 
-In the current release, this applies to the supported Solana sites Pump.fun, PumpSwap, Raydium, LetsBonk, Moonshot, Dexscreener, Birdeye, and Solscan. The same type of token-context data may be processed there for the same product purpose.
+In the current release, this applies to the supported Solana sites Pump.fun, PumpSwap, Raydium, LetsBonk, Moonshot, Dexscreener, Birdeye, Bags, Solscan, and DexTools. The same type of token-context data may be processed there for the same product purpose.
 
 ### d) Usage and Functional Data
 

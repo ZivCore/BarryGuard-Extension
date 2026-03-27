@@ -16,7 +16,7 @@ Verantwortlich fuer die Datenverarbeitung im Zusammenhang mit der Browser-Extens
 
 Diese Datenschutzerklaerung beschreibt, wie BarryGuard personenbezogene Daten im Zusammenhang mit der Nutzung der BarryGuard-Browser-Extension verarbeitet.
 
-BarryGuard ist eine Browser-Extension fuer die Analyse von Solana-Token auf unterstuetzten Websites. Die Extension zeigt Risiko-Scores, Token-Metadaten und planabhaengige Funktionen direkt im Browser an. BarryGuard ist fuer mehrere unterstuetzte Websites im Solana-Oekosystem ausgelegt. Die aktuelle Version unterstuetzt Pump.fun, PumpSwap, Raydium, LetsBonk, Moonshot, Dexscreener, Birdeye und Solscan.
+BarryGuard ist eine Browser-Extension fuer die Analyse von Solana-Token auf unterstuetzten Websites. Die Extension zeigt Risiko-Scores, Token-Metadaten und planabhaengige Funktionen direkt im Browser an. BarryGuard ist fuer mehrere unterstuetzte Websites im Solana-Oekosystem ausgelegt. Die aktuelle Version unterstuetzt Pump.fun, PumpSwap, Raydium, LetsBonk, Moonshot, Dexscreener, Birdeye, Bags, Solscan und DexTools.
 
 ## 3. Welche Daten verarbeitet werden
 
@@ -31,7 +31,7 @@ Wenn du ein BarryGuard-Konto erstellst oder dich anmeldest, koennen insbesondere
 - interne Nutzer-ID
 - Auth- und Session-Token
 
-## b) Plan- und Abo-Daten
+### b) Plan- und Abo-Daten
 
 Wenn du einen kostenpflichtigen Plan nutzt, koennen zusaetzlich insbesondere folgende Daten verarbeitet werden:
 
@@ -52,7 +52,7 @@ Damit BarryGuard seine Kernfunktion bereitstellen kann, verarbeitet die Extensio
 - Token-Logos
 - den aktuellen Seitenkontext einer unterstuetzten Token-Seite oder Listenansicht
 
-In der aktuellen Version betrifft dies die unterstuetzten Solana-Sites Pump.fun, PumpSwap, Raydium, LetsBonk, Moonshot, Dexscreener, Birdeye und Solscan. Auf diesen Websites koennen dieselben Arten von Token-Kontextdaten fuer denselben Produktzweck verarbeitet werden.
+In der aktuellen Version betrifft dies die unterstuetzten Solana-Sites Pump.fun, PumpSwap, Raydium, LetsBonk, Moonshot, Dexscreener, Birdeye, Bags, Solscan und DexTools. Auf diesen Websites koennen dieselben Arten von Token-Kontextdaten fuer denselben Produktzweck verarbeitet werden.
 
 ### d) Nutzungs- und Funktionsdaten
 

@@ -1,10 +1,10 @@
 # BarryGuard Chrome Web Store Copy
 
 ## Kurzbeschreibung (max 132 Zeichen)
-Solana token risk overlays on Pump.fun, PumpSwap, Raydium & 6 more platforms. 23 on-chain checks. No wallet access.
+Solana token risk overlays on Pump.fun, PumpSwap, Raydium & 7 more platforms. 23 on-chain checks. No wallet access.
 
 ## Ausfuehrliche Beschreibung
-Live risk overlays directly on Pump.fun, PumpSwap, Raydium, LetsBonk, Moonshot, Dexscreener, Birdeye, Bags and Solscan. 23 automated on-chain checks. No wallet access. No private keys.
+Live risk overlays directly on Pump.fun, PumpSwap, Raydium, LetsBonk, Moonshot, Dexscreener, Birdeye, Bags, Solscan and DexTools. 23 automated on-chain checks. No wallet access. No private keys.
 
 BarryGuard analyzes Solana tokens in real time and shows a clear risk score directly on the page you are already on. No extra tabs, no copy-pasting addresses.
 
@@ -14,9 +14,9 @@ Every token is scored across three dimensions:
 - Market Structure — liquidity lock status, holder concentration, top wallet analysis
 - Behavior — creator history, insider network detection, post-rug pattern recognition, bundle detection
 
-### 9 Supported Platforms
+### 10 Supported Platforms
 Risk overlays appear automatically on:
-Pump.fun, PumpSwap, Raydium, LetsBonk, Moonshot, Dexscreener, Birdeye, Bags, Solscan
+Pump.fun, PumpSwap, Raydium, LetsBonk, Moonshot, Dexscreener, Birdeye, Bags, Solscan, DexTools
 
 ### Privacy First
 - No wallet connection required
@@ -38,4 +38,4 @@ Pump.fun, PumpSwap, Raydium, LetsBonk, Moonshot, Dexscreener, Birdeye, Bags, Sol
 Built in Switzerland. Open analysis methodology at barryguard.com/methodology
 
 ## Suchbegriffe
-BarryGuard, Solana, Pump.fun, PumpSwap, Raydium, Dexscreener, Birdeye, Moonshot, LetsBonk, Solscan, Bags, token scanner, risk score, scam detection, rug pull, memecoin, crypto safety, token analysis, Token-2022, permanent delegate
+BarryGuard, Solana, Pump.fun, PumpSwap, Raydium, Dexscreener, Birdeye, Moonshot, LetsBonk, Solscan, Bags, DexTools, token scanner, risk score, scam detection, rug pull, memecoin, crypto safety, token analysis, Token-2022, permanent delegate
