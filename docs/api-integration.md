@@ -47,7 +47,7 @@ Response: TokenScore object or null
 Batch analysis of multiple tokens (Rescue Pass / Pro only).
 
 ```
-Request:  { tokens: [{ address, chain }] }
+Request:  { addresses: string[], chain: "solana", mode: "light" }
 Response: { scores: TokenScore[] }
 ```
 
@@ -106,7 +106,7 @@ Request:  { address, chain }
 #### DELETE /api/watchlist/:address
 Remove token from watchlist.
 
-#### POST /api/watchlist/alerts
+#### GET /api/watchlist/alerts
 Fetch watchlist alerts.
 
 #### PATCH /api/watchlist/alerts/:id/read
@@ -146,7 +146,7 @@ Public endpoint — returns cache TTLs and tier limits. Called on startup and ev
 | 400 | `validation` | Custom error from response body |
 | 403 | `plan_gate` | Feature requires a higher plan |
 | 429 | `rate_limit` or `cooldown` | Hourly limit / cooldown active |
-| 502, 503 | `busy` | Blockchain data temporarily unavailable |
+| 502, 503 | `server` | Blockchain data temporarily unavailable |
 | Timeout | `network` | Request timed out |
 | Network error | `network` | Connection failed |
 

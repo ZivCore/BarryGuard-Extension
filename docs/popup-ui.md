@@ -79,31 +79,9 @@ Color-coded circular chart showing the risk score:
 | MODERATE | 75–89 | Green |
 | LOW | 90–100 | Teal |
 
-### Check Display Order
+### Check Display
 
-Checks are shown in a fixed order across all displays:
-
-1. Mint Authority
-2. Freeze Authority
-3. Liquidity Lock
-4. Honeypot Simulation
-5. LP Creator Match
-6. Top Holder Concentration
-7. Token Age
-8. Holder Count
-9. Developer History
-10. Insider Network
-11. Bundle Detection
-12. Early Dump
-13. Sniper Bot Dominance
-14. Bonding Curve Status
-15. Liquidity Depth
-16. Metadata Legitimacy
-17. Creator Wallet Age
-18. Price Impact
-19. Update Authority
-20. Creator Retention
-21. Liquidity Ratio
+Checks are grouped into three categories — **Contract**, **Market Structure**, and **Behavior** — and displayed in a fixed order. The number of visible checks depends on the user's tier. Free users see a subset; paid users see the full analysis.
 
 ### Check Status Icons
 

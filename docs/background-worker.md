@@ -116,9 +116,9 @@ Authentication state is synced from the BarryGuard website via a dedicated conte
 
 The background worker tracks hourly analysis usage locally:
 
-- **Bucket key:** `{audience}:{tier}:{hour}` — resets every hour
-- **Cooldown:** Free tier has a 10-second cooldown between analyses
-- **Sync:** Usage counters are periodically reconciled with the backend to prevent drift
+- Usage resets every hour
+- Free tier has a 10-second cooldown between analyses
+- Usage counters are periodically synced with the backend
 
 ## Tab Management
 

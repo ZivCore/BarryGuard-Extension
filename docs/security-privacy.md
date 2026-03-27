@@ -55,7 +55,7 @@ Session storage (`chrome.storage.session`) is the most secure option for sensiti
 Before navigating the user to any external URL:
 - HTTPS is required (no HTTP except localhost)
 - Stripe URLs are validated against `billing.stripe.com`
-- OAuth URLs are validated against known providers (Google, Supabase)
+- OAuth URLs are validated against known providers (Google, our auth service)
 - Explorer URLs are restricted to Solscan
 
 ## Privacy
@@ -65,7 +65,7 @@ Before navigating the user to any external URL:
 When you use the extension:
 
 1. **Token addresses** — Sent to the BarryGuard API for analysis. Only addresses visible on the page you're viewing.
-2. **Account data** — If you create an account: email and hashed password (stored on our backend via Supabase Auth).
+2. **Account data** — If you create an account: email and hashed password (stored securely on our servers).
 3. **Usage counters** — Number of analyses per hour (for rate limiting).
 
 ### Data We Don't Collect
