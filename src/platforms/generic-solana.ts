@@ -186,12 +186,21 @@ export class GenericSolanaPlatform implements IPlatform {
   }
 
   renderLoadingBadge(address: string): void {
+    const existingBadge = this.getBadge(address);
+
+    // Don't overwrite a badge that already has a score or locked state
+    if (existingBadge && existingBadge.getAttribute('data-barryguard-locked') === 'true') {
+      return;
+    }
+    if (existingBadge && existingBadge.getAttribute('data-bg-score')) {
+      return;
+    }
+
     const target = this.getTargetElement(address);
     if (!target) {
       return;
     }
 
-    const existingBadge = this.getBadge(address);
     const badge = existingBadge ?? createBadgeElement(address);
     badge.style.backgroundColor = '#f3f4f6';
     badge.style.color = '#6b7280';

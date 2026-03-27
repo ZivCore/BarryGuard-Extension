@@ -26,6 +26,8 @@ export default defineContentScript({
     '*://bags.fm/*',
     '*://solscan.io/*',
     '*://*.solscan.io/*',
+    '*://www.dextools.io/*',
+    '*://dextools.io/*',
   ],
   runAt: 'document_end',
   main() {

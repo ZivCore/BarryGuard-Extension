@@ -608,6 +608,24 @@ body {
   text-transform: uppercase;
 }
 
+.view-full-analysis-link {
+  display: block;
+  width: 100%;
+  margin-top: 8px;
+  color: var(--swiss-red);
+  font-size: 11.5px;
+  font-weight: 600;
+  text-align: center;
+  text-decoration: none;
+  opacity: 0.85;
+  transition: opacity 0.15s ease;
+}
+
+.view-full-analysis-link:hover {
+  opacity: 1;
+  text-decoration: underline;
+}
+
 #score-container {
   align-items: center;
   background: var(--surface);

@@ -7,6 +7,7 @@ import { DexScreenerPlatform } from '../platforms/dexscreener';
 import { BirdeyePlatform } from '../platforms/birdeye';
 import { BagsPlatform } from '../platforms/bags';
 import { SolscanPlatform } from '../platforms/solscan';
+import { DextoolsPlatform } from '../platforms/dextools';
 import type { IPlatform } from '../platforms/platform.interface';
 import type { ApiResponse, SelectedToken, TierLevel, TokenMetadata, TokenScore } from '../shared/types';
 
@@ -17,6 +18,7 @@ const PLATFORMS: IPlatform[] = [
   new LetsBonkPlatform(),
   new MoonshotPlatform(),
   new DexScreenerPlatform(),
+  new DextoolsPlatform(),
   new BirdeyePlatform(),
   new BagsPlatform(),
   new SolscanPlatform(),
