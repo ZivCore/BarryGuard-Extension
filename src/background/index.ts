@@ -35,11 +35,29 @@ const DEFAULT_LIST_REQUEST_LIMIT: Record<TierLevel, number> = {
   rescue_pass: 500,
   pro: 2000,
 };
+// Fallback limits — authoritative values are fetched from /api/config at startup
+// and stored in _dynamicTierLimits. These must stay aligned with config.json.
 const DEFAULT_HOURLY_ANALYSIS_LIMIT: Record<TierLevel, number> = {
   free: 30,
-  rescue_pass: 1000,
-  pro: 10000,
+  rescue_pass: 250,
+  pro: 1000,
 };
+
+const TIER_LIMITS_KEY = 'bg_tier_limits';
+const USAGE_CORRECTION_GRACE_MS = 60_000; // Don't correct usage downward within 60s of an increment
+
+interface StoredTierLimits {
+  analysesPerHour: Partial<Record<TierLevel, number>>;
+  cooldownSeconds: Partial<Record<TierLevel, number>>;
+  syncedAt: number;
+}
+
+// Module-level state populated from /api/config and persisted in chrome.storage.local
+let _dynamicTierLimits: StoredTierLimits | null = null;
+// Timestamp of last local usage increment — guards against stale backend corrections
+let _lastIncrementAt = 0;
+// Sticky tier: prevents flicker during auth token refresh cycles
+let _lastConfirmedTier: TierLevel | null = null;
 
 interface SingleAnalysisState {
   lastAnalyzeAt?: number;
@@ -95,17 +113,37 @@ function mergeRecords(...records: Array<JsonRecord | null>): JsonRecord {
 // inferTier reads the tier exclusively from the trusted 'tier' field (an explicit enum field).
 // It does NOT derive tier from generic boolean flags, price hints, or subscription status fields
 // to prevent tier upgrades from API-response manipulation.
+// Uses _lastConfirmedTier as sticky fallback to prevent downgrade flicker during auth refresh.
 function inferTier(data: unknown): TierLevel {
-  if (!data || typeof data !== 'object') return 'free';
+  if (!data || typeof data !== 'object') {
+    if (_lastConfirmedTier) {
+      console.log(`[BarryGuard] inferTier: no data, keeping last confirmed tier: ${_lastConfirmedTier}`);
+      return _lastConfirmedTier;
+    }
+    return 'free';
+  }
   const record = data as Record<string, unknown>;
   // Admins always get pro regardless of subscription tier
   const role = record['role'];
-  if (role === 'admin') return 'pro';
+  if (role === 'admin') {
+    _lastConfirmedTier = 'pro';
+    return 'pro';
+  }
   const tier = record['tier'];
   if (typeof tier === 'string' && VALID_TIERS.includes(tier as TierLevel)) {
-    return tier as TierLevel;
+    const newTier = tier as TierLevel;
+    if (_lastConfirmedTier && newTier !== _lastConfirmedTier) {
+      console.log(`[BarryGuard] Tier changed: ${_lastConfirmedTier} → ${newTier}`);
+    }
+    _lastConfirmedTier = newTier;
+    return newTier;
   }
-  return 'free'; // Default is always free, never pro
+  // Tier field missing/invalid — keep last confirmed tier to avoid downgrade during token refresh
+  if (_lastConfirmedTier) {
+    console.log(`[BarryGuard] inferTier: tier field missing/invalid, keeping last confirmed tier: ${_lastConfirmedTier}`);
+    return _lastConfirmedTier;
+  }
+  return 'free';
 }
 
 async function getStoredToken(): Promise<AuthToken | null> {
@@ -310,28 +348,61 @@ function runInitializeOnce(): void {
   });
 }
 
+async function getStoredTierLimits(): Promise<StoredTierLimits | null> {
+  const stored = await chrome.storage.local.get(TIER_LIMITS_KEY);
+  return (stored[TIER_LIMITS_KEY] as StoredTierLimits | undefined) ?? null;
+}
+
 async function syncCacheTTLsFromApi(): Promise<void> {
   try {
     const baseUrl = getApiBaseUrl();
     const response = await fetch(`${baseUrl}/config`);
     if (!response.ok) return;
-    const data = await response.json() as { cache?: { ttlMinutes?: Partial<Record<string, number>> } };
+    const data = await response.json() as {
+      cache?: { ttlMinutes?: Partial<Record<string, number>> };
+      auth?: { tiers?: Record<string, { analysesPerHour?: number; cooldownSeconds?: number }> };
+    };
+
+    // Sync cache TTLs
     const ttlMinutes = data?.cache?.ttlMinutes;
-    if (!ttlMinutes || typeof ttlMinutes !== 'object') return;
-    const ttlMs: Partial<Record<TierLevel, number>> = {};
-    if (typeof ttlMinutes['free'] === 'number')        ttlMs.free        = ttlMinutes['free'] * 60000;
-    if (typeof ttlMinutes['rescue_pass'] === 'number') ttlMs.rescue_pass = ttlMinutes['rescue_pass'] * 60000;
-    if (typeof ttlMinutes['pro'] === 'number')         ttlMs.pro         = ttlMinutes['pro'] * 60000;
-    updateCacheTTL(ttlMs);
+    if (ttlMinutes && typeof ttlMinutes === 'object') {
+      const ttlMs: Partial<Record<TierLevel, number>> = {};
+      if (typeof ttlMinutes['free'] === 'number')        ttlMs.free        = ttlMinutes['free'] * 60000;
+      if (typeof ttlMinutes['rescue_pass'] === 'number') ttlMs.rescue_pass = ttlMinutes['rescue_pass'] * 60000;
+      if (typeof ttlMinutes['pro'] === 'number')         ttlMs.pro         = ttlMinutes['pro'] * 60000;
+      updateCacheTTL(ttlMs);
+    }
+
+    // Sync tier limits (analysesPerHour, cooldownSeconds) from server config
+    const tiers = data?.auth?.tiers;
+    if (tiers && typeof tiers === 'object') {
+      const tierLimits: StoredTierLimits = {
+        analysesPerHour: {},
+        cooldownSeconds: {},
+        syncedAt: Date.now(),
+      };
+      for (const [key, config] of Object.entries(tiers)) {
+        if (VALID_TIERS.includes(key as TierLevel) && config && typeof config === 'object') {
+          const t = key as TierLevel;
+          if (typeof config.analysesPerHour === 'number') tierLimits.analysesPerHour[t] = config.analysesPerHour;
+          if (typeof config.cooldownSeconds === 'number') tierLimits.cooldownSeconds[t] = config.cooldownSeconds;
+        }
+      }
+      _dynamicTierLimits = tierLimits;
+      await chrome.storage.local.set({ [TIER_LIMITS_KEY]: tierLimits });
+    }
   } catch {
-    // Non-fatal: extension continues with hardcoded TTL defaults
+    // Non-fatal: extension continues with hardcoded defaults
   }
 }
 
 async function initialize(): Promise<void> {
   await cache.init();
+  // Restore cached tier limits before API sync (service worker may have restarted)
+  const storedLimits = await getStoredTierLimits();
+  if (storedLimits) _dynamicTierLimits = storedLimits;
   await syncCacheTTLsFromApi();
-  // M-8: Periodic re-sync of cache TTLs from backend (every 30 minutes)
+  // M-8: Periodic re-sync of cache TTLs + tier limits from backend (every 30 minutes)
   setInterval(() => { void syncCacheTTLsFromApi(); }, 30 * 60 * 1000);
   // Content script is the sole auth authority — no periodic background refresh.
   // Load stored profile on startup (non-forced, won't clear if stale).
@@ -478,7 +549,9 @@ function normalizeProfile(profile: UserProfile | JsonRecord): UserProfile {
     singleTokenCooldownSeconds:
       typedProfile.singleTokenCooldownSeconds ?? (tier === 'free' ? FREE_COOLDOWN_SECONDS : 0),
     singleTokenHourlyLimit:
-      typedProfile.singleTokenHourlyLimit ?? DEFAULT_HOURLY_ANALYSIS_LIMIT[tier],
+      typedProfile.singleTokenHourlyLimit
+        ?? _dynamicTierLimits?.analysesPerHour[tier]
+        ?? DEFAULT_HOURLY_ANALYSIS_LIMIT[tier],
     hourlyAnalysesUsed,
     hourlyAnalysesRemaining,
     hourlyAnalysesLimit,
@@ -595,7 +668,9 @@ function getCooldownSeconds(profile: UserProfile | null): number {
     return ANONYMOUS_COOLDOWN_SECONDS;
   }
 
-  return profile.singleTokenCooldownSeconds ?? (profile.tier === 'free' ? FREE_COOLDOWN_SECONDS : 0);
+  return profile.singleTokenCooldownSeconds
+    ?? _dynamicTierLimits?.cooldownSeconds[profile.tier]
+    ?? (profile.tier === 'free' ? FREE_COOLDOWN_SECONDS : 0);
 }
 
 function getHourlyLimit(profile: UserProfile | null): number {
@@ -603,7 +678,9 @@ function getHourlyLimit(profile: UserProfile | null): number {
     return ANONYMOUS_HOURLY_LIMIT;
   }
 
-  return profile.singleTokenHourlyLimit ?? DEFAULT_HOURLY_ANALYSIS_LIMIT[profile.tier];
+  return profile.singleTokenHourlyLimit
+    ?? _dynamicTierLimits?.analysesPerHour[profile.tier]
+    ?? DEFAULT_HOURLY_ANALYSIS_LIMIT[profile.tier];
 }
 
 function getUsageBucketKey(tier: TierLevel, audience: 'anonymous' | 'authenticated', timestamp = Date.now()): string {
@@ -702,6 +779,7 @@ async function incrementHourlyUsage(profile: UserProfile | null, amount: number)
   if (!state) return;
   const updated: HourlyUsageState = { ...state, used: state.used + amount, updatedAt: Date.now() };
   await setHourlyUsageState(updated);
+  _lastIncrementAt = Date.now();
 }
 
 /**
@@ -713,6 +791,12 @@ async function incrementHourlyUsage(profile: UserProfile | null, amount: number)
  */
 async function correctLocalUsageFromBackend(profile: UserProfile | null): Promise<void> {
   if (!profile) return;
+
+  // Grace period: skip correction if a local increment happened recently.
+  // The backend's hourlyAnalysesUsed may not yet reflect the latest analyses
+  // (profile sync is periodic), so correcting now would erase valid local counts.
+  if (Date.now() - _lastIncrementAt < USAGE_CORRECTION_GRACE_MS) return;
+
   const state = await getStoredHourlyUsageState();
   if (!state) return;
 
