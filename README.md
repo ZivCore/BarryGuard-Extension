@@ -128,7 +128,7 @@ src/
   config/           Platform CSS selectors
 tests/              Unit and integration tests (mirrors src/)
 e2e/                Playwright browser smoke tests
-docs/               Chrome Web Store assets and privacy policies
+docs/               Technical documentation, store assets, privacy policies
 public/             Static assets (icons, logos)
 ```
 
@@ -154,6 +154,20 @@ No secrets or API keys are stored in this repository. The API URL can be overrid
 - **Public source**: This repository exists so anyone can verify these claims
 
 Full privacy policy: [English](docs/privacy-policy-en.md) | [Deutsch](docs/datenschutzerklaerung.md)
+
+---
+
+## Documentation
+
+| Document | Description |
+|----------|-------------|
+| [Architecture](docs/architecture.md) | System design, data flow, component diagram |
+| [Platform Adapters](docs/platform-adapters.md) | How adapters work, how to add new platform support |
+| [Background Worker](docs/background-worker.md) | Service worker, caching, message protocol |
+| [Popup UI](docs/popup-ui.md) | Screens, state machine, check display |
+| [API Integration](docs/api-integration.md) | Endpoints, request/response shapes, error handling |
+| [Development Guide](docs/development-guide.md) | Setup, build, test, release workflow |
+| [Security & Privacy](docs/security-privacy.md) | Permissions, data handling, security model |
 
 ---
 
