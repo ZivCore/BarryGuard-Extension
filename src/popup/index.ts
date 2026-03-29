@@ -1337,7 +1337,10 @@ function updateAccountScreen(): void {
   }
 
   if (elements.account.email) elements.account.email.textContent = user.email;
-  if (elements.account.tierName) elements.account.tierName.textContent = formatTier(user.tier);
+  if (elements.account.tierName) {
+    const tierLabel = formatTier(user.tier);
+    elements.account.tierName.textContent = user.subscriptionStatus === 'trialing' ? `${tierLabel} (Trial)` : tierLabel;
+  }
   setTierBadgeClass(user.tier);
   applyPlanBranding();
   renderUsageIndicator();

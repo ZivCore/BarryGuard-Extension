@@ -109,6 +109,8 @@ Diese lokale Speicherung ist erforderlich, damit die Extension schnell reagieren
 
 Personenbezogene Daten werden nur so lange gespeichert, wie dies fuer die oben genannten Zwecke erforderlich ist oder gesetzliche Aufbewahrungspflichten bestehen.
 
+Konten, deren E-Mail-Adresse nie bestaetigt wurde, werden nach 30 Tagen automatisch geloescht. Dies betrifft ausschliesslich unbestaetigte Konten, nicht bestaetigte Nutzer.
+
 Lokal gespeicherte Daten in der Extension bleiben in der Regel gespeichert, bis:
 
 - du dich ausloggst

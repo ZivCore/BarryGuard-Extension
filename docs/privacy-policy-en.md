@@ -109,6 +109,8 @@ This local storage is necessary so the extension can respond quickly, preserve s
 
 Personal data is retained only as long as necessary for the purposes described above or as required by law.
 
+Accounts whose email address has never been confirmed are automatically deleted after 30 days. This applies only to unconfirmed accounts, not to confirmed users.
+
 Locally stored extension data generally remains stored until:
 
 - you sign out
