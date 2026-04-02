@@ -1277,6 +1277,21 @@ export function initializeBackground(): void {
           case 'ANALYZE_TOKEN_LIST':
             respond(await analyzeTokenList((message.payload?.addresses as string[] | undefined) ?? []));
             break;
+          case 'GET_CACHED_SCORE': {
+            const cachedAddress = typeof message.payload === 'string' ? message.payload : '';
+            if (!isValidSolanaAddress(cachedAddress)) {
+              respond({ success: false, error: 'Invalid address' });
+              break;
+            }
+            const cachedProfile = await refreshProfileStateIfNeeded();
+            const cachedTier: TierLevel = cachedProfile?.tier ?? 'free';
+            const cachedScore = await cache.get(cachedAddress, cachedTier);
+            respond(cachedScore
+              ? { success: true, data: { ...cachedScore, cached: true } }
+              : { success: false, error: 'Not in cache' }
+            );
+            break;
+          }
           case 'GET_TOKEN_METADATA':
             if (!isValidSolanaAddress(message.payload)) {
               respond({ success: false, error: 'Invalid token address format.' });

@@ -399,6 +399,11 @@ export function initializeContentScript(): void {
 
         if (platform.getCurrentPageAddress() === address) {
           const selectedToken = platform.buildSelectedToken(address, score);
+
+          // Persist score immediately so the popup can show it right away
+          persistSelectedToken(selectedToken);
+
+          // Metadata is fetched separately and persisted as an update
           sendRuntimeMessage({ type: 'GET_TOKEN_METADATA', payload: address }, (metadataResponse) => {
             const metadata = {
               ...(selectedToken.metadata ?? {}),
@@ -465,9 +470,18 @@ export function initializeContentScript(): void {
     syncVisibleBadges(visibleAddresses);
 
     // Detail page: immediately persist selectedToken with address so the popup
-    // always shows the current page's token (even before score resolves)
+    // always shows the current page's token (even before score resolves).
+    // Try to include a cached score from a previous visit via the extension cache.
     if (currentPageAddress && document.hasFocus() && !resolvedScores.has(currentPageAddress)) {
-      persistSelectedToken({ address: currentPageAddress });
+      sendRuntimeMessage({ type: 'GET_CACHED_SCORE', payload: currentPageAddress }, (cachedResponse) => {
+        if (cachedResponse?.success && cachedResponse.data) {
+          const cachedScore = cachedResponse.data as TokenScore;
+          const selectedToken = platform.buildSelectedToken(currentPageAddress, cachedScore);
+          persistSelectedToken(selectedToken);
+        } else {
+          persistSelectedToken({ address: currentPageAddress });
+        }
+      });
     }
 
     if (currentPageAddress) {
