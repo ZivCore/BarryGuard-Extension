@@ -39,8 +39,10 @@ If you use a paid plan, BarryGuard may also process:
 - subscription status
 - end of the current billing period
 - customer portal link
+- payment method
+- for crypto checkout on the BarryGuard website: selected currency, receiving wallet address, payment reference, transaction signature, and payment lifecycle metadata needed to confirm the payment
 
-BarryGuard does not process full credit card information inside the extension. Payment handling takes place outside the extension through the BarryGuard website and the payment provider used there.
+BarryGuard does not process full credit card information inside the extension. Payment handling takes place outside the extension through the BarryGuard website and the payment provider used there. For crypto checkout, BarryGuard does not access wallet private keys or seed phrases.
 
 ### c) Token and Page Context on Supported Websites
 

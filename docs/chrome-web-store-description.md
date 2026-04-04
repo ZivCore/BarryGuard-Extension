@@ -23,6 +23,8 @@ Pump.fun, PumpSwap, Raydium, LetsBonk, Moonshot, Dexscreener, Birdeye, Bags, Sol
 - No private keys accessed
 - No transaction signing
 - Read-only on-chain analysis
+- Paid plans are purchased on the BarryGuard website, not inside the extension
+- Crypto checkout on the website supports SOL and USDC with manual renewal
 
 ### How It Works
 1. Visit any supported Solana site

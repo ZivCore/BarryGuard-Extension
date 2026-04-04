@@ -67,7 +67,7 @@ No.
 
 Yes, limited.
 
-BarryGuard processes subscription-related data for paid users, such as plan tier, subscription status, billing period end, and customer portal links. This includes data related to free trial subscriptions (trial status, trial end date). The extension does not process full credit card numbers or raw payment credentials inside the extension itself.
+BarryGuard processes subscription-related data for paid users, such as plan tier, subscription status, billing period end, payment method, and customer portal links. This includes data related to free trial subscriptions (trial status, trial end date). Paid plans are purchased on the BarryGuard website, not inside the extension itself. If a user chooses crypto checkout on the website, BarryGuard may process wallet addresses, payment references, selected currency (SOL or USDC), payment status, and transaction signatures needed to match and confirm the payment. The extension does not process full credit card numbers, raw payment credentials, seed phrases, or wallet private keys.
 
 #### Authentication Information
 

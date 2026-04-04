@@ -39,8 +39,10 @@ Wenn du einen kostenpflichtigen Plan nutzt, koennen zusaetzlich insbesondere fol
 - Subscription-Status
 - Ende des aktuellen Abrechnungszeitraums
 - Link zum Kundenportal
+- Zahlungsart
+- bei Crypto-Checkout auf der BarryGuard-Website: ausgewaehlte Waehrung, Empfangsadresse, Payment-Reference, Transaktionssignatur und Metadaten zum Zahlungsstatus, die fuer die Zahlungszuordnung noetig sind
 
-BarryGuard verarbeitet in der Extension keine vollstaendigen Kreditkarteninformationen. Zahlungsabwicklung erfolgt ausserhalb der Extension ueber die BarryGuard-Website und den dort verwendeten Zahlungsanbieter.
+BarryGuard verarbeitet in der Extension keine vollstaendigen Kreditkarteninformationen. Zahlungsabwicklung erfolgt ausserhalb der Extension ueber die BarryGuard-Website und den dort verwendeten Zahlungsanbieter. Bei Crypto-Checkout verarbeitet BarryGuard keine Wallet-Private-Keys oder Seed-Phrases.
 
 ### c) Token- und Seitenkontext auf unterstuetzten Websites
 
