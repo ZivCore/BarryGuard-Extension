@@ -23,6 +23,7 @@ const PAIR_HREF_PATTERN = /^\/[a-z0-9]+\/([a-z0-9]{20,80})(?:[/?#]|$)/i;
 interface DexScreenerPairsResponse {
   pairs?: Array<{
     pairAddress?: string;
+    url?: string;
     baseToken?: { address?: string };
   }>;
 }
@@ -234,8 +235,31 @@ export class DexScreenerPlatform extends GenericSolanaPlatform {
         }
 
         for (const pair of data.pairs ?? []) {
-          if (pair.pairAddress && pair.baseToken?.address) {
-            this.pairToTokenMap.set(pair.pairAddress, pair.baseToken.address);
+          const tokenAddress = pair.baseToken?.address;
+          if (!tokenAddress) {
+            continue;
+          }
+
+          // DexScreener sometimes responds with a canonical base58 `pairAddress`, even when
+          // the route uses an opaque alphanumeric id (e.g. `/solana/<opaqueId>`).
+          // We therefore map both:
+          // - canonical `pairAddress`
+          // - the id extracted from `pair.url` (if present)
+          //
+          // This ensures list rows on `/solana` can be resolved reliably.
+          if (pair.pairAddress) {
+            this.pairToTokenMap.set(pair.pairAddress, tokenAddress);
+          }
+
+          const urlId = pair.url ? new URL(pair.url).pathname.match(PAIR_HREF_PATTERN)?.[1] : null;
+          if (urlId) {
+            this.pairToTokenMap.set(urlId, tokenAddress);
+          }
+
+          // If the API did not provide a URL (or it didn't match), but we only requested
+          // a single id, map it optimistically to avoid rendering nothing.
+          if (!urlId && batch.length === 1) {
+            this.pairToTokenMap.set(batch[0], tokenAddress);
           }
         }
       }

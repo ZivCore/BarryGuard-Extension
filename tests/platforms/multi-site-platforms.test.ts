@@ -223,7 +223,12 @@ describe('additional Solana platforms', () => {
     vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
       ok: true,
       json: vi.fn().mockResolvedValue({
-        pairs: [{ pairAddress, baseToken: { address: TOKEN_A } }],
+        pairs: [{
+          // API may respond with a canonical pairAddress while the route uses an opaque id.
+          pairAddress: '9ZzJmGZgVtWcZkbDkA1m2n3o4p5q6r7s8t9u0vWxyZz',
+          url: `https://dexscreener.com/solana/${pairAddress}`,
+          baseToken: { address: TOKEN_A },
+        }],
       }),
     }));
 
