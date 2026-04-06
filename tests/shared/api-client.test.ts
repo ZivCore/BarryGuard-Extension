@@ -29,14 +29,18 @@ describe('BarryGuardApiClient', () => {
     mockFetch.mockReset();
   });
 
-  it('sends GET request to /token/:address', async () => {
+  it('sends GET request to /token/:address with chain and extension source', async () => {
     mockOk({ score: 80, risk: 'low' });
     await client.getTokenScore('abc123');
-    expect(mockFetch).toHaveBeenCalledWith(
-      'https://www.barryguard.com/api/token/abc123?chain=solana',
+    expect(mockFetch).toHaveBeenCalledTimes(1);
+    const url = String(mockFetch.mock.calls[0][0]);
+    expect(url).toMatch(/\/api\/token\/abc123\?/);
+    expect(url).toContain('chain=solana');
+    expect(url).toContain('source=content_script');
+    expect(mockFetch.mock.calls[0][1]).toEqual(
       expect.objectContaining({
         credentials: 'include',
-        headers: expect.any(Object),
+        headers: expect.objectContaining({ 'Content-Type': 'application/json' }),
       })
     );
   });
@@ -78,7 +82,7 @@ describe('BarryGuardApiClient', () => {
     const res = await client.sendMagicLink('a@b.com');
     expect(res.success).toBe(true);
     expect(mockFetch).toHaveBeenCalledWith(
-      'https://www.barryguard.com/api/auth/magic-link',
+      'https://barryguard.com/api/auth/magic-link',
       expect.objectContaining({
         credentials: 'include',
         method: 'POST',
