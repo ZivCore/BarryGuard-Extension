@@ -141,6 +141,39 @@ describe('additional Solana platforms', () => {
     expect(platform.extractTokenAddresses()).toEqual([TOKEN_A]);
   });
 
+  it('renders CoinMarketCap DEX detail badge inline after the token symbol (name → symbol → badge)', () => {
+    const platform = new CoinMarketCapDexPlatform();
+    window.history.replaceState({}, '', `/dexscan/solana/${TOKEN_A}`);
+    document.body.innerHTML = `
+      <main>
+        <h1>
+          <span class="token-name">Token A</span>
+          <span class="token-symbol">TKNA</span>
+        </h1>
+      </main>
+    `;
+
+    platform.renderScoreBadge(TOKEN_A, {
+      address: TOKEN_A,
+      chain: 'solana',
+      score: 64,
+      risk: 'medium',
+      checks: {},
+      cached: false,
+    });
+
+    const heading = document.querySelector('h1');
+    const symbol = document.querySelector('.token-symbol');
+    const badge = document.querySelector(`[data-barryguard-badge="${TOKEN_A}"]`);
+
+    expect(heading).toBeTruthy();
+    expect(symbol).toBeTruthy();
+    expect(badge).toBeTruthy();
+    expect(symbol?.nextElementSibling).toBe(badge);
+    // Text depends on compact badge mode; we verify placement + presence.
+    expect(badge?.textContent?.length ?? 0).toBeGreaterThan(0);
+  });
+
   it('CoinGecko Solana adapter matches locale-independent chain routes and extracts from explorer links', () => {
     const platform = new CoinGeckoSolanaPlatform();
     const fakeLocation = { hostname: 'www.coingecko.com', pathname: '/de/chains/solana' } as unknown as Location;
