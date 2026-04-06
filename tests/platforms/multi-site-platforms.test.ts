@@ -128,6 +128,52 @@ describe('additional Solana platforms', () => {
     expect(platform.extractTokenAddresses()).toEqual([TOKEN_A]);
   });
 
+  it('resolves DexScreener pair detail URL to mint when no explorer link is present', async () => {
+    const opaquePairId = '5tyfvifwqrkv9bjsthgitbdqeyc1bgugrudnsaduxqjp';
+    const platform = new DexScreenerPlatform();
+    window.history.replaceState({}, '', `/solana/${opaquePairId}`);
+    document.body.innerHTML = `
+      <main>
+        <h2 class="chakra-heading"><span>BURNIE</span><span>/</span><span>SOL</span></h2>
+      </main>
+    `;
+    document.title = 'BURNIE $0.12';
+
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok: true,
+      json: vi.fn().mockResolvedValue({
+        pairs: [{
+          pairAddress: '9ZzJmGZgVtWcZkbDkA1m2n3o4p5q6r7s8t9u0vWxyZz',
+          url: `https://dexscreener.com/solana/${opaquePairId}`,
+          baseToken: { address: TOKEN_A },
+        }],
+      }),
+    }));
+
+    expect(platform.extractTokenAddresses()).toEqual([]);
+    await new Promise<void>((resolve) => setTimeout(resolve, 0));
+    expect(platform.getCurrentPageAddress()).toBe(TOKEN_A);
+    expect(platform.extractTokenAddresses()).toEqual([TOKEN_A]);
+
+    platform.renderScoreBadge(TOKEN_A, {
+      address: TOKEN_A,
+      chain: 'solana',
+      score: 72,
+      risk: 'medium',
+      checks: {},
+      cached: false,
+    });
+
+    const heading = document.querySelector('h2.chakra-heading');
+    const badge = document.querySelector(`[data-barryguard-badge="${TOKEN_A}"]`);
+    expect(heading?.nextElementSibling).toBe(badge);
+
+    vi.unstubAllGlobals();
+    vi.stubGlobal('chrome', {
+      runtime: { id: 'test-extension-id', sendMessage: vi.fn() },
+    });
+  });
+
   it('DexScreener declares both apex and www host patterns (MV3)', () => {
     const platform = new DexScreenerPlatform();
     expect(platform.hostPattern).toContain('*://dexscreener.com/*');

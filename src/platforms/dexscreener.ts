@@ -70,11 +70,36 @@ export class DexScreenerPlatform extends GenericSolanaPlatform {
     super.observeDOMChanges(callback);
   }
 
+  /**
+   * Pair detail URLs use `/solana/{pairId}` where `pairId` may be an opaque id (not a mint).
+   * After `resolvePairAddresses`, we map that id to `baseToken.address`.
+   */
+  override getCurrentPageAddress(): string | null {
+    const pairId = getPairIdFromPathname(window.location.pathname);
+    if (pairId) {
+      const mapped = this.pairToTokenMap.get(pairId);
+      if (mapped) {
+        return mapped;
+      }
+    }
+    return super.getCurrentPageAddress();
+  }
+
   override extractTokenAddresses(): string[] {
-    // Detail page: use the standard extractor (solscan/birdeye links)
+    // Detail page: mint from pair-id resolution, explorer links, or `/token/` in URL
     const currentAddress = this.getCurrentPageAddress();
     if (currentAddress) {
       return [currentAddress];
+    }
+
+    const pairId = getPairIdFromPathname(window.location.pathname);
+    if (pairId) {
+      if (!this.pairToTokenMap.has(pairId) && !this.resolutionPending) {
+        this.resolvePairAddresses([pairId]).catch((err: unknown) => {
+          console.error('[BarryGuard] DexScreener pair resolution failed:', err);
+        });
+      }
+      return [];
     }
 
     // List page: collect pair addresses from rows (DexScreener sometimes varies the exact class)
@@ -300,4 +325,8 @@ export class DexScreenerPlatform extends GenericSolanaPlatform {
       return Boolean(href.match(PAIR_HREF_PATTERN));
     });
   }
+}
+
+function getPairIdFromPathname(pathname: string): string | null {
+  return pathname.match(PAIR_HREF_PATTERN)?.[1] ?? null;
 }

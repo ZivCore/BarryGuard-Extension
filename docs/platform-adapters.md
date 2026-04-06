@@ -125,6 +125,7 @@ Adapters use different strategies depending on the platform:
 | Data attributes | `[data-token-address]` | Solscan |
 | External link extraction | Solscan/Birdeye links in page | DexScreener |
 | Pair-to-token resolution | Pair address → API → token address | DexScreener |
+| Pair detail URL | `/solana/{pairId}` (opaque id) → same API → mint | DexScreener |
 
 ## Badge Rendering
 
