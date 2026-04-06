@@ -7,6 +7,8 @@ import { DexScreenerPlatform } from '../../src/platforms/dexscreener';
 import { BirdeyePlatform } from '../../src/platforms/birdeye';
 import { BagsPlatform } from '../../src/platforms/bags';
 import { SolscanPlatform } from '../../src/platforms/solscan';
+import { CoinMarketCapDexPlatform } from '../../src/platforms/coinmarketcap-dex';
+import { CoinGeckoSolanaPlatform } from '../../src/platforms/coingecko-solana';
 
 const TOKEN_A = 'Gur3msAr6KPmoFogSabvuAxe4ZzjtNwv5WudJ49Ppump';
 const TOKEN_B = '7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU';
@@ -123,6 +125,27 @@ describe('additional Solana platforms', () => {
     window.history.replaceState({}, '', '/solana/BGxJ6fDcfwC3h7K4Y3DEj7S2xKz5b3jQzL2p8sY3pair');
     document.body.innerHTML = `<a href="https://solscan.io/token/${TOKEN_A}">Solscan</a>`;
 
+    expect(platform.extractTokenAddresses()).toEqual([TOKEN_A]);
+  });
+
+  it('DexScreener declares both apex and www host patterns (MV3)', () => {
+    const platform = new DexScreenerPlatform();
+    expect(platform.hostPattern).toContain('*://dexscreener.com/*');
+    expect(platform.hostPattern).toContain('*://www.dexscreener.com/*');
+  });
+
+  it('extracts CoinMarketCap DEX token address from dexscan routes', () => {
+    const platform = new CoinMarketCapDexPlatform();
+    window.history.replaceState({}, '', `/dexscan/solana/${TOKEN_A}`);
+    expect(platform.getCurrentPageAddress()).toBe(TOKEN_A);
+    expect(platform.extractTokenAddresses()).toEqual([TOKEN_A]);
+  });
+
+  it('CoinGecko Solana adapter matches locale-independent chain routes and extracts from explorer links', () => {
+    const platform = new CoinGeckoSolanaPlatform();
+    const fakeLocation = { hostname: 'www.coingecko.com', pathname: '/de/chains/solana' } as unknown as Location;
+    document.body.innerHTML = `<a href="https://solscan.io/token/${TOKEN_A}">Explorer</a>`;
+    expect(platform.matchesLocation(fakeLocation)).toBe(true);
     expect(platform.extractTokenAddresses()).toEqual([TOKEN_A]);
   });
 

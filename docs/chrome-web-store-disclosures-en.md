@@ -4,7 +4,7 @@ This document is written against the current BarryGuard extension configuration.
 
 ## Sole Purpose
 
-BarryGuard helps users evaluate Solana tokens on supported websites directly in the browser by showing risk signals, token context, and account-based usage information. The extension reads the currently visible token address and public token metadata on supported pages, requests the corresponding risk analysis from the BarryGuard backend, and displays the result in the page UI and in the extension popup. BarryGuard is built as a cross-platform token risk layer for supported Solana websites. The current release supports Pump.fun, PumpSwap, Raydium, LetsBonk, Moonshot, Dexscreener, Birdeye, Bags, Solscan, and DexTools.
+BarryGuard helps users evaluate Solana tokens on supported websites directly in the browser by showing risk signals, token context, and account-based usage information. The extension reads the currently visible token address and public token metadata on supported pages, requests the corresponding risk analysis from the BarryGuard backend, and displays the result in the page UI and in the extension popup. BarryGuard is built as a cross-platform token risk layer for supported Solana websites. The current release supports Pump.fun, PumpSwap, Raydium, LetsBonk, Moonshot, Dexscreener, Birdeye, Bags, Solscan, DexTools, CoinMarketCap DEX (dex.coinmarketcap.com), and CoinGecko Solana chain pages (www.coingecko.com).
 
 ## Justification for `activeTab`
 
@@ -34,6 +34,8 @@ BarryGuard requires host permissions for the following domains in the current re
 - `https://*.solscan.io/*`
 - `https://dextools.io/*`
 - `https://www.dextools.io/*`
+- `https://dex.coinmarketcap.com/*`
+- `https://www.coingecko.com/*`
   BarryGuard reads the currently visible token address and public token metadata on these supported Solana pages so it can show token risk scores directly in page context.
 - `https://barryguard.com/*`
 - `https://www.barryguard.com/*`
@@ -102,6 +104,12 @@ BarryGuard processes user actions that are necessary for the product to work, su
 Yes.
 
 BarryGuard processes public token-related page content on supported websites, such as token addresses, names, symbols, logos, and the visible token page context, so it can identify the token currently being viewed and display the corresponding analysis.
+
+#### Technical integrity signals (optional product telemetry)
+
+Yes, limited.
+
+When enabled, the extension may send **anonymized technical events** to the BarryGuard backend from the extension service worker — for example, that a badge anchor could not be found on a supported platform, or that no token address was detected on a page where one was expected. These events include a **platform identifier**, an **event type**, and the **extension version**. They do **not** include your browsing history, full page URLs with sensitive query strings, or wallet secrets. BarryGuard uses this information only to operate and improve overlay reliability. Retention on the server side is limited (raw events are deleted after a fixed period; see the published privacy policy).
 
 ## Required Policy Confirmations
 

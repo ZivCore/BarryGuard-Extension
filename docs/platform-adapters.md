@@ -6,18 +6,22 @@ Each supported trading platform has a dedicated adapter that handles platform-sp
 
 ## Supported Platforms
 
-| Platform | ID | Hostname | Type |
+| Platform | ID | Hostname(s) | Type |
 |----------|----|----------|------|
 | Pump.fun | `pumpfun` | pump.fun | Bonding curve launcher |
 | PumpSwap | `pumpswap` | amm.pump.fun, swap.pump.fun | Pump.fun AMM |
 | Raydium | `raydium` | raydium.io | DEX / AMM |
-| DexScreener | `dexscreener` | dexscreener.com | Token charts |
+| DexScreener | `dexscreener` | dexscreener.com, www.dexscreener.com (beide explizit; MV3 deckt Apex nicht mit `www` ab) | Token charts |
 | Birdeye | `birdeye` | birdeye.so | Token analytics |
-| Solscan | `solscan` | solscan.io | Block explorer |
+| Solscan | `solscan` | solscan.io, *.solscan.io | Block explorer |
 | LetsBonk | `letsbonk` | letsbonk.fun, bonk.fun | Meme coin launcher |
 | Moonshot | `moonshot` | moonshot.money | Token launcher |
-| DexTools | `dextools` | dextools.io | Trading tools |
+| DexTools | `dextools` | dextools.io, www.dextools.io | Trading tools |
 | Bags | `bags` | bags.fm | Portfolio tracker |
+| CoinMarketCap DEX | `coinmarketcap-dex` | dex.coinmarketcap.com | DEX-Token-Liste / Detail (Telemetrie-Whitelist und Migration angelegt) |
+| CoinGecko Solana | `coingecko-solana` | www.coingecko.com (Locale-Pfade `/*/chains/solana/...`) | Chain- und Token-Kontext (Telemetrie-Whitelist und Migration angelegt) |
+
+Die kanonische Reihenfolge und vollständige `id`-Liste steht in `src/content/index.ts` (`PLATFORMS`). Neue Adapter müssen dieselben IDs in der Web-App-Telemetrie-Whitelist und in `BarryGuard/src/lib/solana-platforms.ts` abbilden.
 
 ## IPlatform Interface
 
@@ -103,6 +107,11 @@ Checked in sequence by the content script (first match wins):
 8. Birdeye
 9. Bags
 10. Solscan
+11. CoinMarketCap DEX / CoinGecko Solana — sobald im Adapter-Array registriert, **spezifische vor generische** Matcher (siehe Implementierung in `src/content/index.ts`).
+
+## Audit-Matrix (Host-Konsistenz)
+
+Für **jede** Zeile in `PLATFORMS` muss die Abdeckung gegen Manifest, `wxt.config.ts` und Background dokumentiert bzw. geprüft werden. Die tabellarische **Audit-Matrix** (Adapter-Datei, `hostnames`, Content-`matches`, `host_permissions`, CSP `connect-src`/`img-src`, Background-Reinject) wird in `docs/development-guide.md` gepflegt; die fachliche Spezifikation des Admin-/Telemetrie-Backends steht in `BarryGuard/docs/features/feature-extension-qa-admin.md`.
 
 ## Address Extraction Strategies
 

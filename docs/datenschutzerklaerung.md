@@ -1,22 +1,18 @@
 # Datenschutzerklaerung fuer BarryGuard
 
-Hinweis:
-Bitte vor der Veroeffentlichung die Platzhalter in eckigen Klammern ersetzen.
-
 ## 1. Verantwortlicher
 
 Verantwortlich fuer die Datenverarbeitung im Zusammenhang mit der Browser-Extension BarryGuard ist:
 
-[NAME / FIRMA]  
-[ANSCHRIFT]  
-[E-MAIL]  
-[WEBSEITE: https://www.barryguard.com]
+BarryGuard  
+E-Mail: support@barryguard.com  
+Webseite: https://www.barryguard.com
 
 ## 2. Gegenstand dieser Datenschutzerklaerung
 
 Diese Datenschutzerklaerung beschreibt, wie BarryGuard personenbezogene Daten im Zusammenhang mit der Nutzung der BarryGuard-Browser-Extension verarbeitet.
 
-BarryGuard ist eine Browser-Extension fuer die Analyse von Solana-Token auf unterstuetzten Websites. Die Extension zeigt Risiko-Scores, Token-Metadaten und planabhaengige Funktionen direkt im Browser an. BarryGuard ist fuer mehrere unterstuetzte Websites im Solana-Oekosystem ausgelegt. Die aktuelle Version unterstuetzt Pump.fun, PumpSwap, Raydium, LetsBonk, Moonshot, Dexscreener, Birdeye, Bags, Solscan und DexTools.
+BarryGuard ist eine Browser-Extension fuer die Analyse von Solana-Token auf unterstuetzten Websites. Die Extension zeigt Risiko-Scores, Token-Metadaten und planabhaengige Funktionen direkt im Browser an. BarryGuard ist fuer mehrere unterstuetzte Websites im Solana-Oekosystem ausgelegt. Die aktuelle Version unterstuetzt Pump.fun, PumpSwap, Raydium, LetsBonk, Moonshot, Dexscreener, Birdeye, Bags, Solscan, DexTools, CoinMarketCap DEX und CoinGecko (Solana-Kettenbereich).
 
 ## 3. Welche Daten verarbeitet werden
 
@@ -54,9 +50,20 @@ Damit BarryGuard seine Kernfunktion bereitstellen kann, verarbeitet die Extensio
 - Token-Logos
 - den aktuellen Seitenkontext einer unterstuetzten Token-Seite oder Listenansicht
 
-In der aktuellen Version betrifft dies die unterstuetzten Solana-Sites Pump.fun, PumpSwap, Raydium, LetsBonk, Moonshot, Dexscreener, Birdeye, Bags, Solscan und DexTools. Auf diesen Websites koennen dieselben Arten von Token-Kontextdaten fuer denselben Produktzweck verarbeitet werden.
+In der aktuellen Version betrifft dies die in Abschnitt 2 genannten unterstuetzten Solana-Sites. Auf diesen Websites koennen dieselben Arten von Token-Kontextdaten fuer denselben Produktzweck verarbeitet werden.
 
-### d) Nutzungs- und Funktionsdaten
+### d) Technische Integritaetssignale (optional)
+
+Wenn diese Funktion aktiv ist, kann die Extension **anonymisierte technische Ereignisse** an die BarryGuard-Server senden (aus dem Extension-Service-Worker), zum Beispiel dass auf einer unterstuetzten Seite kein Badge-Anker gefunden wurde oder keine Token-Adresse erkannt wurde, obwohl die Seite dafuer vorgesehen ist. Diese Ereignisse koennen enthalten:
+
+- eine **Plattform-Kennung** (welcher unterstuetzte Site-Typ aktiv war)
+- eine **Ereignisart** (welche Art Integritaetsproblem erkannt wurde)
+- die **Extension-Version**
+- optional eine **normalisierte Pfadvorlage** (keine vollstaendige URL mit sensiblen Kennungen)
+
+Sie enthalten **keine** vollstaendige Browserverlaufshistorie ueber das gesamte Web, keine Wallet-Private-Keys und keine vollstaendigen URLs zur Verfolgung einzelner Personen. BarryGuard nutzt diese Signale nur zum Betrieb und zur Verbesserung der Overlay-Zuverlaessigkeit. Rohereignisse werden nur **begrenzt** gespeichert (aktueller Zeitraum siehe Datenschutzerklaerung der Website barryguard.com) und danach geloescht.
+
+### e) Nutzungs- und Funktionsdaten
 
 Zur Bereitstellung der Extension-Funktion koennen ausserdem folgende Daten verarbeitet werden:
 
@@ -75,6 +82,7 @@ Die Verarbeitung erfolgt ausschliesslich zu folgenden Zwecken:
 - Anzeige des aktiven Plans und planabhaengiger Funktionen
 - lokale Cache- und Performance-Optimierung
 - Missbrauchsvermeidung und Durchsetzung von Request-Limits
+- Erkennung und Verbesserung der Overlay-Zuverlaessigkeit, sofern anonymisierte Integritaetssignale gesendet werden
 
 ## 5. Rechtsgrundlagen
 
@@ -156,4 +164,4 @@ Es gilt die jeweils aktuelle veroeffentlichte Fassung.
 
 Bei Fragen zum Datenschutz im Zusammenhang mit BarryGuard kontaktiere bitte:
 
-[E-MAIL]
+support@barryguard.com

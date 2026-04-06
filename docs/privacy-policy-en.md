@@ -1,22 +1,18 @@
 # Privacy Policy for BarryGuard
 
-Note:
-Replace the placeholders in brackets before publishing.
-
 ## 1. Controller
 
 The controller responsible for data processing in connection with the BarryGuard browser extension is:
 
-[NAME / COMPANY]  
-[ADDRESS]  
-[EMAIL]  
-[WEBSITE: https://www.barryguard.com]
+BarryGuard  
+Email: support@barryguard.com  
+Website: https://www.barryguard.com
 
 ## 2. Scope of This Privacy Policy
 
 This Privacy Policy explains how BarryGuard processes personal data in connection with the BarryGuard browser extension.
 
-BarryGuard is a browser extension for analyzing Solana tokens on supported websites. The extension displays risk scores, token metadata, and plan-based features directly in the browser. BarryGuard is designed to operate across supported parts of the Solana ecosystem. The current release supports Pump.fun, PumpSwap, Raydium, LetsBonk, Moonshot, Dexscreener, Birdeye, Bags, Solscan, and DexTools.
+BarryGuard is a browser extension for analyzing Solana tokens on supported websites. The extension displays risk scores, token metadata, and plan-based features directly in the browser. BarryGuard is designed to operate across supported parts of the Solana ecosystem. The current release supports Pump.fun, PumpSwap, Raydium, LetsBonk, Moonshot, Dexscreener, Birdeye, Bags, Solscan, DexTools, CoinMarketCap DEX, and CoinGecko (Solana chain pages).
 
 ## 3. What Data Is Processed
 
@@ -54,9 +50,20 @@ To provide the core product functionality, the extension processes data visible 
 - token logos
 - the current page context of a supported token detail page or token list view
 
-In the current release, this applies to the supported Solana sites Pump.fun, PumpSwap, Raydium, LetsBonk, Moonshot, Dexscreener, Birdeye, Bags, Solscan, and DexTools. The same type of token-context data may be processed there for the same product purpose.
+In the current release, this applies to the supported Solana sites listed in section 2. The same type of token-context data may be processed there for the same product purpose.
 
-### d) Usage and Functional Data
+### d) Technical integrity signals (optional)
+
+When this feature is enabled, the extension may send **anonymized technical events** to the BarryGuard servers from the extension service worker — for example, that a badge could not be placed on a supported site, or that no token address was found where the extension expected one. These events may include:
+
+- a **platform identifier** (which supported site type was active)
+- an **event type** (what kind of integration issue was detected)
+- the **extension version**
+- an optional **normalized path template** (not a full URL with sensitive identifiers)
+
+They do **not** include your full browsing history across the web, wallet private keys, or full page URLs designed to track individuals. BarryGuard uses these signals only to operate and improve overlay reliability. Raw events are retained for a **limited time** (see the BarryGuard website privacy policy for the current retention period) and are then deleted.
+
+### e) Usage and Functional Data
 
 BarryGuard may also process:
 
@@ -75,6 +82,7 @@ BarryGuard processes data only for the following purposes:
 - displaying the active user plan and plan-based features
 - local caching and performance optimization
 - abuse prevention and enforcement of request limits
+- detecting and improving overlay reliability when anonymized integrity signals are sent
 
 ## 5. Legal Bases
 
@@ -156,4 +164,4 @@ The latest published version applies.
 
 If you have questions about privacy in connection with BarryGuard, please contact:
 
-[EMAIL]
+support@barryguard.com

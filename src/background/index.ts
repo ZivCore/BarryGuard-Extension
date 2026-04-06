@@ -1,7 +1,7 @@
 import { BarryGuardApiClient } from '../shared/api-client';
 import { TokenCache, updateCacheTTL } from '../shared/cache';
 import { extractPumpFunEmbeddedMetadata } from '../shared/pumpfun-metadata';
-import { getApiBaseUrl, sanitizeCustomerPortalUrl } from '../shared/runtime-config';
+import { getApiBaseUrl, getExtensionHealthTelemetryEnabled, sanitizeCustomerPortalUrl } from '../shared/runtime-config';
 import { extractTokenScores, sanitizeTokenScore } from '../shared/token-score';
 import type {
   ApiResponse,
@@ -295,6 +295,13 @@ async function refreshProfileStateIfNeeded(force = false): Promise<UserProfile |
 
       await persistProfileState(merged);
       return merged;
+    }
+
+    // Forced refresh without token and no valid cookie session -> clear stale local state
+    if (force) {
+      await chrome.storage.local.remove([PROFILE_KEY, PROFILE_SYNC_AT_KEY, HOURLY_USAGE_KEY]);
+      await applyProfileState(null);
+      return null;
     }
 
     // No valid session from cookies/token — but if we have a stored profile
@@ -1215,22 +1222,104 @@ export {
   refreshProfileStateIfNeeded as _refreshProfileStateIfNeededForTest,
 };
 
+// Exported for unit testing only — do not import these in production code
+export const SUPPORTED_PLATFORM_HOST_PATTERNS = [
+  /^(www\.)?pump\.fun$/,
+  /^amm\.pump\.fun$/,
+  /^swap\.pump\.fun$/,
+  /^(www\.)?raydium\.io$/,
+  /^(www\.)?letsbonk\.fun$/,
+  /^(www\.)?bonk\.fun$/,
+  /^(www\.)?moonshot\.money$/,
+  /^(www\.)?dexscreener\.com$/,
+  /^(www\.)?dextools\.io$/,
+  /^(www\.)?birdeye\.so$/,
+  /^(www\.)?bags\.fm$/,
+  /^(.+\.)?solscan\.io$/,
+  /^dex\.coinmarketcap\.com$/,
+  /^www\.coingecko\.com$/,
+];
+
 export function initializeBackground(): void {
   // Re-inject content script after Next.js soft navigations that kill the content script context.
   // Try sending a message first; if the content script is alive it responds. If dead, re-inject.
-  const SUPPORTED_HOST_PATTERNS = [
-    /^(www\.)?pump\.fun$/,
-    /^amm\.pump\.fun$/,
-    /^swap\.pump\.fun$/,
-    /^(www\.)?raydium\.io$/,
-    /^(www\.)?letsbonk\.fun$/,
-    /^(www\.)?bonk\.fun$/,
-    /^(www\.)?moonshot\.money$/,
-    /^(www\.)?dexscreener\.com$/,
-    /^(www\.)?birdeye\.so$/,
-    /^(www\.)?bags\.fm$/,
-    /^(.+\.)?solscan\.io$/,
-  ];
+  // NOTE: Keep this list in sync with platform adapters + manifest `matches` / `host_permissions`.
+  // Exported for unit tests to avoid drift.
+  const SUPPORTED_HOST_PATTERNS = SUPPORTED_PLATFORM_HOST_PATTERNS;
+
+  const TELEMETRY_DEBOUNCE_MS = 5 * 60 * 1000;
+  const _telemetryDebounce = new Map<string, number>();
+
+  type ExtensionHealthEventKind = 'anchor_not_found' | 'injection_failed' | 'scan_zero_tokens';
+
+  function fnv1a32(input: string): string {
+    let hash = 0x811c9dc5;
+    for (let i = 0; i < input.length; i++) {
+      hash ^= input.charCodeAt(i);
+      hash = Math.imul(hash, 0x01000193);
+    }
+    // unsigned 32-bit hex
+    return (hash >>> 0).toString(16).padStart(8, '0');
+  }
+
+  function derivePathTemplate(url: URL): string | null {
+    let path = url.pathname ?? '/';
+    // Locale-independent normalization (CoinGecko etc.)
+    path = path.replace(/^\/[a-z]{2}(?:-[a-z]{2})?\//i, '/');
+    // Remove trailing slash for stability (except root)
+    if (path.length > 1) {
+      path = path.replace(/\/+$/, '');
+    }
+    // Mask potential token addresses
+    path = path.replace(/[1-9A-HJ-NP-Za-km-z]{32,44}/g, ':address');
+    return path.slice(0, 180);
+  }
+
+  async function postExtensionHealthEvent(args: {
+    platformId: string;
+    eventKind: ExtensionHealthEventKind;
+    tabId: number | null;
+    tabUrl: string | null;
+  }): Promise<void> {
+    if (!getExtensionHealthTelemetryEnabled()) {
+      return;
+    }
+
+    const extensionVersion = chrome.runtime.getManifest().version ?? '0.0.0';
+    let url: URL | null = null;
+    try {
+      url = args.tabUrl ? new URL(args.tabUrl) : null;
+    } catch {
+      url = null;
+    }
+
+    const pathTemplate = url ? derivePathTemplate(url) : null;
+    const urlHash = url ? fnv1a32(`${url.origin}${pathTemplate ?? url.pathname}`) : 'no_url';
+    const tabKey = typeof args.tabId === 'number' ? String(args.tabId) : 'no_tab';
+    const debounceKey = `${tabKey}:${urlHash}:${args.platformId}:${args.eventKind}`;
+    const now = Date.now();
+    const lastSentAt = _telemetryDebounce.get(debounceKey) ?? 0;
+    if (now - lastSentAt < TELEMETRY_DEBOUNCE_MS) {
+      return;
+    }
+    _telemetryDebounce.set(debounceKey, now);
+
+    try {
+      const endpoint = `${getApiBaseUrl()}/extension-health`;
+      await fetch(endpoint, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          platform_id: args.platformId,
+          event_kind: args.eventKind,
+          extension_version: String(extensionVersion).slice(0, 64),
+          path_template: pathTemplate,
+        }),
+      });
+    } catch {
+      // best-effort telemetry (no user impact)
+    }
+  }
 
   chrome.tabs.onUpdated.addListener((tabId, changeInfo) => {
     if (!changeInfo.url) return;
@@ -1262,6 +1351,24 @@ export function initializeBackground(): void {
     (async () => {
       try {
         switch (message.type) {
+          case 'REPORT_EXTENSION_HEALTH': {
+            const payload = message.payload as { platformId?: unknown; eventKind?: unknown } | undefined;
+            const platformId = typeof payload?.platformId === 'string' ? payload.platformId : '';
+            const eventKind = payload?.eventKind;
+            if (!platformId || (eventKind !== 'anchor_not_found' && eventKind !== 'injection_failed' && eventKind !== 'scan_zero_tokens')) {
+              respond({ success: false, error: 'Invalid telemetry payload' });
+              break;
+            }
+
+            await postExtensionHealthEvent({
+              platformId,
+              eventKind,
+              tabId: sender.tab?.id ?? null,
+              tabUrl: sender.tab?.url ?? null,
+            });
+            respond({ success: true });
+            break;
+          }
           case 'GET_TOKEN_SCORE': {
             const address = typeof message.payload === 'string'
               ? message.payload

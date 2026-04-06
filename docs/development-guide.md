@@ -171,3 +171,55 @@ pnpm build              # Produces zip with new version number
 - **URL handling:** All URLs validated via `runtime-config.ts` — HTTPS enforced (except localhost dev)
 - **Error handling:** Graceful degradation — API errors show "?" badge, never crash the page
 - **Message protocol:** All messages go through `chrome.runtime.sendMessage` — content scripts never call the API directly
+
+## Chrome MV3: Host-Patterns und Subdomains
+
+Unter Manifest V3 gilt ein Match wie `*://example.com/*` **nur** für den Hostnamen `example.com` **ohne** Subdomain. Die Subdomain **`www`** ist ein eigener Host und muss **zusätzlich** eingetragen werden, wo Nutzer/Redirects sie nutzen (`host_permissions`, Content-Script-`matches`, CSP `connect-src` / `img-src`, ggf. `SUPPORTED_HOST_PATTERNS` im Background für Reinject). Dieselbe Sorgfalt gilt für **alle** Einträge in `PLATFORMS`, nicht nur für eine einzelne Site.
+
+## Audit-Matrix (Pflicht für Releases mit Host-Änderungen)
+
+Bei neuen oder geänderten Plattformen: **eine Zeile pro Adapter** mit Abgleich von:
+
+| Spalte | Inhalt |
+|--------|--------|
+| Adapter-Datei | `src/platforms/*.ts` |
+| `id` | Wert aus `IPlatform` (Telemetrie + Admin) |
+| `hostPattern` | MV3-taugliche Patterns (Apex + `www` getrennt) |
+| Content Script | `src/manifest/platform-hosts.ts` (Quelle für `matches` + `host_permissions`) |
+| Background | `src/background/index.ts` → `SUPPORTED_PLATFORM_HOST_PATTERNS` (Reinject-Hosts) |
+| CSP | `wxt.config.ts` → `connect-src` / `img-src` falls nötig |
+
+### Audit-Matrix (ausgefüllt)
+
+| Adapter-Datei | id | hostPattern | Content Script | Background | CSP |
+|---|---|---|---|---|---|
+| `src/platforms/pumpswap.ts` | `pumpswap` | `*://swap.pump.fun/*`, `*://amm.pump.fun/*` | `platform-hosts.ts` ✅ | `SUPPORTED_PLATFORM_HOST_PATTERNS` ✅ | `wxt.config.ts` ✅ |
+| `src/platforms/pumpfun.ts` | `pumpfun` | `*://pump.fun/*` | `platform-hosts.ts` ✅ | `SUPPORTED_PLATFORM_HOST_PATTERNS` ✅ | `wxt.config.ts` ✅ |
+| `src/platforms/raydium.ts` | `raydium` | `*://raydium.io/*` | `platform-hosts.ts` ✅ | `SUPPORTED_PLATFORM_HOST_PATTERNS` ✅ | `wxt.config.ts` ✅ |
+| `src/platforms/letsbonk.ts` | `letsbonk` | `*://letsbonk.fun/*`, `*://bonk.fun/*` | `platform-hosts.ts` ✅ | `SUPPORTED_PLATFORM_HOST_PATTERNS` ✅ | `wxt.config.ts` ✅ |
+| `src/platforms/moonshot.ts` | `moonshot` | `*://moonshot.money/*` | `platform-hosts.ts` ✅ | `SUPPORTED_PLATFORM_HOST_PATTERNS` ✅ | `wxt.config.ts` ✅ |
+| `src/platforms/dexscreener.ts` | `dexscreener` | `*://dexscreener.com/*`, `*://www.dexscreener.com/*` | `platform-hosts.ts` ✅ | `SUPPORTED_PLATFORM_HOST_PATTERNS` ✅ | `wxt.config.ts` ✅ |
+| `src/platforms/dextools.ts` | `dextools` | `*://dextools.io/*`, `*://www.dextools.io/*` | `platform-hosts.ts` ✅ | `SUPPORTED_PLATFORM_HOST_PATTERNS` ✅ | `wxt.config.ts` ✅ |
+| `src/platforms/birdeye.ts` | `birdeye` | `*://birdeye.so/*` | `platform-hosts.ts` ✅ | `SUPPORTED_PLATFORM_HOST_PATTERNS` ✅ | `wxt.config.ts` ✅ |
+| `src/platforms/bags.ts` | `bags` | `*://bags.fm/*` | `platform-hosts.ts` ✅ | `SUPPORTED_PLATFORM_HOST_PATTERNS` ✅ | `wxt.config.ts` ✅ |
+| `src/platforms/solscan.ts` | `solscan` | `*://solscan.io/*`, `*://*.solscan.io/*` | `platform-hosts.ts` ✅ | `SUPPORTED_PLATFORM_HOST_PATTERNS` ✅ | `wxt.config.ts` ✅ |
+| `src/platforms/coinmarketcap-dex.ts` | `coinmarketcap-dex` | `*://dex.coinmarketcap.com/*` | `platform-hosts.ts` ✅ | `SUPPORTED_PLATFORM_HOST_PATTERNS` ✅ | `wxt.config.ts` ✅ |
+| `src/platforms/coingecko-solana.ts` | `coingecko-solana` | `*://www.coingecko.com/*` | `platform-hosts.ts` ✅ | `SUPPORTED_PLATFORM_HOST_PATTERNS` ✅ | `wxt.config.ts` ✅ |
+
+Vollständige fachliche Beschreibung des Backend- und Admin-Teils: `BarryGuard/docs/features/feature-extension-qa-admin.md` (Web-Repo).
+
+## Integritäts-Telemetrie (optional, Release-abhängig)
+
+Wenn aktiviert, sendet die Extension **anonymisierte** technische Ereignisse (z. B. fehlender Badge-Anker), damit das Team Layout-Brüche früh sieht. Aufrufe erfolgen **vom Extension-Service-Worker** an `POST /api/extension-health` auf der BarryGuard-API — **nicht** als `fetch` vom Content-Script auf Drittanbieter-Seiten (CORS). Details: `BarryGuard/docs/features/feature-extension-qa-admin.md`.
+
+### Kill-Switch (Support)
+
+Telemetrie kann in Builds/Umgebungen deaktiviert werden:
+
+- `BARRYGUARD_EXTENSION_HEALTH_TELEMETRY_ENABLED=false` (oder `0`, `off`, `no`)
+
+### Drosselung / Debounce (PII-frei)
+
+- **Dedupe-Key**: pro **Tab-ID** + **URL-Hash** (origin + `path_template`, ohne Query/Hash) + `platform_id` + `event_kind`
+- **Debounce-Fenster**: 5 Minuten
+- **Payload**: nur `platform_id`, `event_kind`, `extension_version`, optional `path_template` (Adresse maskiert als `:address`, Locale entfernt, keine Query)

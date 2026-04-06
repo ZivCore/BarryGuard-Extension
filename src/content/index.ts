@@ -8,6 +8,8 @@ import { BirdeyePlatform } from '../platforms/birdeye';
 import { BagsPlatform } from '../platforms/bags';
 import { SolscanPlatform } from '../platforms/solscan';
 import { DextoolsPlatform } from '../platforms/dextools';
+import { CoinMarketCapDexPlatform } from '../platforms/coinmarketcap-dex';
+import { CoinGeckoSolanaPlatform } from '../platforms/coingecko-solana';
 import type { IPlatform } from '../platforms/platform.interface';
 import type { ApiResponse, SelectedToken, TierLevel, TokenMetadata, TokenScore } from '../shared/types';
 
@@ -22,6 +24,8 @@ const PLATFORMS: IPlatform[] = [
   new BirdeyePlatform(),
   new BagsPlatform(),
   new SolscanPlatform(),
+  new CoinMarketCapDexPlatform(),
+  new CoinGeckoSolanaPlatform(),
 ];
 const PROFILE_STORAGE_KEY = 'user_profile';
 const SELECTED_TOKEN_STORAGE_KEY = 'selectedToken';
@@ -186,6 +190,64 @@ export function initializeContentScript(): void {
 
   const platform = detectedPlatform;
   console.log(`[BarryGuard] Platform: ${platform.name}`);
+  const HEALTH_EVENT_KINDS = ['anchor_not_found', 'injection_failed', 'scan_zero_tokens'] as const;
+  type HealthEventKind = typeof HEALTH_EVENT_KINDS[number];
+
+  const ZERO_SCAN_DEDUPE_WINDOW_MS = 2 * 60 * 1000;
+  const ZERO_SCAN_MIN_CONSECUTIVE = 3;
+  const zeroScanState = new Map<string, { lastSentAt: number; consecutive: number }>();
+  let lastZeroScanKey: string | null = null;
+
+  function reportHealth(eventKind: HealthEventKind): void {
+    if (eventKind === 'scan_zero_tokens') {
+      const pathname = window.location.pathname ?? '/';
+      const key = `${platform.id}:${pathname}:${eventKind}`;
+
+      // Reset consecutive counter when key changes (e.g. navigation)
+      if (lastZeroScanKey !== key) {
+        if (lastZeroScanKey) {
+          zeroScanState.delete(lastZeroScanKey);
+        }
+        lastZeroScanKey = key;
+      }
+
+      const now = Date.now();
+      const state = zeroScanState.get(key) ?? { lastSentAt: 0, consecutive: 0 };
+      const nextConsecutive = state.consecutive + 1;
+
+      zeroScanState.set(key, {
+        lastSentAt: state.lastSentAt,
+        consecutive: nextConsecutive,
+      });
+
+      // Soft-dedupe: only emit after N consecutive empty scans, and not more often than the window.
+      if (nextConsecutive < ZERO_SCAN_MIN_CONSECUTIVE) {
+        return;
+      }
+      if (now - state.lastSentAt < ZERO_SCAN_DEDUPE_WINDOW_MS) {
+        return;
+      }
+
+      zeroScanState.set(key, { lastSentAt: now, consecutive: nextConsecutive });
+    } else {
+      // Any "real" failure should reset the empty-scan counter so follow-up events can still fire.
+      if (lastZeroScanKey) {
+        zeroScanState.delete(lastZeroScanKey);
+        lastZeroScanKey = null;
+      }
+    }
+
+    sendRuntimeMessage(
+      {
+        type: 'REPORT_EXTENSION_HEALTH',
+        payload: {
+          platformId: platform.id,
+          eventKind,
+        },
+      },
+      () => {},
+    );
+  }
   const pending = new Set<string>();
   const resolvedScores = new Map<string, TokenScore>();
   const retryAttempts = new Map<string, number>();
@@ -275,6 +337,7 @@ export function initializeContentScript(): void {
 
     const nextAttempt = (renderRetryAttempts.get(address) ?? 0) + 1;
     if (nextAttempt > 20) {
+      reportHealth('injection_failed');
       return;
     }
 
@@ -383,6 +446,9 @@ export function initializeContentScript(): void {
 
     pending.add(address);
     platform.renderLoadingBadge(address);
+    if (!hasRenderedBadge(address)) {
+      reportHealth('anchor_not_found');
+    }
 
     sendRuntimeMessage({ type: 'GET_TOKEN_SCORE', payload: address }, (response) => {
       pending.delete(address);
@@ -468,6 +534,13 @@ export function initializeContentScript(): void {
     const visibleAddresses = [...active];
 
     syncVisibleBadges(visibleAddresses);
+    if (visibleAddresses.length === 0) {
+      reportHealth('scan_zero_tokens');
+    } else if (lastZeroScanKey) {
+      // Reset the zero-scan state once we successfully detect at least one address again.
+      zeroScanState.delete(lastZeroScanKey);
+      lastZeroScanKey = null;
+    }
 
     // Detail page: immediately persist selectedToken with address so the popup
     // always shows the current page's token (even before score resolves).

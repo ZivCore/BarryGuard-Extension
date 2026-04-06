@@ -31,8 +31,8 @@ export class DexScreenerPlatform extends GenericSolanaPlatform {
     super({
       id: 'dexscreener',
       name: 'Dexscreener',
-      hostPattern: ['*://dexscreener.com/*'],
-      hostnames: ['dexscreener.com'],
+      hostPattern: ['*://dexscreener.com/*', '*://www.dexscreener.com/*'],
+      hostnames: ['dexscreener.com', 'www.dexscreener.com'],
       currentAddressExtractor: () => {
         for (const anchor of Array.from(document.querySelectorAll<HTMLAnchorElement>(
           'a[href*="solscan.io/token/"], a[href*="birdeye.so/token/"]',

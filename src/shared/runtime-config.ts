@@ -1,5 +1,5 @@
 const DEFAULT_API_URL = 'https://barryguard.com/api';
-const DEFAULT_APP_URL = 'https://barryguard.com';
+const DEFAULT_APP_URL = 'https://www.barryguard.com';
 const LOCALHOST_HOSTS = new Set(['localhost', '127.0.0.1']);
 const CUSTOMER_PORTAL_HOSTS = new Set(['billing.stripe.com']);
 const EXPLORER_HOSTS = new Set(['solscan.io']);
@@ -77,6 +77,24 @@ export function getPricingUrl(): string {
     || getEnvValue('VITE_BARRYGUARD_PRICING_URL');
 
   return configuredUrl ? normalizeAppUrl(configuredUrl) : `${getAppBaseUrl()}/pricing`;
+}
+
+function parseBooleanEnv(value: string | undefined): boolean | null {
+  if (!value) return null;
+  const v = value.trim().toLowerCase();
+  if (v === '1' || v === 'true' || v === 'yes' || v === 'on') return true;
+  if (v === '0' || v === 'false' || v === 'no' || v === 'off') return false;
+  return null;
+}
+
+export function getExtensionHealthTelemetryEnabled(): boolean {
+  const configured =
+    getEnvValue('BARRYGUARD_EXTENSION_HEALTH_TELEMETRY_ENABLED')
+    || getEnvValue('WXT_BARRYGUARD_EXTENSION_HEALTH_TELEMETRY_ENABLED')
+    || getEnvValue('VITE_BARRYGUARD_EXTENSION_HEALTH_TELEMETRY_ENABLED');
+
+  const parsed = parseBooleanEnv(configured);
+  return parsed ?? true;
 }
 
 export function getAccountUrl(): string {

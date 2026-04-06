@@ -1,5 +1,6 @@
 import { defineContentScript } from 'wxt/utils/define-content-script';
 import { initializeContentScript } from '../content';
+import { PLATFORM_HOST_PATTERNS } from '../manifest/platform-hosts';
 
 function isExtensionContextInvalidatedError(error: unknown): boolean {
   const message =
@@ -13,22 +14,7 @@ function isExtensionContextInvalidatedError(error: unknown): boolean {
 }
 
 export default defineContentScript({
-  matches: [
-    '*://pump.fun/*',
-    '*://amm.pump.fun/*',
-    '*://swap.pump.fun/*',
-    '*://raydium.io/*',
-    '*://letsbonk.fun/*',
-    '*://bonk.fun/*',
-    '*://moonshot.money/*',
-    '*://dexscreener.com/*',
-    '*://birdeye.so/*',
-    '*://bags.fm/*',
-    '*://solscan.io/*',
-    '*://*.solscan.io/*',
-    '*://www.dextools.io/*',
-    '*://dextools.io/*',
-  ],
+  matches: [...PLATFORM_HOST_PATTERNS],
   runAt: 'document_end',
   main() {
     try {
