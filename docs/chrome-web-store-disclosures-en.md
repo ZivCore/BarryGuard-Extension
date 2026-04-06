@@ -16,6 +16,12 @@ BarryGuard no longer requests the `activeTab` permission. The extension works th
 
 BarryGuard uses `storage` to keep essential local extension state. This includes authentication state, session tokens, the current user profile and plan, cached token analyses, the last selected token, and local hourly usage counters for request limits. Without `storage`, the extension could not keep users signed in, show account and plan information, or provide fast context-aware token analysis.
 
+## Justification for `scripting`
+
+The extension uses `chrome.scripting.executeScript` solely to re-inject its own bundled content script (`content-scripts/pumpfun.js`) after client-side SPA navigations on supported websites (pump.fun, raydium.io, dexscreener.com, etc.).
+
+Modern single-page applications built with Next.js destroy the content script execution context during internal page transitions — without re-injection, the extension cannot display risk analysis badges after navigation. No remote code is loaded or executed.
+
 ## Justification for Host Permissions
 
 BarryGuard requires host permissions for the following domains in the current release:
@@ -121,4 +127,4 @@ For the current extension, the following can be confirmed:
 
 ## Practical Note Before Submission
 
-The current Chrome Web Store submission should reflect that `activeTab` is not requested by this release.
+The current Chrome Web Store submission should reflect that `activeTab` is not requested by this release. The extension declares `storage` and `scripting`; use the justification sections above for the permission rationale form and any reviewer notes.
