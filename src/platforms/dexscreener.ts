@@ -70,11 +70,9 @@ export class DexScreenerPlatform extends GenericSolanaPlatform {
       return [currentAddress];
     }
 
-    // List page: collect pair addresses from rows
-    const rows = Array.from(document.querySelectorAll<HTMLAnchorElement>('a.ds-dex-table-row'));
-    if (rows.length === 0) {
-      return [];
-    }
+    // List page: collect pair addresses from rows (DexScreener sometimes varies the exact class)
+    const rows = this.getListRows();
+    if (rows.length === 0) return [];
 
     const pairAddresses: string[] = [];
     for (const row of rows) {
@@ -163,7 +161,9 @@ export class DexScreenerPlatform extends GenericSolanaPlatform {
         continue;
       }
 
-      const row = document.querySelector(`a.ds-dex-table-row[href*="${pairAddr}"]`);
+      const row = document.querySelector(
+        `a.ds-dex-table-row[href*="${pairAddr}"], a[class*="ds-dex-table-row"][href*="${pairAddr}"]`,
+      );
       if (row) {
         this.tokenToRowMap.set(address, row);
         return row;
@@ -176,8 +176,13 @@ export class DexScreenerPlatform extends GenericSolanaPlatform {
   protected override insertBadge(address: string, target: Element, badge: HTMLDivElement): void {
     if (!this.isCurrentTokenPage(address)) {
       // List row: find the token name text and insert the badge inline after it
-      const nameEl = target.querySelector('.ds-dex-table-row-base-token-name-text')
-        ?? target.querySelector('.ds-dex-table-row-base-token-symbol')
+      const nameEl =
+        target.querySelector('[class*="ds-dex-table-row-base-token-name-text"]')
+        ?? target.querySelector('[class*="ds-dex-table-row-base-token-name"]')
+        ?? target.querySelector('[class*="ds-dex-table-row-base-token-symbol"]')
+        ?? target.querySelector('[class*="token-name" i]')
+        ?? target.querySelector('[class*="token-symbol" i]')
+        ?? target.querySelector('span')
         ?? target;
 
       badge.setAttribute('data-barryguard-context', `${this.id}-list`);
@@ -247,5 +252,22 @@ export class DexScreenerPlatform extends GenericSolanaPlatform {
     }
 
     return null;
+  }
+
+  private getListRows(): HTMLAnchorElement[] {
+    const primary = Array.from(document.querySelectorAll<HTMLAnchorElement>('a.ds-dex-table-row'));
+    if (primary.length > 0) return primary;
+
+    // Fallback: DexScreener sometimes uses derived classes like ds-dex-table-row-top, etc.
+    const fallback = Array.from(document.querySelectorAll<HTMLAnchorElement>('a[class*="ds-dex-table-row"]'));
+    if (fallback.length > 0) return fallback;
+
+    // Last resort for /solana overview: pick Solana pair links under main that match the pair href pattern.
+    const main = document.querySelector('main') ?? document.body;
+    const anchors = Array.from(main.querySelectorAll<HTMLAnchorElement>('a[href^="/solana/"]'));
+    return anchors.filter((a) => {
+      const href = a.getAttribute('href') ?? '';
+      return Boolean(href.match(PAIR_HREF_PATTERN));
+    });
   }
 }

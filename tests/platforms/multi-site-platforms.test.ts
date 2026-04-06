@@ -249,6 +249,37 @@ describe('additional Solana platforms', () => {
     });
   });
 
+  it('detects DexScreener /solana rows even when the row class differs (fallback selector)', async () => {
+    const pairAddress = TOKEN_B;
+    const platform = new DexScreenerPlatform();
+    window.history.replaceState({}, '', '/solana');
+    document.body.innerHTML = `
+      <main>
+        <a class="ds-dex-table-row-top" href="/solana/${pairAddress}">
+          <div class="ds-dex-table-row-base-token-name">
+            <span class="ds-dex-table-row-base-token-name-text">Token A</span>
+          </div>
+        </a>
+      </main>
+    `;
+
+    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
+      ok: true,
+      json: vi.fn().mockResolvedValue({
+        pairs: [{ pairAddress, baseToken: { address: TOKEN_A } }],
+      }),
+    }));
+
+    expect(platform.extractTokenAddresses()).toEqual([]);
+    await new Promise<void>((resolve) => setTimeout(resolve, 0));
+    expect(platform.extractTokenAddresses()).toContain(TOKEN_A);
+
+    vi.unstubAllGlobals();
+    vi.stubGlobal('chrome', {
+      runtime: { id: 'test-extension-id', sendMessage: vi.fn() },
+    });
+  });
+
   it('extracts Birdeye token addresses from token routes', () => {
     const platform = new BirdeyePlatform();
     window.history.replaceState({}, '', `/token/${TOKEN_A}?chain=solana`);
