@@ -85,7 +85,7 @@ interface GenericSolanaPlatformConfig {
   imageSelectors?: string[];                // Token logo images
   anchorSelectors?: string[];               // Links to scan for addresses
 
-  compactBadge?: boolean;                   // Use "BG 85" instead of "BarryGuard 85"
+  compactBadge?: boolean;                   // Use a compact badge layout (label stays "BarryGuard")
 }
 ```
 
@@ -132,11 +132,11 @@ Adapters use different strategies depending on the platform:
 
 | Risk Level | Score Range | Color | Badge Text |
 |------------|-------------|-------|------------|
-| danger | 0–29 | Red (#dc2626) | `BG 12` |
-| high | 30–54 | Orange (#ea580c) | `BG 42` |
-| caution | 55–74 | Yellow (#d97706) | `BG 65` |
-| moderate | 75–89 | Green (#16a34a) | `BG 82` |
-| low | 90–100 | Teal (#059669) | `BG 95` |
+| danger | 0–29 | Red (#dc2626) | `BarryGuard 12` |
+| high | 30–54 | Orange (#ea580c) | `BarryGuard 42` |
+| caution | 55–74 | Yellow (#d97706) | `BarryGuard 65` |
+| moderate | 75–89 | Green (#16a34a) | `BarryGuard 82` |
+| low | 90–100 | Teal (#059669) | `BarryGuard 95` |
 
 ### Badge States
 
@@ -155,6 +155,8 @@ On hover, the badge shows a tooltip with:
 - Top 3 risk reasons (truncated)
 - Data quality warning (if coverage is limited)
 - "Full analysis" link to barryguard.com
+
+**Text rule:** The tooltip/title must say **"BarryGuard Score"** (never abbreviated).
 
 ## Adding a New Platform
 

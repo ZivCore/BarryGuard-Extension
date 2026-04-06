@@ -5,7 +5,9 @@ import type { SelectedToken, TokenScore } from '../shared/types';
 // DexTools uses pair addresses in URLs, not token addresses.
 // Resolution strategy: DOM-based (Solscan/Birdeye links) + DexScreener API fallback.
 
-const PAIR_EXPLORER_PATTERN = /\/pair-explorer\/([1-9A-HJ-NP-Za-km-z]{32,44})(?:[/?#]|$)/i;
+// DexTools uses "pair-explorer/<pairId>" where pairId can be a base58-like address
+// OR an opaque alphanumeric id originating from DexScreener (may include "0" / "l").
+const PAIR_EXPLORER_PATTERN = /\/pair-explorer\/([a-z0-9]{20,80})(?:[/?#]|$)/i;
 const TOKEN_OVERVIEW_PATTERN = /\/token-overview\/([1-9A-HJ-NP-Za-km-z]{32,44})(?:[/?#]|$)/i;
 
 interface DexScreenerPairsResponse {

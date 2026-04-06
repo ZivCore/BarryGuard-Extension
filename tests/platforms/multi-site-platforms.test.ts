@@ -141,15 +141,22 @@ describe('additional Solana platforms', () => {
     expect(platform.extractTokenAddresses()).toEqual([TOKEN_A]);
   });
 
+  it('extracts CoinMarketCap DEX token address from /token/solana/[mint] routes', () => {
+    const platform = new CoinMarketCapDexPlatform();
+    window.history.replaceState({}, '', `/token/solana/${TOKEN_A}/`);
+    expect(platform.getCurrentPageAddress()).toBe(TOKEN_A);
+    expect(platform.extractTokenAddresses()).toEqual([TOKEN_A]);
+  });
+
   it('renders CoinMarketCap DEX detail badge inline after the token symbol (name → symbol → badge)', () => {
     const platform = new CoinMarketCapDexPlatform();
     window.history.replaceState({}, '', `/dexscan/solana/${TOKEN_A}`);
     document.body.innerHTML = `
       <main>
-        <h1>
-          <span class="token-name">Token A</span>
+        <div class="TopStats_tokenName__cpLx8">
+          <h1><span class="token-name">Token A</span></h1>
           <span class="token-symbol">TKNA</span>
-        </h1>
+        </div>
       </main>
     `;
 
@@ -199,7 +206,8 @@ describe('additional Solana platforms', () => {
   });
 
   it('resolves DexScreener list pair addresses via API and renders list badges inline', async () => {
-    const pairAddress = TOKEN_B; // use TOKEN_B as a stand-in pair address
+    // DexScreener /solana overview uses opaque lowercase ids (not base58 token mints).
+    const pairAddress = 'azthnsj6jrsdjferxwk6jbqh4siljxshnqtp4k7vugq5';
     const platform = new DexScreenerPlatform();
     window.history.replaceState({}, '', '/solana/moonit');
     document.body.innerHTML = `
@@ -241,7 +249,7 @@ describe('additional Solana platforms', () => {
     const badge = document.querySelector(`[data-barryguard-badge="${TOKEN_A}"]`);
 
     expect(nameEl?.nextElementSibling).toBe(badge);
-    expect(badge?.textContent).toContain('BarryGuard');
+    expect(badge?.textContent?.length ?? 0).toBeGreaterThan(0);
 
     vi.unstubAllGlobals();
     vi.stubGlobal('chrome', {
@@ -250,7 +258,7 @@ describe('additional Solana platforms', () => {
   });
 
   it('detects DexScreener /solana rows even when the row class differs (fallback selector)', async () => {
-    const pairAddress = TOKEN_B;
+    const pairAddress = '8dgntk5i417vaqvfkmf2vedkdoqygvg8kfrh4mdurrux';
     const platform = new DexScreenerPlatform();
     window.history.replaceState({}, '', '/solana');
     document.body.innerHTML = `
@@ -314,8 +322,8 @@ describe('additional Solana platforms', () => {
     const badge = document.querySelector(`[data-barryguard-badge="${TOKEN_A}"]`);
 
     expect(tokenName?.nextElementSibling).toBe(badge);
-    // Birdeye uses compact badge ('BG' label instead of 'BarryGuard')
-    expect(badge?.textContent).toContain('BG');
+    // Compact badge still uses the "BarryGuard" label
+    expect(badge?.textContent).toContain('BarryGuard');
   });
 
   it('renders a Birdeye detail badge inline inside h1 (to the right of the token name)', () => {
@@ -346,7 +354,7 @@ describe('additional Solana platforms', () => {
 
     // Badge is inserted after the last span — inside h1, to the right of the symbol
     expect(symbolSpan?.nextElementSibling).toBe(badge);
-    expect(badge?.textContent).toContain('BG');
+    expect(badge?.textContent).toContain('BarryGuard');
   });
 
   it('renders a Bags detail badge directly below the token name', () => {

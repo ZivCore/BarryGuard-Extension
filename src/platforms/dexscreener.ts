@@ -11,8 +11,14 @@ const DEXSCREENER_TOKEN_LINK_SELECTORS = [
   '[data-base-token]',
 ];
 
-// Pair-page href pattern: /{chain}/{pairAddress}
-const PAIR_HREF_PATTERN = /^\/[a-z0-9]+\/([1-9A-HJ-NP-Za-km-z]{32,44})(?:[/?#]|$)/i;
+// Pair-page href pattern: /{chain}/{pairId}
+//
+// DexScreener uses different identifier formats depending on the surface:
+// - Some routes use base58-like addresses (32–44 chars)
+// - /solana overview frequently uses opaque lowercase ids that include characters like "l" or "0"
+//
+// We accept a conservative alphanumeric id length so we don't accidentally match category slugs (e.g. /solana/moonit).
+const PAIR_HREF_PATTERN = /^\/[a-z0-9]+\/([a-z0-9]{20,80})(?:[/?#]|$)/i;
 
 interface DexScreenerPairsResponse {
   pairs?: Array<{

@@ -278,10 +278,11 @@ export function renderBadgeTooltip(
 }
 
 export function setBadgeContent(badge: HTMLDivElement, value: string, compact = false): void {
-  const label = compact ? 'BG' : 'BarryGuard';
+  // Label is always "BarryGuard".
+  const label = 'BarryGuard';
   const labelStyle = compact
-    ? 'font-size:9px;font-weight:800;letter-spacing:0.03em;text-transform:uppercase;line-height:1;'
-    : 'font-size:10px;font-weight:800;letter-spacing:0.04em;text-transform:uppercase;line-height:1;';
+    ? 'font-size:9px;font-weight:800;letter-spacing:0.02em;line-height:1;'
+    : 'font-size:10px;font-weight:800;letter-spacing:0.03em;line-height:1;';
   const valueStyle = compact
     ? 'font-size:11px;font-weight:800;line-height:1;'
     : 'font-size:12px;font-weight:800;line-height:1;';
