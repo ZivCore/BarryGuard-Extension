@@ -1,6 +1,8 @@
 import { GenericSolanaPlatform } from './generic-solana';
 
 export class CoinMarketCapDexPlatform extends GenericSolanaPlatform {
+  readonly chains = ['solana', 'ethereum', 'bsc', 'base'];
+
   constructor() {
     super({
       id: 'coinmarketcap-dex',
@@ -39,6 +41,23 @@ export class CoinMarketCapDexPlatform extends GenericSolanaPlatform {
       ],
       compactBadge: true,
     });
+  }
+
+  detectChainFromUrl(url: string): string | null {
+    const chainPatterns: Array<[RegExp, string]> = [
+      [/\/solana(?:\/|$)/i, 'solana'],
+      [/\/ethereum(?:\/|$)/i, 'ethereum'],
+      [/\/bsc(?:\/|$)/i, 'bsc'],
+      [/\/base(?:\/|$)/i, 'base'],
+    ];
+
+    for (const [pattern, chain] of chainPatterns) {
+      if (pattern.test(url)) {
+        return chain;
+      }
+    }
+
+    return 'solana';
   }
 
   protected override getDetailTarget(): Element | null {

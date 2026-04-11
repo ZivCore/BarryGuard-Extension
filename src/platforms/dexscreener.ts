@@ -29,6 +29,7 @@ interface DexScreenerPairsResponse {
 }
 
 export class DexScreenerPlatform extends GenericSolanaPlatform {
+  readonly chains = ['solana', 'ethereum', 'bsc', 'base'];
   private readonly pairToTokenMap = new Map<string, string>();
   private readonly tokenToRowMap = new Map<string, Element>();
   private resolutionPending = false;
@@ -228,6 +229,23 @@ export class DexScreenerPlatform extends GenericSolanaPlatform {
     }
 
     super.insertBadge(address, target, badge);
+  }
+
+  detectChainFromUrl(url: string): string | null {
+    const chainPatterns: Array<[RegExp, string]> = [
+      [/\/solana(?:\/|$)/i, 'solana'],
+      [/\/ethereum(?:\/|$)/i, 'ethereum'],
+      [/\/bsc(?:\/|$)/i, 'bsc'],
+      [/\/base(?:\/|$)/i, 'base'],
+    ];
+
+    for (const [pattern, chain] of chainPatterns) {
+      if (pattern.test(url)) {
+        return chain;
+      }
+    }
+
+    return 'solana';
   }
 
   private async resolvePairAddresses(pairAddresses: string[]): Promise<void> {

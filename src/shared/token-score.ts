@@ -41,6 +41,8 @@ const CHECK_STATUS_ALIASES: Record<string, CheckResult['status']> = {
 };
 const VALID_TIERS = new Set<TierLevel>(['free', 'rescue_pass', 'pro']);
 const SOLANA_ADDRESS_RE = /^[1-9A-HJ-NP-Za-km-z]{32,44}$/;
+const EVM_ADDRESS_RE = /^0x[a-fA-F0-9]{40}$/;
+const SUPPORTED_CHAINS = new Set(['solana', 'ethereum', 'bsc', 'polygon', 'base', 'avalanche', 'arbitrum']);
 const CHECK_FALLBACK_TIERS: Record<string, TierLevel> = {
   mintAuthority: 'free',
   freezeAuthority: 'free',
@@ -526,12 +528,19 @@ export function sanitizeTokenScore(value: unknown, options: TokenScoreSanitizati
 
   if (
     !address
-    || !SOLANA_ADDRESS_RE.test(address)
-    || normalizedChain !== 'solana'
+    || !normalizedChain
     || score === null
     || !resolvedRisk
+    || !SUPPORTED_CHAINS.has(normalizedChain)
     || (options.expectedAddress && address !== options.expectedAddress)
   ) {
+    return null;
+  }
+
+  const isValidAddress = normalizedChain === 'solana'
+    ? SOLANA_ADDRESS_RE.test(address)
+    : EVM_ADDRESS_RE.test(address);
+  if (!isValidAddress) {
     return null;
   }
 

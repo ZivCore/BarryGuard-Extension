@@ -3,6 +3,8 @@ import { GenericSolanaPlatform } from './generic-solana';
 const LOCALE_PREFIX_RE = /^\/[a-z]{2}(?:-[a-z]{2})?\//i;
 
 export class CoinGeckoSolanaPlatform extends GenericSolanaPlatform {
+  readonly chains = ['solana', 'ethereum', 'bsc', 'base'];
+
   constructor() {
     super({
       id: 'coingecko-solana',
@@ -35,6 +37,23 @@ export class CoinGeckoSolanaPlatform extends GenericSolanaPlatform {
       ],
       compactBadge: true,
     });
+  }
+
+  detectChainFromUrl(url: string): string | null {
+    const chainPatterns: Array<[RegExp, string]> = [
+      [/\/chains\/solana(?:\/|$)/i, 'solana'],
+      [/\/chains\/ethereum(?:\/|$)/i, 'ethereum'],
+      [/\/chains\/bsc(?:\/|$)/i, 'bsc'],
+      [/\/chains\/base(?:\/|$)/i, 'base'],
+    ];
+
+    for (const [pattern, chain] of chainPatterns) {
+      if (pattern.test(url)) {
+        return chain;
+      }
+    }
+
+    return 'solana';
   }
 
   override matchesLocation(location: Location): boolean {

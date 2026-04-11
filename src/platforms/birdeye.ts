@@ -1,6 +1,8 @@
 import { GenericSolanaPlatform } from './generic-solana';
 
 export class BirdeyePlatform extends GenericSolanaPlatform {
+  readonly chains = ['solana', 'ethereum', 'bsc', 'base'];
+
   constructor() {
     const tokenRoutePattern = /\/(?:[a-z0-9_-]+\/)?token\/([1-9A-HJ-NP-Za-km-z]{32,44})(?:[/?#]|$)/i;
 
@@ -114,6 +116,23 @@ export class BirdeyePlatform extends GenericSolanaPlatform {
       subtree: true,
       characterData: true,
     });
+  }
+
+  detectChainFromUrl(url: string): string | null {
+    const chainPatterns: Array<[RegExp, string]> = [
+      [/\/solana(?:\/|$)/i, 'solana'],
+      [/\/ethereum(?:\/|$)/i, 'ethereum'],
+      [/\/bsc(?:\/|$)/i, 'bsc'],
+      [/\/base(?:\/|$)/i, 'base'],
+    ];
+
+    for (const [pattern, chain] of chainPatterns) {
+      if (pattern.test(url)) {
+        return chain;
+      }
+    }
+
+    return 'solana';
   }
 
   private findHeuristicDetailTarget(): Element | null {

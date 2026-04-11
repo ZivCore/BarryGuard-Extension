@@ -29,6 +29,7 @@ import {
   renderReasons,
   renderSubscores,
   renderAnalysisFooter,
+  getExplorerUrl,
 } from './render';
 
 type ScreenName = 'loading' | 'token-detail' | 'login' | 'register' | 'account' | 'manual' | 'no-token';
@@ -1228,6 +1229,17 @@ function renderTokenDetail(score: TokenScore): void {
 
   if (elements.tokenDetail.tokenName) elements.tokenDetail.tokenName.textContent = tokenName;
   if (elements.tokenDetail.tokenSymbol) elements.tokenDetail.tokenSymbol.textContent = tokenSymbol;
+
+  const existingChainBadge = document.getElementById('chain-badge');
+  existingChainBadge?.remove();
+  if (score.chain) {
+    const chainBadge = document.createElement('span');
+    chainBadge.id = 'chain-badge';
+    chainBadge.className = 'chain-badge';
+    chainBadge.textContent = score.chain.toUpperCase();
+    elements.tokenDetail.tokenName?.parentNode?.insertBefore(chainBadge, elements.tokenDetail.tokenName.nextSibling);
+  }
+
   updateTokenAddressButton(shortenAddress(score.address, 8, 6), score.address);
   if (elements.tokenDetail.scoreValue) elements.tokenDetail.scoreValue.textContent = String(score.score);
   if (elements.tokenDetail.scoreDonut) {
@@ -1297,10 +1309,10 @@ function renderTokenDetail(score: TokenScore): void {
     elements.tokenDetail.viewExplorer.dataset.address = score.address;
   }
 
-  // Solscan link — dynamically set href based on current token address
+  // Explorer link — dynamically set href based on chain and current token address
   const solscanLink = document.getElementById('solscan-link') as HTMLAnchorElement | null;
   if (solscanLink && score.address) {
-    solscanLink.href = `https://solscan.io/token/${score.address}`;
+    solscanLink.href = getExplorerUrl(score.chain, score.address);
     solscanLink.style.display = '';
   } else if (solscanLink) {
     solscanLink.style.display = 'none';
@@ -2089,7 +2101,8 @@ function setupEventListeners(): void {
     event.preventDefault();
     const address = (event.currentTarget as HTMLAnchorElement).dataset.address;
     if (address) {
-      const explorerUrl = sanitizeExplorerUrl(`https://solscan.io/token/${address}`);
+      const chain = state.selectedToken?.score?.chain ?? 'solana';
+      const explorerUrl = sanitizeExplorerUrl(getExplorerUrl(chain, address));
       if (explorerUrl) {
         openExternal(explorerUrl);
       }

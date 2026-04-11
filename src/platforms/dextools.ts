@@ -18,6 +18,7 @@ interface DexScreenerPairsResponse {
 }
 
 export class DextoolsPlatform extends GenericSolanaPlatform {
+  readonly chains = ['solana', 'ethereum', 'bsc', 'base'];
   private readonly pairToTokenMap = new Map<string, string>();
   private readonly tokenToRowMap = new Map<string, Element>();
   private resolutionPending = false;
@@ -327,6 +328,23 @@ export class DextoolsPlatform extends GenericSolanaPlatform {
     } finally {
       this.resolutionPending = false;
     }
+  }
+
+  detectChainFromUrl(url: string): string | null {
+    const chainPatterns: Array<[RegExp, string]> = [
+      [/\/solana(?:\/|$)/i, 'solana'],
+      [/\/ethereum(?:\/|$)/i, 'ethereum'],
+      [/\/bsc(?:\/|$)/i, 'bsc'],
+      [/\/base(?:\/|$)/i, 'base'],
+    ];
+
+    for (const [pattern, chain] of chainPatterns) {
+      if (pattern.test(url)) {
+        return chain;
+      }
+    }
+
+    return 'solana';
   }
 
   private isLikelyTokenName(value: string): boolean {

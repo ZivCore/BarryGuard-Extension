@@ -53,9 +53,14 @@ export class TokenCache {
     this.initialized = true;
   }
 
-  async get(address: string, tier: TierLevel): Promise<TokenScore | null> {
+  private static makeKey(chain: string, address: string): string {
+    return `${chain}:${address}`;
+  }
+
+  async get(address: string, tier: TierLevel, chain: string = 'solana'): Promise<TokenScore | null> {
     await this.init();
-    const entry = this.cache.get(address);
+    const key = TokenCache.makeKey(chain, address);
+    const entry = this.cache.get(key);
     if (!entry) return null;
 
     if (entry.tier !== tier) {
@@ -64,7 +69,7 @@ export class TokenCache {
 
     const age = Date.now() - entry.timestamp;
     if (age > TTL_MS[tier]) {
-      this.cache.delete(address);
+      this.cache.delete(key);
       await this.persist();
       return null;
     }
@@ -73,13 +78,21 @@ export class TokenCache {
 
   async set(address: string, score: TokenScore, tier: TierLevel): Promise<void> {
     await this.init();
-    // FIFO eviction when at capacity
+    const key = TokenCache.makeKey(score.chain ?? 'solana', address);
     if (this.cache.size >= MAX_ENTRIES) {
       const oldest = this.cache.keys().next().value;
       if (oldest) this.cache.delete(oldest);
     }
-    this.cache.set(address, { score, timestamp: Date.now(), tier });
+    this.cache.set(key, { score, timestamp: Date.now(), tier });
     await this.persist();
+  }
+
+  async invalidate(address: string, chain: string = 'solana'): Promise<void> {
+    await this.init();
+    const key = TokenCache.makeKey(chain, address);
+    if (this.cache.delete(key)) {
+      await this.persist();
+    }
   }
 
   private evictExpired(): void {

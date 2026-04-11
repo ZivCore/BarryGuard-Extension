@@ -128,8 +128,8 @@ export class BarryGuardApiClient {
   }
 
   getTokenScore(address: string, chain = 'solana'): Promise<ApiResponse<TokenScore>> {
-    const params = new URLSearchParams({ chain, source: 'content_script' });
-    return this.request<TokenScore>(`/token/${encodeURIComponent(address)}?${params.toString()}`);
+    const params = new URLSearchParams({ source: 'content_script' });
+    return this.request<TokenScore>(`/token/${encodeURIComponent(chain)}/${encodeURIComponent(address)}?${params.toString()}`);
   }
 
   analyzeTokenList(addresses: string[], chain = 'solana', force = false): Promise<ApiResponse<unknown>> {

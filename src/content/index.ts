@@ -10,6 +10,12 @@ import { SolscanPlatform } from '../platforms/solscan';
 import { DextoolsPlatform } from '../platforms/dextools';
 import { CoinMarketCapDexPlatform } from '../platforms/coinmarketcap-dex';
 import { CoinGeckoSolanaPlatform } from '../platforms/coingecko-solana';
+import { UniswapPlatform } from '../platforms/uniswap-app';
+import { PancakeSwapPlatform } from '../platforms/pancakeswap-app';
+import { AerodromePlatform } from '../platforms/aerodrome-app';
+import { EtherscanPlatform } from '../platforms/etherscan';
+import { BscscanPlatform } from '../platforms/bscscan';
+import { BasescanPlatform } from '../platforms/basescan';
 import type { IPlatform } from '../platforms/platform.interface';
 import type { ApiResponse, SelectedToken, TierLevel, TokenMetadata, TokenScore } from '../shared/types';
 
@@ -26,6 +32,12 @@ const PLATFORMS: IPlatform[] = [
   new SolscanPlatform(),
   new CoinMarketCapDexPlatform(),
   new CoinGeckoSolanaPlatform(),
+  new UniswapPlatform(),
+  new PancakeSwapPlatform(),
+  new AerodromePlatform(),
+  new EtherscanPlatform(),
+  new BscscanPlatform(),
+  new BasescanPlatform(),
 ];
 const PROFILE_STORAGE_KEY = 'user_profile';
 const SELECTED_TOKEN_STORAGE_KEY = 'selectedToken';

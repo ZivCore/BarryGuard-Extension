@@ -261,6 +261,16 @@ function getDisplayCheckStatus(checkKey: string, check: CheckResult): CheckResul
   }
 }
 
+export function getExplorerUrl(chain: string, address: string): string {
+  const base: Record<string, string> = {
+    solana: 'https://solscan.io/token',
+    ethereum: 'https://etherscan.io/token',
+    bsc: 'https://bscscan.com/token',
+    base: 'https://basescan.org/token',
+  };
+  return `${base[chain] ?? base.solana}/${address}`;
+}
+
 // ─── Exported rendering functions ─────────────────────────────────────────────
 
 /**

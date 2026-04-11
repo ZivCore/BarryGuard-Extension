@@ -34,8 +34,7 @@ describe('BarryGuardApiClient', () => {
     await client.getTokenScore('abc123');
     expect(mockFetch).toHaveBeenCalledTimes(1);
     const url = String(mockFetch.mock.calls[0][0]);
-    expect(url).toMatch(/\/api\/token\/abc123\?/);
-    expect(url).toContain('chain=solana');
+    expect(url).toMatch(/\/api\/token\/solana\/abc123\?/);
     expect(url).toContain('source=content_script');
     expect(mockFetch.mock.calls[0][1]).toEqual(
       expect.objectContaining({

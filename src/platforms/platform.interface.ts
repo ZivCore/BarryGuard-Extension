@@ -14,4 +14,6 @@ export interface IPlatform {
   renderErrorBadge(address: string): void;
   renderLockedBadge(address: string): void;
   observeDOMChanges(callback: () => void): void;
+  readonly chains?: string[];
+  detectChainFromUrl?(url: string): string | null;
 }
