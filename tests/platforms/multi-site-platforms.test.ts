@@ -235,6 +235,14 @@ describe('additional Solana platforms', () => {
     expect(platform.extractTokenAddresses()).toEqual([TOKEN_A]);
   });
 
+  it('CoinGecko Solana adapter matches /en/ locale prefix and extracts mint from explorer links', () => {
+    const platform = new CoinGeckoSolanaPlatform();
+    const fakeLocation = { hostname: 'www.coingecko.com', pathname: '/en/chains/solana' } as unknown as Location;
+    document.body.innerHTML = `<a href="https://solscan.io/token/${TOKEN_B}">Explorer</a>`;
+    expect(platform.matchesLocation(fakeLocation)).toBe(true);
+    expect(platform.extractTokenAddresses()).toEqual([TOKEN_B]);
+  });
+
   it('ignores Dexscreener maker wallet links when extracting token addresses', () => {
     const platform = new DexScreenerPlatform();
     const makerWallet = '6Q4Xu2sXxMLZ7w8sL9fL1v7b7dQGJwR2X8c7mWq9rYpS';
