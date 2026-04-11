@@ -4,7 +4,7 @@ This document is written against the current BarryGuard extension configuration.
 
 ## Sole Purpose
 
-BarryGuard helps users evaluate Solana tokens on supported websites directly in the browser by showing risk signals, token context, and account-based usage information. The extension reads the currently visible token address and public token metadata on supported pages, requests the corresponding risk analysis from the BarryGuard backend, and displays the result in the page UI and in the extension popup. BarryGuard is built as a cross-platform token risk layer for supported Solana websites. The current release supports Pump.fun, PumpSwap, Raydium, LetsBonk, Moonshot, Dexscreener, Birdeye, Bags, Solscan, DexTools, CoinMarketCap DEX (dex.coinmarketcap.com), and CoinGecko Solana chain pages (www.coingecko.com).
+BarryGuard helps users evaluate tokens on supported websites directly in the browser by showing risk signals, token context, and account-based usage information. The extension reads the currently visible token address and public token metadata on supported pages, requests the corresponding risk analysis from the BarryGuard backend, and displays the result in the page UI and in the extension popup. BarryGuard is built as a cross-platform token risk layer for supported websites across multiple chains (Solana, Ethereum, BNB Chain, Base). The current release supports Pump.fun, PumpSwap, Raydium, LetsBonk, Moonshot, Dexscreener, Birdeye, Bags, Solscan, DexTools, CoinMarketCap DEX (dex.coinmarketcap.com), CoinGecko (Solana chain pages on www.coingecko.com), Uniswap, PancakeSwap, Aerodrome, Etherscan, BscScan, and BaseScan.
 
 ## Justification for `activeTab`
 
@@ -43,6 +43,13 @@ BarryGuard requires host permissions for the following domains in the current re
 - `https://dex.coinmarketcap.com/*`
 - `https://www.coingecko.com/*`
   BarryGuard reads the currently visible token address and public token metadata on these supported Solana pages so it can show token risk scores directly in page context.
+- `*://app.uniswap.org/*`
+- `*://pancakeswap.finance/*`
+- `*://aerodrome.finance/*`
+- `*://etherscan.io/*`
+- `*://bscscan.com/*`
+- `*://basescan.org/*`
+  BarryGuard reads token addresses from the DOM on these multi-chain platforms to display risk scores.
 - `https://barryguard.com/*`
 - `https://www.barryguard.com/*`
   BarryGuard connects to the BarryGuard backend for token risk analysis, session validation, account information, login, and plan-related features.

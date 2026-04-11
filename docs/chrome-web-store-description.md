@@ -1,10 +1,10 @@
 # BarryGuard Chrome Web Store Copy
 
 ## Kurzbeschreibung (max 132 Zeichen)
-Solana risk overlays on major DEX and chart sites incl. CMC DEX & CoinGecko. 23 checks. No wallet access.
+Multi-chain risk overlays on major DEX and chart sites incl. CMC DEX & CoinGecko. Solana, ETH, BNB, Base. 23 checks. No wallet access.
 
 ## Ausfuehrliche Beschreibung
-Live risk overlays on Pump.fun, PumpSwap, Raydium, LetsBonk, Moonshot, Dexscreener, Birdeye, Bags, Solscan, DexTools, CoinMarketCap DEX and CoinGecko (Solana chain area). 23 automated on-chain checks. No wallet access. No private keys.
+Multi-Chain (Solana, Ethereum, BNB Chain, Base). Live risk overlays on Pump.fun, PumpSwap, Raydium, LetsBonk, Moonshot, Dexscreener, Birdeye, Bags, Solscan, DexTools, CoinMarketCap DEX, CoinGecko (Solana chain area), Uniswap, PancakeSwap, Aerodrome, Etherscan, BscScan, and BaseScan. 23 automated on-chain checks. No wallet access. No private keys.
 
 BarryGuard analyzes Solana tokens in real time and shows a clear risk score directly on the page you are already on. No extra tabs, no copy-pasting addresses.
 
@@ -14,9 +14,9 @@ Every token is scored across three dimensions:
 - Market Structure — liquidity lock status, holder concentration, top wallet analysis
 - Behavior — creator history, insider network detection, post-rug pattern recognition, bundle detection
 
-### 12 Supported Platforms
+### 18 Supported Platforms
 Risk overlays appear automatically on:
-Pump.fun, PumpSwap, Raydium, LetsBonk, Moonshot, Dexscreener, Birdeye, Bags, Solscan, DexTools, CoinMarketCap DEX (dex.coinmarketcap.com), CoinGecko (Solana chain pages on www.coingecko.com)
+Pump.fun, PumpSwap, Raydium, LetsBonk, Moonshot, Dexscreener, Birdeye, Bags, Solscan, DexTools, CoinMarketCap DEX (dex.coinmarketcap.com), CoinGecko (Solana chain pages on www.coingecko.com), Uniswap, PancakeSwap, Aerodrome, Etherscan, BscScan, BaseScan
 
 ### Privacy First
 - No wallet connection required
