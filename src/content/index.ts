@@ -462,7 +462,8 @@ export function initializeContentScript(): void {
       reportHealth('anchor_not_found');
     }
 
-    sendRuntimeMessage({ type: 'GET_TOKEN_SCORE', payload: address }, (response) => {
+    const chain = (platform.detectChainFromUrl?.(window.location.href) ?? platform.chains?.[0]) ?? 'solana';
+    sendRuntimeMessage({ type: 'GET_TOKEN_SCORE', payload: { address, chain } }, (response) => {
       pending.delete(address);
       if (response?.success && response.data) {
         clearRetry(address);

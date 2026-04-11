@@ -74,6 +74,7 @@ export class GenericSolanaPlatform implements IPlatform {
   readonly id: string;
   readonly name: string;
   readonly hostPattern: string[];
+  readonly chains: string[] = ['solana'];
 
   private readonly hostnames: string[];
   private readonly currentAddressPatterns: RegExp[];

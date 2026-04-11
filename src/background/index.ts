@@ -931,13 +931,26 @@ function isValidSolanaAddress(value: unknown): value is string {
   return typeof value === 'string' && SOLANA_ADDRESS_RE.test(value);
 }
 
+const EVM_ADDRESS_RE = /^0x[0-9a-fA-F]{40}$/i;
+
+function isValidEvmAddress(value: unknown): value is string {
+  return typeof value === 'string' && EVM_ADDRESS_RE.test(value);
+}
+
+function isValidTokenAddress(address: unknown, chain: string): address is string {
+  if (chain === 'solana') {
+    return isValidSolanaAddress(address);
+  }
+  return isValidEvmAddress(address);
+}
+
 const _inFlightAddresses = new Set<string>();
 
-async function getTokenScore(address: string) {
+async function getTokenScore(address: string, chain: string = 'solana') {
   if (_inFlightAddresses.has(address)) {
     return { success: false, error: 'Analysis already in progress for this token.', errorType: 'busy' as const };
   }
-  if (!isValidSolanaAddress(address)) {
+  if (!isValidTokenAddress(address, chain)) {
     return { success: false, error: 'Invalid token address format.', errorType: 'validation' as const };
   }
   _inFlightAddresses.add(address);
@@ -958,7 +971,7 @@ async function getTokenScore(address: string) {
     }
 
     // 2. Server cache: GET /api/token/[address]
-    const existing = await api.getTokenScore(address);
+    const existing = await api.getTokenScore(address, chain);
     if (existing.success && existing.data) {
       const normalizedExisting = sanitizeTokenScore(existing.data, { expectedAddress: address });
       if (normalizedExisting) {
@@ -992,7 +1005,7 @@ async function getTokenScore(address: string) {
     }
 
     // 4. Fresh analysis: POST /api/analyze
-    const fresh = await api.analyzeToken(address);
+    const fresh = await api.analyzeToken(address, chain);
     if (fresh.success && fresh.data) {
       const normalizedFresh = sanitizeTokenScore(fresh.data, { expectedAddress: address });
       if (!normalizedFresh) {
@@ -1370,17 +1383,30 @@ export function initializeBackground(): void {
             break;
           }
           case 'GET_TOKEN_SCORE': {
-            const address = typeof message.payload === 'string'
-              ? message.payload
-              : (typeof (message.payload as Record<string, unknown>)?.address === 'string'
-                ? (message.payload as Record<string, unknown>).address as string
+            const payload = message.payload as string | Record<string, unknown> | undefined;
+            const address = typeof payload === 'string'
+              ? payload
+              : (typeof (payload as Record<string, unknown>)?.address === 'string'
+                ? (payload as Record<string, unknown>).address as string
                 : '');
-            respond(await getTokenScore(address));
+            const chain = typeof payload === 'object' && payload !== null && typeof (payload as Record<string, unknown>).chain === 'string'
+              ? (payload as Record<string, unknown>).chain as string
+              : 'solana';
+            respond(await getTokenScore(address, chain));
             break;
           }
-          case 'ANALYZE_TOKEN':
-            respond(await getTokenScore(message.payload));
+          case 'ANALYZE_TOKEN': {
+            const analyzePayload = message.payload as string | Record<string, unknown> | undefined;
+            const analyzeAddress = typeof analyzePayload === 'string' ? analyzePayload
+              : (typeof (analyzePayload as Record<string, unknown>)?.address === 'string'
+                ? (analyzePayload as Record<string, unknown>).address as string
+                : String(analyzePayload ?? ''));
+            const analyzeChain = typeof analyzePayload === 'object' && analyzePayload !== null && typeof (analyzePayload as Record<string, unknown>).chain === 'string'
+              ? (analyzePayload as Record<string, unknown>).chain as string
+              : 'solana';
+            respond(await getTokenScore(analyzeAddress, analyzeChain));
             break;
+          }
           case 'ANALYZE_TOKEN_LIST':
             respond(await analyzeTokenList((message.payload?.addresses as string[] | undefined) ?? []));
             break;

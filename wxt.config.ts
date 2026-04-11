@@ -25,7 +25,7 @@ export default defineConfig({
       '128': 'icons/icon128.png',
     },
     content_security_policy: {
-      extension_pages: "script-src 'self'; object-src 'none'; style-src 'self'; img-src 'self' data: https://pump.fun https://images.pump.fun https://cf-ipfs.com https://ipfs.io https://api.dexscreener.com https://dd.dexscreener.com https://birdeye.so; connect-src https://pump.fun https://amm.pump.fun https://swap.pump.fun https://raydium.io https://letsbonk.fun https://bonk.fun https://moonshot.money https://dexscreener.com https://www.dexscreener.com https://api.dexscreener.com https://birdeye.so https://bags.fm https://solscan.io https://www.dextools.io https://dextools.io https://dex.coinmarketcap.com https://www.coingecko.com https://barryguard.com https://www.barryguard.com",
+      extension_pages: "script-src 'self'; object-src 'none'; style-src 'self'; img-src 'self' data: https://pump.fun https://images.pump.fun https://cf-ipfs.com https://ipfs.io https://api.dexscreener.com https://dd.dexscreener.com https://birdeye.so; connect-src https://pump.fun https://amm.pump.fun https://swap.pump.fun https://raydium.io https://letsbonk.fun https://bonk.fun https://moonshot.money https://dexscreener.com https://www.dexscreener.com https://api.dexscreener.com https://birdeye.so https://bags.fm https://solscan.io https://www.dextools.io https://dextools.io https://dex.coinmarketcap.com https://www.coingecko.com https://app.uniswap.org https://pancakeswap.finance https://aerodrome.finance https://etherscan.io https://bscscan.com https://basescan.org https://barryguard.com https://www.barryguard.com",
     },
   },
   zip: {

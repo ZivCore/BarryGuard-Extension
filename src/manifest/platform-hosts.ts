@@ -22,5 +22,16 @@ export const PLATFORM_HOST_PATTERNS = [
   '*://dextools.io/*',
   '*://dex.coinmarketcap.com/*',
   '*://www.coingecko.com/*',
+  '*://app.uniswap.org/*',
+  '*://pancakeswap.finance/*',
+  '*://www.pancakeswap.finance/*',
+  '*://aerodrome.finance/*',
+  '*://www.aerodrome.finance/*',
+  '*://etherscan.io/*',
+  '*://www.etherscan.io/*',
+  '*://bscscan.com/*',
+  '*://www.bscscan.com/*',
+  '*://basescan.org/*',
+  '*://www.basescan.org/*',
 ] as const;
 
