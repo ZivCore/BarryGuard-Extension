@@ -5,7 +5,7 @@ import type { SelectedToken, TokenMetadata, TokenScore } from '../shared/types';
 
 const EVM_ADDRESS_RE = /0x[0-9a-fA-F]{40}/g;
 
-export function extractEvmAddresses(value: string | null | undefined): string[] {
+function extractEvmAddresses(value: string | null | undefined): string[] {
   if (!value) {
     return [];
   }

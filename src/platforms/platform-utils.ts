@@ -313,10 +313,3 @@ export function getRiskColors(risk: string): { bg: string; text: string; border:
 
   return map[risk] ?? map.danger;
 }
-
-export function mergeTokenMetadata(primary?: TokenMetadata, secondary?: TokenMetadata): TokenMetadata {
-  return {
-    ...(primary ?? {}),
-    ...(secondary ?? {}),
-  };
-}

@@ -176,6 +176,18 @@ pnpm build              # Produces zip with new version number
 
 Unter Manifest V3 gilt ein Match wie `*://example.com/*` **nur** für den Hostnamen `example.com` **ohne** Subdomain. Die Subdomain **`www`** ist ein eigener Host und muss **zusätzlich** eingetragen werden, wo Nutzer/Redirects sie nutzen (`host_permissions`, Content-Script-`matches`, CSP `connect-src` / `img-src`, ggf. `SUPPORTED_HOST_PATTERNS` im Background für Reinject). Dieselbe Sorgfalt gilt für **alle** Einträge in `PLATFORMS`, nicht nur für eine einzelne Site.
 
+## CSP `connect-src` Scope (bewusst eng)
+
+Die `content_security_policy.extension_pages.connect-src`-Liste in `wxt.config.ts` ist **bewusst nicht** symmetrisch zu `host_permissions`. Sie enthält nur `barryguard.com` sowie die historischen Plattform-Hosts, **nicht** jede neue Plattform-Site.
+
+Begründung (ADR-007):
+
+- Extension-Pages (Popup, Options) machen **keine** direkten Fetches zu Plattform-Hosts. Alle API-Calls gehen ausschließlich an `barryguard.com/api/*`.
+- Neue Plattformen werden nur via **Content-Scripts** berührt. Content-Scripts laufen im CSP-Kontext der jeweiligen Ziel-Seite, nicht im CSP-Kontext der Extension-Pages — `connect-src` der Extension-CSP ist dort irrelevant.
+- Eine breitere `connect-src`-Liste würde die Angriffsfläche erhöhen, falls eine Extension-Page je kompromittiert wird, ohne funktionalen Gewinn.
+
+**Regel:** Eine neue Plattform bekommt standardmäßig **keinen** neuen `connect-src`-Eintrag. Nur wenn eine Extension-Page (Popup, Options) nachweislich direkt zu einem Plattform-Host fetchen muss (z. B. Logo-Load außerhalb des Badges), wird der Host ergänzt — und das Rationale im Commit dokumentiert.
+
 ## Audit-Matrix (Pflicht für Releases mit Host-Änderungen)
 
 Bei neuen oder geänderten Plattformen: **eine Zeile pro Adapter** mit Abgleich von:
@@ -205,6 +217,31 @@ Bei neuen oder geänderten Plattformen: **eine Zeile pro Adapter** mit Abgleich 
 | `src/platforms/solscan.ts` | `solscan` | `*://solscan.io/*`, `*://*.solscan.io/*` | `platform-hosts.ts` ✅ | `SUPPORTED_PLATFORM_HOST_PATTERNS` ✅ | `wxt.config.ts` ✅ |
 | `src/platforms/coinmarketcap-dex.ts` | `coinmarketcap-dex` | `*://dex.coinmarketcap.com/*` | `platform-hosts.ts` ✅ | `SUPPORTED_PLATFORM_HOST_PATTERNS` ✅ | `wxt.config.ts` ✅ |
 | `src/platforms/coingecko-solana.ts` | `coingecko-solana` | `*://www.coingecko.com/*` | `platform-hosts.ts` ✅ | `SUPPORTED_PLATFORM_HOST_PATTERNS` ✅ | `wxt.config.ts` ✅ |
+| `src/platforms/etherscan.ts` | `etherscan` | `*://etherscan.io/*` | `platform-hosts.ts` ✅ | `SUPPORTED_PLATFORM_HOST_PATTERNS` ✅ | `wxt.config.ts` ✅ |
+| `src/platforms/bscscan.ts` | `bscscan` | `*://bscscan.com/*` | `platform-hosts.ts` ✅ | `SUPPORTED_PLATFORM_HOST_PATTERNS` ✅ | `wxt.config.ts` ✅ |
+| `src/platforms/basescan.ts` | `basescan` | `*://basescan.org/*` | `platform-hosts.ts` ✅ | `SUPPORTED_PLATFORM_HOST_PATTERNS` ✅ | `wxt.config.ts` ✅ |
+| `src/platforms/uniswap.ts` | `uniswap` | `*://app.uniswap.org/*` | `platform-hosts.ts` ✅ | `SUPPORTED_PLATFORM_HOST_PATTERNS` ✅ | `wxt.config.ts` ✅ |
+| `src/platforms/pancakeswap.ts` | `pancakeswap` | `*://pancakeswap.finance/*` | `platform-hosts.ts` ✅ | `SUPPORTED_PLATFORM_HOST_PATTERNS` ✅ | `wxt.config.ts` ✅ |
+| `src/platforms/aerodrome.ts` | `aerodrome` | `*://aerodrome.finance/*` | `platform-hosts.ts` ✅ | `SUPPORTED_PLATFORM_HOST_PATTERNS` ✅ | `wxt.config.ts` ✅ |
+| `src/platforms/sushiswap.ts` | `sushiswap` | `*://www.sushi.com/*`, `*://sushi.com/*` | `platform-hosts.ts` ✅ | `SUPPORTED_PLATFORM_HOST_PATTERNS` ✅ | `wxt.config.ts` ✅ |
+| `src/platforms/1inch.ts` | `1inch` | `*://app.1inch.io/*` | `platform-hosts.ts` ✅ | `SUPPORTED_PLATFORM_HOST_PATTERNS` ✅ | `wxt.config.ts` ✅ |
+| `src/platforms/matcha.ts` | `matcha` | `*://matcha.xyz/*` | `platform-hosts.ts` ✅ | `SUPPORTED_PLATFORM_HOST_PATTERNS` ✅ | `wxt.config.ts` ✅ |
+| `src/platforms/cowswap.ts` | `cowswap` | `*://swap.cow.fi/*` | `platform-hosts.ts` ✅ | `SUPPORTED_PLATFORM_HOST_PATTERNS` ✅ | `wxt.config.ts` ✅ |
+| `src/platforms/paraswap.ts` | `paraswap` | `*://app.paraswap.io/*`, `*://www.paraswap.io/*` | `platform-hosts.ts` ✅ | `SUPPORTED_PLATFORM_HOST_PATTERNS` ✅ | `wxt.config.ts` ✅ |
+| `src/platforms/baseswap.ts` | `baseswap` | `*://baseswap.fi/*` | `platform-hosts.ts` ✅ | `SUPPORTED_PLATFORM_HOST_PATTERNS` ✅ | `wxt.config.ts` ✅ |
+| `src/platforms/flaunch.ts` | `flaunch` | `*://flaunch.gg/*` | `platform-hosts.ts` ✅ | `SUPPORTED_PLATFORM_HOST_PATTERNS` ✅ | `wxt.config.ts` ✅ |
+| `src/platforms/geckoterminal.ts` | `geckoterminal` | `*://www.geckoterminal.com/*`, `*://geckoterminal.com/*` | `platform-hosts.ts` ✅ | `SUPPORTED_PLATFORM_HOST_PATTERNS` ✅ | `wxt.config.ts` ✅ |
+| `src/platforms/aveai.ts` | `aveai` | `*://ave.ai/*` | `platform-hosts.ts` ✅ | `SUPPORTED_PLATFORM_HOST_PATTERNS` ✅ | `wxt.config.ts` ✅ |
+| `src/platforms/dexview.ts` | `dexview` | `*://www.dexview.com/*`, `*://dexview.com/*` | `platform-hosts.ts` ✅ | `SUPPORTED_PLATFORM_HOST_PATTERNS` ✅ | `wxt.config.ts` ✅ |
+| `src/platforms/fourmeme.ts` | `fourmeme` | `*://four.meme/*` | `platform-hosts.ts` ✅ | `SUPPORTED_PLATFORM_HOST_PATTERNS` ✅ | `wxt.config.ts` ✅ |
+| `src/platforms/gmgn.ts` | `gmgn` | `*://gmgn.ai/*` | `platform-hosts.ts` ✅ | `SUPPORTED_PLATFORM_HOST_PATTERNS` ✅ | `wxt.config.ts` ✅ |
+| `src/platforms/poocoin.ts` | `poocoin` | `*://poocoin.app/*` | `platform-hosts.ts` ✅ | `SUPPORTED_PLATFORM_HOST_PATTERNS` ✅ | `wxt.config.ts` ✅ |
+| `src/platforms/virtuals.ts` | `virtuals` | `*://app.virtuals.io/*` | `platform-hosts.ts` ✅ | `SUPPORTED_PLATFORM_HOST_PATTERNS` ✅ | `wxt.config.ts` ✅ |
+| `src/platforms/goplus.ts` | `goplus` | `*://gopluslabs.io/*`, `*://www.gopluslabs.io/*` | `platform-hosts.ts` ✅ | `SUPPORTED_PLATFORM_HOST_PATTERNS` ✅ | `wxt.config.ts` ✅ |
+| `src/platforms/tokensniffer.ts` | `tokensniffer` | `*://tokensniffer.com/*` | `platform-hosts.ts` ✅ | `SUPPORTED_PLATFORM_HOST_PATTERNS` ✅ | `wxt.config.ts` ✅ |
+| `src/platforms/honeypotis.ts` | `honeypotis` | `*://honeypot.is/*` | `platform-hosts.ts` ✅ | `SUPPORTED_PLATFORM_HOST_PATTERNS` ✅ | `wxt.config.ts` ✅ |
+| `src/platforms/debank.ts` | `debank` | `*://debank.com/*`, `*://www.debank.com/*` | `platform-hosts.ts` ✅ | `SUPPORTED_PLATFORM_HOST_PATTERNS` ✅ | `wxt.config.ts` ✅ |
+| `src/platforms/zerion.ts` | `zerion` | `*://app.zerion.io/*` | `platform-hosts.ts` ✅ | `SUPPORTED_PLATFORM_HOST_PATTERNS` ✅ | `wxt.config.ts` ✅ |
 
 Vollständige fachliche Beschreibung des Backend- und Admin-Teils: `BarryGuard/docs/features/feature-extension-qa-admin.md` (Web-Repo).
 

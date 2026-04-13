@@ -4,7 +4,7 @@
 Multi-chain risk overlays on major DEX and chart sites incl. CMC DEX & CoinGecko. Solana, ETH, BNB, Base. 23 checks. No wallet access.
 
 ## Ausfuehrliche Beschreibung
-Multi-Chain (Solana, Ethereum, BNB Chain, Base). Live risk overlays on Pump.fun, PumpSwap, Raydium, LetsBonk, Moonshot, Dexscreener, Birdeye, Bags, Solscan, DexTools, CoinMarketCap DEX, CoinGecko (Solana chain area), Uniswap, PancakeSwap, Aerodrome, Etherscan, BscScan, and BaseScan. 23 automated on-chain checks. No wallet access. No private keys.
+Multi-Chain (Solana, Ethereum, BNB Chain, Base). Live risk overlays on Pump.fun, PumpSwap, Raydium, LetsBonk, Moonshot, Dexscreener, Birdeye, Bags, Solscan, DexTools, CoinMarketCap DEX, CoinGecko (Solana, ETH, BSC, Base chain pages), Uniswap, PancakeSwap (BSC, ETH, Base), Aerodrome, Etherscan, BscScan, BaseScan, GoPlus, TokenSniffer, Honeypot.is, GeckoTerminal, Ave.ai, DexView, SushiSwap, 1inch, Matcha, CoW Swap, Paraswap, BaseSwap, flaunch, four.meme, GMGN, Poocoin, Virtuals, DeBank, and Zerion. 23 automated on-chain checks. No wallet access. No private keys.
 
 BarryGuard analyzes Solana tokens in real time and shows a clear risk score directly on the page you are already on. No extra tabs, no copy-pasting addresses.
 
@@ -14,9 +14,9 @@ Every token is scored across three dimensions:
 - Market Structure — liquidity lock status, holder concentration, top wallet analysis
 - Behavior — creator history, insider network detection, post-rug pattern recognition, bundle detection
 
-### 18 Supported Platforms
+### 37 Supported Platforms
 Risk overlays appear automatically on:
-Pump.fun, PumpSwap, Raydium, LetsBonk, Moonshot, Dexscreener, Birdeye, Bags, Solscan, DexTools, CoinMarketCap DEX (dex.coinmarketcap.com), CoinGecko (Solana chain pages on www.coingecko.com), Uniswap, PancakeSwap, Aerodrome, Etherscan, BscScan, BaseScan
+Pump.fun, PumpSwap, Raydium, LetsBonk, Moonshot, Dexscreener, Birdeye, Bags, Solscan, DexTools, CoinMarketCap DEX (dex.coinmarketcap.com), CoinGecko (Solana, ETH, BSC, Base chain pages on www.coingecko.com), Uniswap, PancakeSwap (BSC, ETH, Base on pancakeswap.finance), Aerodrome, Etherscan, BscScan, BaseScan, GoPlus (gopluslabs.io), TokenSniffer (tokensniffer.com), Honeypot.is (honeypot.is), GeckoTerminal (geckoterminal.com), Ave.ai (ave.ai), DexView (dexview.com), SushiSwap (sushi.com), 1inch (app.1inch.io), Matcha (matcha.xyz), CoW Swap (swap.cow.fi), Paraswap (app.paraswap.io), BaseSwap (baseswap.fi), flaunch (flaunch.gg), four.meme (four.meme), GMGN (gmgn.ai), Poocoin (poocoin.app), Virtuals (app.virtuals.io), DeBank (debank.com), Zerion (app.zerion.io)
 
 ### Privacy First
 - No wallet connection required

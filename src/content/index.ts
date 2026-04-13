@@ -16,6 +16,25 @@ import { AerodromePlatform } from '../platforms/aerodrome-app';
 import { EtherscanPlatform } from '../platforms/etherscan';
 import { BscscanPlatform } from '../platforms/bscscan';
 import { BasescanPlatform } from '../platforms/basescan';
+import { GoPlusPlatform } from '../platforms/goplus';
+import { TokenSnifferPlatform } from '../platforms/tokensniffer';
+import { HoneypotIsPlatform } from '../platforms/honeypot-is';
+import { GeckoTerminalPlatform } from '../platforms/geckoterminal';
+import { AveAiPlatform } from '../platforms/ave-ai';
+import { DexViewPlatform } from '../platforms/dexview';
+import { SushiSwapPlatform } from '../platforms/sushiswap';
+import { OneInchPlatform } from '../platforms/oneinch';
+import { MatchaPlatform } from '../platforms/matcha';
+import { CowSwapPlatform } from '../platforms/cowswap';
+import { ParaswapPlatform } from '../platforms/paraswap';
+import { BaseSwapPlatform } from '../platforms/baseswap';
+import { FlaunchPlatform } from '../platforms/flaunch';
+import { FourMemePlatform } from '../platforms/four-meme';
+import { GmgnEvmPlatform } from '../platforms/gmgn-evm';
+import { PoocoinPlatform } from '../platforms/poocoin';
+import { VirtualsPlatform } from '../platforms/virtuals';
+import { DeBankPlatform } from '../platforms/debank';
+import { ZerionPlatform } from '../platforms/zerion';
 import type { IPlatform } from '../platforms/platform.interface';
 import type { ApiResponse, SelectedToken, TierLevel, TokenMetadata, TokenScore } from '../shared/types';
 
@@ -38,6 +57,25 @@ const PLATFORMS: IPlatform[] = [
   new EtherscanPlatform(),
   new BscscanPlatform(),
   new BasescanPlatform(),
+  new GoPlusPlatform(),
+  new TokenSnifferPlatform(),
+  new HoneypotIsPlatform(),
+  new GeckoTerminalPlatform(),
+  new AveAiPlatform(),
+  new DexViewPlatform(),
+  new SushiSwapPlatform(),
+  new OneInchPlatform(),
+  new MatchaPlatform(),
+  new CowSwapPlatform(),
+  new ParaswapPlatform(),
+  new BaseSwapPlatform(),
+  new FlaunchPlatform(),
+  new FourMemePlatform(),
+  new GmgnEvmPlatform(),
+  new PoocoinPlatform(),
+  new VirtualsPlatform(),
+  new DeBankPlatform(),
+  new ZerionPlatform(),
 ];
 const PROFILE_STORAGE_KEY = 'user_profile';
 const SELECTED_TOKEN_STORAGE_KEY = 'selectedToken';

@@ -1,6 +1,6 @@
 const SOLANA_ADDRESS_RE = /\b[1-9A-HJ-NP-Za-km-z]{32,44}\b/g;
 
-export function extractSolanaAddresses(value: string | null | undefined): string[] {
+function extractSolanaAddresses(value: string | null | undefined): string[] {
   if (!value) {
     return [];
   }

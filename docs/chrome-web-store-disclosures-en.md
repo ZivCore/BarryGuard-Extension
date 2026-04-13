@@ -4,7 +4,7 @@ This document is written against the current BarryGuard extension configuration.
 
 ## Sole Purpose
 
-BarryGuard helps users evaluate tokens on supported websites directly in the browser by showing risk signals, token context, and account-based usage information. The extension reads the currently visible token address and public token metadata on supported pages, requests the corresponding risk analysis from the BarryGuard backend, and displays the result in the page UI and in the extension popup. BarryGuard is built as a cross-platform token risk layer for supported websites across multiple chains (Solana, Ethereum, BNB Chain, Base). The current release supports Pump.fun, PumpSwap, Raydium, LetsBonk, Moonshot, Dexscreener, Birdeye, Bags, Solscan, DexTools, CoinMarketCap DEX (dex.coinmarketcap.com), CoinGecko (Solana chain pages on www.coingecko.com), Uniswap, PancakeSwap, Aerodrome, Etherscan, BscScan, and BaseScan.
+BarryGuard helps users evaluate tokens on supported websites directly in the browser by showing risk signals, token context, and account-based usage information. The extension reads the currently visible token address and public token metadata on supported pages, requests the corresponding risk analysis from the BarryGuard backend, and displays the result in the page UI and in the extension popup. BarryGuard is built as a cross-platform token risk layer for supported websites across multiple chains (Solana, Ethereum, BNB Chain, Base). The current release supports Pump.fun, PumpSwap, Raydium, LetsBonk, Moonshot, Dexscreener, Birdeye, Bags, Solscan, DexTools, CoinMarketCap DEX (dex.coinmarketcap.com), CoinGecko (Solana, ETH, BSC, Base chain pages on www.coingecko.com), Uniswap, PancakeSwap (BSC, ETH, Base on pancakeswap.finance), Aerodrome, Etherscan, BscScan, BaseScan, GoPlus (gopluslabs.io), TokenSniffer (tokensniffer.com), Honeypot.is (honeypot.is), GeckoTerminal (geckoterminal.com), Ave.ai (ave.ai), DexView (dexview.com), SushiSwap (sushi.com), 1inch (app.1inch.io), Matcha (matcha.xyz), CoW Swap (swap.cow.fi), Paraswap (app.paraswap.io), BaseSwap (baseswap.fi), flaunch (flaunch.gg), four.meme (four.meme), GMGN (gmgn.ai), Poocoin (poocoin.app), Virtuals (app.virtuals.io), DeBank (debank.com), and Zerion (app.zerion.io).
 
 ## Justification for `activeTab`
 
@@ -42,14 +42,77 @@ BarryGuard requires host permissions for the following domains in the current re
 - `https://www.dextools.io/*`
 - `https://dex.coinmarketcap.com/*`
 - `https://www.coingecko.com/*`
-  BarryGuard reads the currently visible token address and public token metadata on these supported Solana pages so it can show token risk scores directly in page context.
+  BarryGuard reads the currently visible token address and public token metadata on these supported Solana pages so it can show token risk scores directly in page context. CoinGecko now also covers Ethereum, BNB Chain, and Base chain pages.
 - `*://app.uniswap.org/*`
 - `*://pancakeswap.finance/*`
+- `*://www.pancakeswap.finance/*`
+  PancakeSwap now covers BSC, Ethereum, and Base chain pages in addition to BSC.
 - `*://aerodrome.finance/*`
+- `*://www.aerodrome.finance/*`
 - `*://etherscan.io/*`
+- `*://www.etherscan.io/*`
 - `*://bscscan.com/*`
+- `*://www.bscscan.com/*`
 - `*://basescan.org/*`
+- `*://www.basescan.org/*`
   BarryGuard reads token addresses from the DOM on these multi-chain platforms to display risk scores.
+- `*://gopluslabs.io/*`
+- `*://www.gopluslabs.io/*`
+  Display token risk score badge on token security analyzer pages.
+- `*://tokensniffer.com/*`
+- `*://www.tokensniffer.com/*`
+  Display token risk score badge on token security analyzer pages.
+- `*://honeypot.is/*`
+- `*://www.honeypot.is/*`
+  Display token risk score badge on token security analyzer pages.
+- `*://geckoterminal.com/*`
+- `*://www.geckoterminal.com/*`
+  Display token risk score badge on token pages.
+- `*://ave.ai/*`
+- `*://www.ave.ai/*`
+  Display token risk score badge on token pages.
+- `*://dexview.com/*`
+- `*://www.dexview.com/*`
+  Display token risk score badge on token pages.
+- `*://sushi.com/*`
+- `*://www.sushi.com/*`
+  Display token risk score badge on token pages.
+- `*://app.1inch.io/*`
+  Display token risk score badge on token pages.
+- `*://matcha.xyz/*`
+- `*://www.matcha.xyz/*`
+  Display token risk score badge on token pages.
+- `*://swap.cow.fi/*`
+  Display token risk score badge on token pages.
+- `*://app.paraswap.io/*`
+- `*://www.paraswap.io/*`
+  Display token risk score badge on token pages.
+- `*://baseswap.fi/*`
+- `*://www.baseswap.fi/*`
+  Display token risk score badge on token pages.
+- `*://flaunch.gg/*`
+- `*://www.flaunch.gg/*`
+  Display token risk score badge on token pages.
+- `*://four.meme/*`
+- `*://www.four.meme/*`
+  Display token risk score badge on token pages.
+- `*://gmgn.ai/*`
+- `*://www.gmgn.ai/*`
+  Display token risk score badge on token pages.
+- `*://poocoin.app/*`
+- `*://www.poocoin.app/*`
+  Display token risk score badge on token pages.
+- `*://app.virtuals.io/*`
+- `*://virtuals.io/*`
+- `*://www.virtuals.io/*`
+  Display token risk score badge on token pages.
+- `*://debank.com/*`
+- `*://www.debank.com/*`
+  Display token risk score badge on token pages.
+- `*://app.zerion.io/*`
+- `*://zerion.io/*`
+- `*://www.zerion.io/*`
+  Display token risk score badge on token pages.
 - `https://barryguard.com/*`
 - `https://www.barryguard.com/*`
   BarryGuard connects to the BarryGuard backend for token risk analysis, session validation, account information, login, and plan-related features.
