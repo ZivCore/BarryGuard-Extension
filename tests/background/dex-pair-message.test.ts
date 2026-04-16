@@ -48,10 +48,10 @@ async function handleResolveDexPair(
 }
 
 describe('RESOLVE_DEX_PAIR background handler (E-M10)', () => {
-  let mockFetch: ReturnType<typeof vi.fn>
+  let mockFetch: ReturnType<typeof vi.fn<[string], Promise<Response>>>
 
   beforeEach(() => {
-    mockFetch = vi.fn()
+    mockFetch = vi.fn<[string], Promise<Response>>()
   })
 
   it('fetches from api.dexscreener.com (not from content script)', async () => {

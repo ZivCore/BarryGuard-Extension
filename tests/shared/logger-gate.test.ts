@@ -32,10 +32,14 @@ function makeLogger(isDev: boolean) {
 }
 
 describe('logger — production build (IS_DEV = false)', () => {
-  let debugSpy: ReturnType<typeof vi.spyOn>
-  let logSpy: ReturnType<typeof vi.spyOn>
-  let warnSpy: ReturnType<typeof vi.spyOn>
-  let errorSpy: ReturnType<typeof vi.spyOn>
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let debugSpy: any
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let logSpy: any
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let warnSpy: any
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let errorSpy: any
   const prodLogger = makeLogger(false)
 
   beforeEach(() => {
@@ -72,8 +76,10 @@ describe('logger — production build (IS_DEV = false)', () => {
 })
 
 describe('logger — development build (IS_DEV = true)', () => {
-  let debugSpy: ReturnType<typeof vi.spyOn>
-  let logSpy: ReturnType<typeof vi.spyOn>
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let debugSpy: any
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let logSpy: any
   const devLogger = makeLogger(true)
 
   beforeEach(() => {

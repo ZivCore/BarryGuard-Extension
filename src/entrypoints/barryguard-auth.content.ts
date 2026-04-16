@@ -1,16 +1,9 @@
 import { defineContentScript } from 'wxt/utils/define-content-script';
 import { buildWebsiteSessionPayload } from '../shared/website-session';
 
-// Production guard: only run on the expected production origins.
-// Localhost matching is handled at the manifest level (dev builds only).
-// This guard provides defense-in-depth against unexpected match expansion.
-if (import.meta.env.MODE !== 'development') {
-  const allowed = new Set(['barryguard.com', 'www.barryguard.com']);
-  if (!allowed.has(window.location.hostname)) {
-    // eslint-disable-next-line no-throw-literal
-    throw new Error('[BarryGuard] auth content script loaded on unexpected origin');
-  }
-}
+// Production origin guard lives inside main() (see below). Module-level code
+// must stay side-effect-free because WXT's `prepare` step imports this file in
+// a Node/vite-node context where `window` is undefined.
 
 /**
  * Verifies that the JWT issuer claim matches the expected Supabase project host.
