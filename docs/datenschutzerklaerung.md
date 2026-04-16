@@ -167,3 +167,9 @@ Es gilt die jeweils aktuelle veroeffentlichte Fassung.
 Bei Fragen zum Datenschutz im Zusammenhang mit BarryGuard kontaktiere bitte:
 
 support@barryguard.com
+
+---
+
+## Hinweis: Anonymer Session-Cookie (2026-04-16)
+
+Diese Extension-Datenschutzerklaerung ist vom `bg_anon_session`-Cookie, der im Rahmen des Security-Hardenings am 2026-04-16 eingefuehrt wurde, **nicht betroffen**. Dieser Cookie wird ausschliesslich von der BarryGuard-Webanwendung (`barryguard.com`) gesetzt und gilt nur fuer nicht eingeloggte Besucher der Website. Die Browser-Extension setzt diesen Cookie nicht und liest ihn nicht aus. Das Session-Management der Extension ist im Abschnitt "Authentication Token Security" in `security-privacy.md` beschrieben. Details zum Web-App-Cookie sind in der BarryGuard-Website-Datenschutzerklaerung unter `https://barryguard.com/privacy` dokumentiert.

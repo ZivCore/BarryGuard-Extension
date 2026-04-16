@@ -102,6 +102,38 @@ No analytics services, no tracking pixels, no external scripts.
 - [English Privacy Policy](privacy-policy-en.md)
 - [German Privacy Policy (Datenschutzerklärung)](datenschutzerklaerung.md)
 
+## Security Hardening (2026-04-16)
+
+Security improvements relevant to the extension runtime. Umsetzungsdetails: `BarryGuard/docs/plans/active/plan-security-audit-fixes-2026-04-16.md`.
+
+### Dev-Build Localhost-Match
+
+Der `barryguard-auth.content.ts` Content-Script ist in Production-Builds nur fuer `*://barryguard.com/*` aktiv. Der zusaetzliche `http://localhost/*` Match-Pattern ist ausschliesslich in Dev-Builds erlaubt (`if (import.meta.env.DEV)`). In einem Production-Bundle ohne DEV-Flag ist kein Localhost-Match vorhanden, sodass lokale HTTP-Dienste keine Auth-Token-Injection via Content-Script-Nachrichten ermoeglichen.
+
+### JWT Issuer-Check
+
+Der Background-Worker prueft beim Lesen gespeicherter Auth-Token, dass der JWT `iss`-Claim mit der erwarteten Supabase-URL uebereinstimmt. Token aus fremden Projekten oder gespooften Quellen werden abgewiesen.
+
+### CSP Single Source of Truth
+
+Alle im Extension-Bundle enthaltenen `connect-src`- und `img-src`-Hosts sind zentral in `src/shared/csp-hosts.ts` definiert. Neue API-Endpunkte oder Logo-Quellen sind ausschliesslich dort einzutragen; `wxt.config.ts` und `manifest.json` beziehen die Werte daraus. Kein doppeltes Pflegen von Hostnamen in mehreren Dateien.
+
+### Hintergrunddienste fuer externe Daten
+
+Pump.fun-Token-Metadata-Anreicherung, DexScreener/DexTools-Pair-Aufloesung und aehnliche externe Datenabrufe laufen ausschliesslich im Background-Worker (Service Worker), nicht in Content-Scripts auf Drittanbieter-Seiten. Content-Scripts senden eine Nachricht an den Background-Worker; der Worker fuehrt den Fetch aus und antwortet mit dem Ergebnis. Diese Trennung verhindert, dass Drittanbieter-Seiten ueber CSP oder CORS den Abruf beeinflussen koennen.
+
+### URL-Aenderungserkennung via MutationObserver
+
+Die Plattform-Adapters nutzen `MutationObserver` fuer passives URL-Change-Detection statt aktiven `setInterval`-Polling. Kein Polling-Loop, der bei langen Seitenaufenthalten Ressourcen verbraucht oder durch Timer-Jitter fehlerhafte Doppel-Requests ausloest.
+
+### Logger-Gate in Production
+
+`console.log`/`console.debug`-Ausgaben in Extension-Code sind durch `if (import.meta.env.DEV)` gegatet. In Production-Builds werden keine Analyse-Details, Token-Adressen oder API-Antworten in die Browser-Konsole geschrieben.
+
+### `allowLocalHttp` in Production hart deaktiviert
+
+Der Wert `allowLocalHttp` ist im Extension-Laufzeit-Config fuer Production-Builds unveraenderlich `false`. Auch wenn der Backend-Config-Endpunkt `allowLocalHttp: true` zurueckgeben wuerde (z. B. Fehlkonfiguration), ignoriert die Extension diesen Wert in Production und erzwingt HTTPS fuer alle externen Verbindungen.
+
 ## Responsible Disclosure
 
 If you discover a security vulnerability, please contact us at the email listed in our privacy policy. Do not file a public issue for security vulnerabilities.

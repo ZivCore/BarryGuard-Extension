@@ -1,5 +1,29 @@
 import { defineConfig } from 'wxt';
 import { PLATFORM_HOST_PATTERNS } from './src/manifest/platform-hosts';
+import { CSP_API_HOSTS } from './src/shared/csp-hosts';
+
+// Localhost host permissions are only added in dev builds (E-H1).
+const DEV_HOST_PERMISSIONS = process.env.NODE_ENV !== 'production'
+  ? ['http://localhost/*', 'http://localhost:3000/*']
+  : [];
+
+// Localhost barryguard-auth matches are only added in dev builds (E-H1).
+// The content script also has a runtime guard for defense-in-depth.
+const AUTH_CONTENT_SCRIPT_MATCHES: string[] = [
+  '*://barryguard.com/*',
+  '*://www.barryguard.com/*',
+  ...(process.env.NODE_ENV !== 'production'
+    ? ['http://localhost/*', 'http://localhost:3000/*']
+    : []),
+];
+
+// CSP connect-src built from Single-Source-of-Truth (E-H2): platform hosts + API hosts.
+// This keeps the CSP in sync with host_permissions automatically.
+const CSP_CONNECT_SRC = [
+  'https://barryguard.com',
+  'https://www.barryguard.com',
+  ...CSP_API_HOSTS,
+].join(' ');
 
 export default defineConfig({
   srcDir: 'src',
@@ -17,6 +41,7 @@ export default defineConfig({
       '*://api.dexscreener.com/*',
       '*://barryguard.com/*',
       '*://www.barryguard.com/*',
+      ...DEV_HOST_PERMISSIONS,
     ],
     icons: {
       '16': 'icons/icon16.png',
@@ -25,7 +50,26 @@ export default defineConfig({
       '128': 'icons/icon128.png',
     },
     content_security_policy: {
-      extension_pages: "script-src 'self'; object-src 'none'; style-src 'self'; img-src 'self' data: https://pump.fun https://images.pump.fun https://cf-ipfs.com https://ipfs.io https://api.dexscreener.com https://dd.dexscreener.com https://birdeye.so; connect-src https://pump.fun https://amm.pump.fun https://swap.pump.fun https://raydium.io https://letsbonk.fun https://bonk.fun https://moonshot.money https://dexscreener.com https://www.dexscreener.com https://api.dexscreener.com https://birdeye.so https://bags.fm https://solscan.io https://www.dextools.io https://dextools.io https://dex.coinmarketcap.com https://www.coingecko.com https://app.uniswap.org https://pancakeswap.finance https://aerodrome.finance https://etherscan.io https://bscscan.com https://basescan.org https://barryguard.com https://www.barryguard.com",
+      extension_pages: `script-src 'self'; object-src 'none'; style-src 'self'; img-src 'self' data: https://pump.fun https://images.pump.fun https://cf-ipfs.com https://ipfs.io https://api.dexscreener.com https://dd.dexscreener.com https://birdeye.so; connect-src ${CSP_CONNECT_SRC}`,
+    },
+  },
+  // barryguard-auth content script matches (dev gets localhost, prod does not)
+  // Note: WXT uses the content script's own `matches` field from defineContentScript —
+  // the AUTH_CONTENT_SCRIPT_MATCHES variable is kept here for documentation/reference.
+  // The actual per-entrypoint matches are defined in barryguard-auth.content.ts.
+  // For dev localhost access, the entrypoint's static `matches` array is overridden
+  // via the manifest hook below.
+  hooks: {
+    'build:manifestGenerated'(_wxt, manifest) {
+      // In dev builds, inject localhost matches for the barryguard-auth content script.
+      if (process.env.NODE_ENV !== 'production') {
+        const authScript = manifest.content_scripts?.find((cs) =>
+          cs.js?.some((f: string) => f.includes('barryguard-auth')),
+        );
+        if (authScript) {
+          authScript.matches = AUTH_CONTENT_SCRIPT_MATCHES;
+        }
+      }
     },
   },
   zip: {

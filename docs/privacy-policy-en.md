@@ -167,3 +167,9 @@ The latest published version applies.
 If you have questions about privacy in connection with BarryGuard, please contact:
 
 support@barryguard.com
+
+---
+
+## Note: Anonymous Session Cookie (2026-04-16)
+
+This Extension Privacy Policy is **not affected** by the `bg_anon_session` cookie introduced in the Security Hardening release of 2026-04-16. That cookie is set exclusively by the BarryGuard web application (`barryguard.com`) and applies only to unauthenticated visitors of the website. The browser extension does not set this cookie and does not read it. The extension's own session management is described in the "Authentication Token Security" section of `security-privacy.md`. For web-app cookie details, see the BarryGuard website Privacy Policy at `https://barryguard.com/privacy`.

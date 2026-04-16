@@ -1,3 +1,4 @@
+import { watchUrlChanges } from './url-change-detector';
 import { PumpFunPlatform } from '../platforms/pumpfun';
 import { PumpSwapPlatform } from '../platforms/pumpswap';
 import { RaydiumPlatform } from '../platforms/raydium';
@@ -234,12 +235,10 @@ export function shouldApplySelectedTokenScore(
 export function initializeContentScript(): void {
   const detectedPlatform = detectPlatform();
   if (!detectedPlatform) {
-    console.log('[BarryGuard] No supported platform detected');
     return;
   }
 
   const platform = detectedPlatform;
-  console.log(`[BarryGuard] Platform: ${platform.name}`);
   const HEALTH_EVENT_KINDS = ['anchor_not_found', 'injection_failed', 'scan_zero_tokens'] as const;
   type HealthEventKind = typeof HEALTH_EVENT_KINDS[number];
 
@@ -727,9 +726,18 @@ export function initializeContentScript(): void {
 
   platform.observeDOMChanges(scanAll);
 
-  // Listen for messages from the background script
+  // Passive URL-change detection (E-M9): replaces history.pushState/replaceState patching.
+  // MutationObserver + popstate + hashchange listeners — no host-page API modification.
+  watchUrlChanges(handleUrlChange);
+
+  // Listen for messages from the background script.
+  // Sender validation (E-M3): only accept messages from this extension's own context.
   withSafeRuntime(() => {
-    chrome.runtime.onMessage.addListener((message, _sender, sendResponse) => {
+    chrome.runtime.onMessage.addListener((message, sender, sendResponse) => {
+      // Reject messages from external origins — only the extension itself may send these.
+      if (sender.id !== chrome.runtime.id) {
+        return;
+      }
       if (message?.type === 'PING') {
         sendResponse({ pong: true });
         return;
@@ -760,8 +768,6 @@ export function initializeContentScript(): void {
       scanAll();
     });
   });
-  window.addEventListener('popstate', handleUrlChange);
-  window.addEventListener('hashchange', handleUrlChange);
   window.addEventListener('focus', scanAll);
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible') {
@@ -769,21 +775,9 @@ export function initializeContentScript(): void {
     }
   });
 
-  // Intercept SPA navigation (pushState/replaceState do not fire popstate)
-  const originalPushState = history.pushState.bind(history);
-  const originalReplaceState = history.replaceState.bind(history);
-  history.pushState = (...args) => {
-    originalPushState(...args);
-    setTimeout(handleUrlChange, 0);
-  };
-  history.replaceState = (...args) => {
-    originalReplaceState(...args);
-    setTimeout(handleUrlChange, 0);
-  };
-
   // Fallback: poll for URL changes every 500ms.
-  // Catches SPA frameworks that save a reference to pushState before our
-  // content script runs, or that use the Navigation API.
+  // Catches SPA frameworks that use the Navigation API or other mechanisms
+  // not covered by MutationObserver + popstate.
   setInterval(handleUrlChange, 500);
 
   // Detect link clicks that may trigger navigation — schedule scans after click

@@ -10,13 +10,6 @@ import type { SelectedToken, TokenScore } from '../shared/types';
 const PAIR_EXPLORER_PATTERN = /\/pair-explorer\/([a-z0-9]{20,80})(?:[/?#]|$)/i;
 const TOKEN_OVERVIEW_PATTERN = /\/token-overview\/([1-9A-HJ-NP-Za-km-z]{32,44})(?:[/?#]|$)/i;
 
-interface DexScreenerPairsResponse {
-  pairs?: Array<{
-    pairAddress?: string;
-    baseToken?: { address?: string };
-  }>;
-}
-
 export class DextoolsPlatform extends GenericSolanaPlatform {
   readonly chains = ['solana', 'ethereum', 'bsc', 'base'];
   private readonly pairToTokenMap = new Map<string, string>();
@@ -289,41 +282,28 @@ export class DextoolsPlatform extends GenericSolanaPlatform {
   }
 
   private async resolvePairAddresses(pairAddresses: string[]): Promise<void> {
+    // E-M10: DexScreener API fetch delegated to Background service worker via message.
+    // Content scripts must not make direct cross-origin API calls (ADR-007).
     this.resolutionPending = true;
     try {
-      const BATCH_SIZE = 30;
-      for (let i = 0; i < pairAddresses.length; i += BATCH_SIZE) {
-        const batch = pairAddresses.slice(i, i + BATCH_SIZE);
-        const url = `https://api.dexscreener.com/latest/dex/pairs/solana/${batch.join(',')}`;
-
-        let response: Response;
-        try {
-          const controller = new AbortController();
-          const timeoutId = setTimeout(() => controller.abort(), 10_000);
-          response = await fetch(url, { signal: controller.signal });
-          clearTimeout(timeoutId);
-        } catch {
-          continue;
-        }
-
-        if (!response.ok) {
-          continue;
-        }
-
-        let data: DexScreenerPairsResponse;
-        try {
-          data = await response.json() as DexScreenerPairsResponse;
-        } catch {
-          continue;
-        }
-
-        for (const pair of data.pairs ?? []) {
-          if (pair.pairAddress && pair.baseToken?.address) {
-            this.pairToTokenMap.set(pair.pairAddress, pair.baseToken.address);
-          }
-        }
-      }
-
+      const chain = this.detectChainFromUrl(window.location.href) ?? 'solana';
+      await new Promise<void>((resolve) => {
+        chrome.runtime.sendMessage(
+          { type: 'RESOLVE_DEX_PAIR', payload: { pairs: pairAddresses, chain } },
+          (response: { success?: boolean; data?: { results?: Array<{ pairAddress: string; tokenAddress: string }> } } | undefined) => {
+            if (chrome.runtime.lastError || !response?.success) {
+              resolve();
+              return;
+            }
+            for (const entry of response.data?.results ?? []) {
+              if (entry.pairAddress && entry.tokenAddress) {
+                this.pairToTokenMap.set(entry.pairAddress, entry.tokenAddress);
+              }
+            }
+            resolve();
+          },
+        );
+      });
       this.scanCallback?.();
     } finally {
       this.resolutionPending = false;

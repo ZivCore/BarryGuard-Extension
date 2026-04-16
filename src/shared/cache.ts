@@ -13,6 +13,17 @@ const TTL_MS: Record<TierLevel, number> = {
   pro:           10 * 60 * 1000,  // 10 min
 };
 
+// Trust-boundary note (E-M2):
+// The extension cache lives in chrome.storage.local, which is sandboxed to this
+// extension and not accessible to web pages. We trust it as an extension-internal
+// storage boundary — no HMAC is applied (added complexity without meaningful
+// security gain in this threat model).
+//
+// Clock-drift guard: if a stored `timestamp` is far in the future (e.g. the system
+// clock was set forward and then corrected), we treat the entry as expired rather
+// than waiting an unexpectedly long time.
+const MAX_TTL_MS = 720 * 60 * 1000; // largest possible TTL (free tier, 12h)
+
 /**
  * Updates cache TTL values from a backend config object.
  * Expected shape: { free?: number; rescue_pass?: number; pro?: number } (values in milliseconds).
@@ -67,7 +78,18 @@ export class TokenCache {
       return null;
     }
 
-    const age = Date.now() - entry.timestamp;
+    const now = Date.now();
+    const age = now - entry.timestamp;
+
+    // Clock-drift guard (E-M2): if the stored timestamp is in the future by more than
+    // MAX_TTL_MS, the system clock was likely set forward and then corrected.
+    // Treat the entry as expired to avoid waiting an unexpectedly long time.
+    if (entry.timestamp > now + MAX_TTL_MS) {
+      this.cache.delete(key);
+      await this.persist();
+      return null;
+    }
+
     if (age > TTL_MS[tier]) {
       this.cache.delete(key);
       await this.persist();
@@ -98,7 +120,10 @@ export class TokenCache {
   private evictExpired(): void {
     const now = Date.now();
     for (const [key, entry] of this.cache.entries()) {
-      if (now - entry.timestamp > TTL_MS[entry.tier]) this.cache.delete(key);
+      // Also evict entries with a future timestamp exceeding MAX_TTL_MS (clock-drift guard).
+      if (entry.timestamp > now + MAX_TTL_MS || now - entry.timestamp > TTL_MS[entry.tier]) {
+        this.cache.delete(key);
+      }
     }
   }
 

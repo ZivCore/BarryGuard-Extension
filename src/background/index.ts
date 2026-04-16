@@ -1,6 +1,6 @@
 import { BarryGuardApiClient } from '../shared/api-client';
 import { TokenCache, updateCacheTTL } from '../shared/cache';
-import { extractPumpFunEmbeddedMetadata } from '../shared/pumpfun-metadata';
+import { logger } from '../shared/logger';
 import { getApiBaseUrl, getExtensionHealthTelemetryEnabled, sanitizeCustomerPortalUrl } from '../shared/runtime-config';
 import { extractTokenScores, sanitizeTokenScore } from '../shared/token-score';
 import type {
@@ -117,7 +117,7 @@ function mergeRecords(...records: Array<JsonRecord | null>): JsonRecord {
 function inferTier(data: unknown): TierLevel {
   if (!data || typeof data !== 'object') {
     if (_lastConfirmedTier) {
-      console.log(`[BarryGuard] inferTier: no data, keeping last confirmed tier: ${_lastConfirmedTier}`);
+      logger.debug(`inferTier: no data, keeping last confirmed tier: ${_lastConfirmedTier}`);
       return _lastConfirmedTier;
     }
     return 'free';
@@ -133,14 +133,14 @@ function inferTier(data: unknown): TierLevel {
   if (typeof tier === 'string' && VALID_TIERS.includes(tier as TierLevel)) {
     const newTier = tier as TierLevel;
     if (_lastConfirmedTier && newTier !== _lastConfirmedTier) {
-      console.log(`[BarryGuard] Tier changed: ${_lastConfirmedTier} → ${newTier}`);
+      logger.debug(`Tier changed: ${_lastConfirmedTier} → ${newTier}`);
     }
     _lastConfirmedTier = newTier;
     return newTier;
   }
   // Tier field missing/invalid — keep last confirmed tier to avoid downgrade during token refresh
   if (_lastConfirmedTier) {
-    console.log(`[BarryGuard] inferTier: tier field missing/invalid, keeping last confirmed tier: ${_lastConfirmedTier}`);
+    logger.debug(`inferTier: tier field missing/invalid, keeping last confirmed tier: ${_lastConfirmedTier}`);
     return _lastConfirmedTier;
   }
   return 'free';
@@ -158,7 +158,7 @@ async function getStoredProfile(): Promise<UserProfile | null> {
 }
 
 async function persistProfileState(profile: UserProfile): Promise<void> {
-  console.log('[BarryGuard] persistProfileState called, hourlyAnalysesUsed:', profile.hourlyAnalysesUsed);
+  logger.debug('persistProfileState called, hourlyAnalysesUsed:', profile.hourlyAnalysesUsed);
   // H-7: Clear cache when tier changes so stale data from a lower/higher tier doesn't persist
   const previousProfile = await getStoredProfile();
   const previousTier = previousProfile?.tier;
@@ -414,7 +414,7 @@ async function initialize(): Promise<void> {
   // Content script is the sole auth authority — no periodic background refresh.
   // Load stored profile on startup (non-forced, won't clear if stale).
   await refreshProfileStateIfNeeded(false);
-  console.log('[BarryGuard] Background worker initialized');
+  logger.debug('Background worker initialized');
 }
 
 async function updateActionIcon(profile: UserProfile | null): Promise<void> {
@@ -613,52 +613,133 @@ async function loadProfileFromApi(): Promise<ApiResponse<UserProfile>> {
   };
 }
 
-function decodeHtml(text: string): string {
-  return text
-    .replace(/&amp;/g, '&')
-    .replace(/&quot;/g, '"')
-    .replace(/&#39;/g, "'")
-    .replace(/&lt;/g, '<')
-    .replace(/&gt;/g, '>')
-    .replace(/\\u0026/g, '&')
-    .replace(/\\\//g, '/');
-}
-
-function extractCoinMetadataFromHtml(address: string, html: string): TokenMetadata {
-  const embeddedMetadata = extractPumpFunEmbeddedMetadata(address, html);
-
-  const headingName = html.match(/<h1[^>]*>([^<]{1,120})<\/h1>/i)?.[1];
-  const titleSymbol = html.match(/<title>([A-Z0-9_]{2,20})\s+\$[^<]+<\/title>/i)?.[1];
-  const pumpImage = html.match(new RegExp(`https://images\\.pump\\.fun/coin-image/${address}[^"'\\s<]+`, 'i'))?.[0];
-
-  return {
-    name: embeddedMetadata.name ? decodeHtml(embeddedMetadata.name) : headingName ? decodeHtml(headingName.trim()) : undefined,
-    symbol: embeddedMetadata.symbol?.trim() || titleSymbol?.trim(),
-    imageUrl: embeddedMetadata.imageUrl ? decodeHtml(embeddedMetadata.imageUrl) : pumpImage,
-  };
-}
-
-async function getPumpFunMetadata(address: string): Promise<{ success: boolean; data?: TokenMetadata; error?: string }> {
+/**
+ * Fetches token metadata from the BarryGuard backend (E-H3, E-M1, E-M8).
+ *
+ * The backend is the authoritative source for token name/symbol/logo (ADR-007).
+ * All HTML parsing previously done in the service worker is now backend-only.
+ * On failure, the popup shows a placeholder — no further Extension-side fetch occurs.
+ */
+async function getTokenMetadataFromBackend(
+  address: string,
+  chain: string = 'solana',
+): Promise<{ success: boolean; data?: TokenMetadata; error?: string }> {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 10_000);
   try {
-    const response = await fetch(`https://pump.fun/coin/${address}`);
+    const baseUrl = getApiBaseUrl();
+    const url = `${baseUrl}/token/${encodeURIComponent(chain)}/${encodeURIComponent(address)}?source=content_script`;
+    const headers: Record<string, string> = { 'Content-Type': 'application/json' };
+    if (api.getAuthToken()) {
+      headers['Authorization'] = `Bearer ${api.getAuthToken()!.access_token}`;
+    }
+    const extensionVersion = (typeof chrome !== 'undefined' && chrome?.runtime?.getManifest?.()?.version) ?? '';
+    if (extensionVersion) headers['X-Extension-Version'] = String(extensionVersion);
+
+    const response = await fetch(url, { headers, signal: controller.signal });
     if (!response.ok) {
-      return { success: false, error: `Pump.fun metadata request failed with HTTP ${response.status}` };
+      return { success: false, error: `Backend metadata request failed with HTTP ${response.status}` };
     }
 
-    const html = await response.text();
-    const metadata = extractCoinMetadataFromHtml(address, html);
+    const data = await response.json() as Record<string, unknown>;
 
-    if (!metadata.name && !metadata.symbol && !metadata.imageUrl) {
-      return { success: false, error: 'No token metadata found on pump.fun.' };
+    // Backend delivers tokenName, tokenSymbol, tokenLogoUrl in the TokenScore shape.
+    // Map to the TokenMetadata shape used by the popup (name, symbol, imageUrl).
+    const name = typeof data['tokenName'] === 'string' ? data['tokenName'] : undefined;
+    const symbol = typeof data['tokenSymbol'] === 'string' ? data['tokenSymbol'] : undefined;
+    // Only accept https imageUrl — backend already applies og-logo-policy whitelist.
+    const rawLogoUrl = typeof data['tokenLogoUrl'] === 'string' ? data['tokenLogoUrl'] : undefined;
+    const imageUrl = rawLogoUrl && rawLogoUrl.startsWith('https://') ? rawLogoUrl : undefined;
+
+    if (!name && !symbol && !imageUrl) {
+      return { success: false, error: 'No token metadata in backend response.' };
     }
 
-    return { success: true, data: metadata };
+    return { success: true, data: { name, symbol, imageUrl } };
   } catch (error) {
     return {
       success: false,
-      error: error instanceof Error ? error.message : 'Pump.fun metadata lookup failed.',
+      error: error instanceof Error ? error.message : 'Backend metadata lookup failed.',
     };
+  } finally {
+    clearTimeout(timeoutId);
   }
+}
+
+interface DexScreenerPairsResponse {
+  pairs?: Array<{
+    pairAddress?: string;
+    url?: string;
+    baseToken?: { address?: string };
+  }>;
+}
+
+/**
+ * Resolves DexScreener pair addresses to token addresses (E-M10).
+ *
+ * Previously done in Content Scripts (dextools.ts / dexscreener.ts), now moved
+ * to the Background service worker. This is the single rate-limit point for
+ * all DexScreener API calls from the extension, consistent with ADR-007.
+ *
+ * The pair-to-token mapping result is returned to the Content Script via
+ * the RESOLVE_DEX_PAIR message response.
+ */
+async function resolveDexPairs(
+  pairAddresses: string[],
+  chain: string,
+): Promise<{ pairAddress: string; tokenAddress: string }[]> {
+  if (pairAddresses.length === 0) return [];
+
+  const BATCH_SIZE = 30;
+  const TIMEOUT_MS = 10_000;
+  const results: { pairAddress: string; tokenAddress: string }[] = [];
+
+  const PAIR_HREF_PATTERN = /^\/[a-z0-9]+\/([a-z0-9]{20,80})(?:[/?#]|$)/i;
+
+  for (let i = 0; i < pairAddresses.length; i += BATCH_SIZE) {
+    const batch = pairAddresses.slice(i, i + BATCH_SIZE);
+    const url = `https://api.dexscreener.com/latest/dex/pairs/${encodeURIComponent(chain)}/${batch.join(',')}`;
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), TIMEOUT_MS);
+    let response: Response;
+    try {
+      response = await fetch(url, { signal: controller.signal });
+      clearTimeout(timeoutId);
+    } catch {
+      clearTimeout(timeoutId);
+      continue;
+    }
+
+    if (!response.ok) continue;
+
+    let data: DexScreenerPairsResponse;
+    try {
+      data = await response.json() as DexScreenerPairsResponse;
+    } catch {
+      continue;
+    }
+
+    for (const pair of data.pairs ?? []) {
+      const tokenAddress = pair.baseToken?.address;
+      if (!tokenAddress) continue;
+
+      if (pair.pairAddress) {
+        results.push({ pairAddress: pair.pairAddress, tokenAddress });
+      }
+
+      const urlId = pair.url ? new URL(pair.url).pathname.match(PAIR_HREF_PATTERN)?.[1] : null;
+      if (urlId) {
+        results.push({ pairAddress: urlId, tokenAddress });
+      }
+
+      if (!urlId && batch.length === 1) {
+        results.push({ pairAddress: batch[0], tokenAddress });
+      }
+    }
+  }
+
+  return results;
 }
 
 async function getSingleAnalysisState(): Promise<SingleAnalysisState> {
@@ -815,9 +896,9 @@ async function correctLocalUsageFromBackend(profile: UserProfile | null): Promis
   // (from 429 over-inflation, batch mismatches, etc.). Never correct upward because
   // the stored profile may have stale hourlyAnalysesUsed from a previous hour.
   const backendUsed = profile.hourlyAnalysesUsed;
-  console.log('[BarryGuard] correctLocalUsage:', { localUsed: state.used, backendUsed, bucketKey: state.bucketKey, willCorrect: typeof backendUsed === 'number' && backendUsed < state.used });
+  logger.debug('correctLocalUsage:', { localUsed: state.used, backendUsed, bucketKey: state.bucketKey, willCorrect: typeof backendUsed === 'number' && backendUsed < state.used });
   if (typeof backendUsed === 'number' && backendUsed < state.used) {
-    console.log('[BarryGuard] Correcting usage:', state.used, '->', backendUsed);
+    logger.debug('Correcting usage:', state.used, '->', backendUsed);
     await setHourlyUsageState({ ...state, used: backendUsed, updatedAt: Date.now() });
   }
 }
@@ -1203,7 +1284,7 @@ async function openPopupForToken(selectedToken: SelectedToken) {
   );
   const metadataResult = hasMetadata
     ? { success: false as const }
-    : await getPumpFunMetadata(selectedToken.address);
+    : await getTokenMetadataFromBackend(selectedToken.address, 'solana');
   const enrichedToken: SelectedToken = {
     ...selectedToken,
     metadata: {
@@ -1425,13 +1506,23 @@ export function initializeBackground(): void {
             );
             break;
           }
-          case 'GET_TOKEN_METADATA':
-            if (!isValidSolanaAddress(message.payload)) {
+          case 'GET_TOKEN_METADATA': {
+            const metaPayload = message.payload as string | { address?: unknown; chain?: unknown } | undefined;
+            const metaAddress = typeof metaPayload === 'string'
+              ? metaPayload
+              : (typeof (metaPayload as Record<string, unknown>)?.address === 'string'
+                ? (metaPayload as Record<string, unknown>).address as string
+                : '');
+            const metaChain = typeof metaPayload === 'object' && metaPayload !== null && typeof (metaPayload as Record<string, unknown>).chain === 'string'
+              ? (metaPayload as Record<string, unknown>).chain as string
+              : 'solana';
+            if (!isValidTokenAddress(metaAddress, metaChain)) {
               respond({ success: false, error: 'Invalid token address format.' });
               break;
             }
-            respond(await getPumpFunMetadata(message.payload));
+            respond(await getTokenMetadataFromBackend(metaAddress, metaChain));
             break;
+          }
           case 'OPEN_POPUP_FOR_TOKEN': {
             const token = message.payload as SelectedToken;
             if (!isValidSolanaAddress(token?.address)) {
@@ -1490,6 +1581,22 @@ export function initializeBackground(): void {
           case 'MARK_WATCHLIST_ALERT_READ':
             respond(await markWatchlistAlertAsRead(message.payload));
             break;
+          case 'RESOLVE_DEX_PAIR': {
+            // E-M10: DexScreener API fetch moved from Content Script to Background.
+            // Content scripts send { pairs: string[], chain: string } and receive
+            // { results: { pairAddress: string; tokenAddress: string }[] }.
+            const dexPayload = message.payload as { pairs?: unknown; chain?: unknown } | undefined;
+            const rawPairs = Array.isArray(dexPayload?.pairs) ? dexPayload.pairs : [];
+            const dexChain = typeof dexPayload?.chain === 'string' ? dexPayload.chain : 'solana';
+            const validPairs = rawPairs.filter((p): p is string => typeof p === 'string' && p.length > 0);
+            if (validPairs.length === 0) {
+              respond({ success: true, data: { results: [] } });
+              break;
+            }
+            const resolved = await resolveDexPairs(validPairs, dexChain);
+            respond({ success: true, data: { results: resolved } });
+            break;
+          }
           case 'LOGIN': {
             const result = await api.login(message.payload.email, message.payload.password);
             if (result.success && result.data) {

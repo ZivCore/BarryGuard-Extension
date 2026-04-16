@@ -5,6 +5,10 @@ const CUSTOMER_PORTAL_HOSTS = new Set(['billing.stripe.com']);
 const EXPLORER_HOSTS = new Set(['solscan.io']);
 const OAUTH_HOSTS = new Set(['accounts.google.com']);
 
+// E-M7: In Production builds, localhost HTTP is never allowed regardless of caller arguments.
+// This prevents accidental or injected localhost URLs from being accepted in production.
+const IS_DEV_BUILD = import.meta.env.MODE === 'development';
+
 function isLocalDevHost(hostname: string): boolean {
   return LOCALHOST_HOSTS.has(hostname);
 }
@@ -15,11 +19,13 @@ function parseTrustedUrl(url: string, allowLocalHttp = false): URL {
     return parsed;
   }
 
-  if (allowLocalHttp && parsed.protocol === 'http:' && isLocalDevHost(parsed.hostname)) {
+  // allowLocalHttp is only honoured in development builds (E-M7).
+  const effectiveAllowLocalHttp = IS_DEV_BUILD && allowLocalHttp;
+  if (effectiveAllowLocalHttp && parsed.protocol === 'http:' && isLocalDevHost(parsed.hostname)) {
     return parsed;
   }
 
-  throw new Error(`[BarryGuard] URL must use HTTPS${allowLocalHttp ? ' or localhost HTTP' : ''}. Received: "${url}"`);
+  throw new Error(`[BarryGuard] URL must use HTTPS${effectiveAllowLocalHttp ? ' or localhost HTTP' : ''}. Received: "${url}"`);
 }
 
 function tryParseTrustedUrl(url: string, allowLocalHttp = false): URL | null {

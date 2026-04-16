@@ -20,14 +20,6 @@ const DEXSCREENER_TOKEN_LINK_SELECTORS = [
 // We accept a conservative alphanumeric id length so we don't accidentally match category slugs (e.g. /solana/moonit).
 const PAIR_HREF_PATTERN = /^\/[a-z0-9]+\/([a-z0-9]{20,80})(?:[/?#]|$)/i;
 
-interface DexScreenerPairsResponse {
-  pairs?: Array<{
-    pairAddress?: string;
-    url?: string;
-    baseToken?: { address?: string };
-  }>;
-}
-
 export class DexScreenerPlatform extends GenericSolanaPlatform {
   readonly chains = ['solana', 'ethereum', 'bsc', 'base'];
   private readonly pairToTokenMap = new Map<string, string>();
@@ -249,64 +241,29 @@ export class DexScreenerPlatform extends GenericSolanaPlatform {
   }
 
   private async resolvePairAddresses(pairAddresses: string[]): Promise<void> {
+    // E-M10: DexScreener API fetch delegated to Background service worker via message.
+    // Content scripts must not make direct cross-origin API calls (ADR-007).
     this.resolutionPending = true;
     try {
-      const BATCH_SIZE = 30;
-      for (let i = 0; i < pairAddresses.length; i += BATCH_SIZE) {
-        const batch = pairAddresses.slice(i, i + BATCH_SIZE);
-        const url = `https://api.dexscreener.com/latest/dex/pairs/solana/${batch.join(',')}`;
-
-        let response: Response;
-        try {
-          const controller = new AbortController();
-          const timeoutId = setTimeout(() => controller.abort(), 10_000);
-          response = await fetch(url, { signal: controller.signal });
-          clearTimeout(timeoutId);
-        } catch {
-          continue;
-        }
-
-        if (!response.ok) {
-          continue;
-        }
-
-        let data: DexScreenerPairsResponse;
-        try {
-          data = await response.json() as DexScreenerPairsResponse;
-        } catch {
-          continue;
-        }
-
-        for (const pair of data.pairs ?? []) {
-          const tokenAddress = pair.baseToken?.address;
-          if (!tokenAddress) {
-            continue;
-          }
-
-          // DexScreener sometimes responds with a canonical base58 `pairAddress`, even when
-          // the route uses an opaque alphanumeric id (e.g. `/solana/<opaqueId>`).
-          // We therefore map both:
-          // - canonical `pairAddress`
-          // - the id extracted from `pair.url` (if present)
-          //
-          // This ensures list rows on `/solana` can be resolved reliably.
-          if (pair.pairAddress) {
-            this.pairToTokenMap.set(pair.pairAddress, tokenAddress);
-          }
-
-          const urlId = pair.url ? new URL(pair.url).pathname.match(PAIR_HREF_PATTERN)?.[1] : null;
-          if (urlId) {
-            this.pairToTokenMap.set(urlId, tokenAddress);
-          }
-
-          // If the API did not provide a URL (or it didn't match), but we only requested
-          // a single id, map it optimistically to avoid rendering nothing.
-          if (!urlId && batch.length === 1) {
-            this.pairToTokenMap.set(batch[0], tokenAddress);
-          }
-        }
-      }
-
+      const chain = this.detectChainFromUrl(window.location.href) ?? 'solana';
+      await new Promise<void>((resolve) => {
+        chrome.runtime.sendMessage(
+          { type: 'RESOLVE_DEX_PAIR', payload: { pairs: pairAddresses, chain } },
+          (response: { success?: boolean; data?: { results?: Array<{ pairAddress: string; tokenAddress: string }> } } | undefined) => {
+            if (chrome.runtime.lastError || !response?.success) {
+              resolve();
+              return;
+            }
+            // Background returns both canonical pairAddress and URL-derived ids already mapped.
+            for (const entry of response.data?.results ?? []) {
+              if (entry.pairAddress && entry.tokenAddress) {
+                this.pairToTokenMap.set(entry.pairAddress, entry.tokenAddress);
+              }
+            }
+            resolve();
+          },
+        );
+      });
       this.scanCallback?.();
     } finally {
       this.resolutionPending = false;
