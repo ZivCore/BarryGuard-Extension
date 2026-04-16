@@ -139,16 +139,23 @@ describe('additional Solana platforms', () => {
     `;
     document.title = 'BURNIE $0.12';
 
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
-      ok: true,
-      json: vi.fn().mockResolvedValue({
-        pairs: [{
-          pairAddress: '9ZzJmGZgVtWcZkbDkA1m2n3o4p5q6r7s8t9u0vWxyZz',
-          url: `https://dexscreener.com/solana/${opaquePairId}`,
-          baseToken: { address: TOKEN_A },
-        }],
-      }),
-    }));
+    // Pair resolution now runs in the Background service worker via chrome.runtime.sendMessage.
+    // Mock sendMessage to return both the canonical pairAddress and the URL-derived opaque id.
+    // The callback is deferred via queueMicrotask to simulate real async message passing,
+    // ensuring extractTokenAddresses() returns [] on the first call (before resolution).
+    (chrome.runtime.sendMessage as ReturnType<typeof vi.fn>).mockImplementation(
+      (_msg: unknown, callback: (response: unknown) => void) => {
+        queueMicrotask(() => callback({
+          success: true,
+          data: {
+            results: [
+              { pairAddress: '9ZzJmGZgVtWcZkbDkA1m2n3o4p5q6r7s8t9u0vWxyZz', tokenAddress: TOKEN_A },
+              { pairAddress: opaquePairId, tokenAddress: TOKEN_A },
+            ],
+          },
+        }));
+      },
+    );
 
     expect(platform.extractTokenAddresses()).toEqual([]);
     await new Promise<void>((resolve) => setTimeout(resolve, 0));
@@ -167,11 +174,6 @@ describe('additional Solana platforms', () => {
     const heading = document.querySelector('h2.chakra-heading');
     const badge = document.querySelector(`[data-barryguard-badge="${TOKEN_A}"]`);
     expect(heading?.nextElementSibling).toBe(badge);
-
-    vi.unstubAllGlobals();
-    vi.stubGlobal('chrome', {
-      runtime: { id: 'test-extension-id', sendMessage: vi.fn() },
-    });
   });
 
   it('DexScreener declares both apex and www host patterns (MV3)', () => {
@@ -274,22 +276,28 @@ describe('additional Solana platforms', () => {
       </main>
     `;
 
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
-      ok: true,
-      json: vi.fn().mockResolvedValue({
-        pairs: [{
-          // API may respond with a canonical pairAddress while the route uses an opaque id.
-          pairAddress: '9ZzJmGZgVtWcZkbDkA1m2n3o4p5q6r7s8t9u0vWxyZz',
-          url: `https://dexscreener.com/solana/${pairAddress}`,
-          baseToken: { address: TOKEN_A },
-        }],
-      }),
-    }));
+    // Pair resolution now runs in the Background service worker via chrome.runtime.sendMessage.
+    // Mock sendMessage to return both the canonical pairAddress and the URL-derived opaque id.
+    // The callback is deferred via queueMicrotask to simulate real async message passing,
+    // ensuring extractTokenAddresses() returns [] on the first call (before resolution).
+    (chrome.runtime.sendMessage as ReturnType<typeof vi.fn>).mockImplementation(
+      (_msg: unknown, callback: (response: unknown) => void) => {
+        queueMicrotask(() => callback({
+          success: true,
+          data: {
+            results: [
+              { pairAddress: '9ZzJmGZgVtWcZkbDkA1m2n3o4p5q6r7s8t9u0vWxyZz', tokenAddress: TOKEN_A },
+              { pairAddress: pairAddress, tokenAddress: TOKEN_A },
+            ],
+          },
+        }));
+      },
+    );
 
     // First call triggers async resolution — returns empty while pending
     expect(platform.extractTokenAddresses()).toEqual([]);
 
-    // Wait for the async fetch + json() promise chain to complete
+    // Wait for the async sendMessage + promise chain to complete
     await new Promise<void>((resolve) => setTimeout(resolve, 0));
 
     // Second call returns the resolved token address
@@ -309,11 +317,6 @@ describe('additional Solana platforms', () => {
 
     expect(nameEl?.nextElementSibling).toBe(badge);
     expect(badge?.textContent?.length ?? 0).toBeGreaterThan(0);
-
-    vi.unstubAllGlobals();
-    vi.stubGlobal('chrome', {
-      runtime: { id: 'test-extension-id', sendMessage: vi.fn() },
-    });
   });
 
   it('detects DexScreener /solana rows even when the row class differs (fallback selector)', async () => {
@@ -330,21 +333,25 @@ describe('additional Solana platforms', () => {
       </main>
     `;
 
-    vi.stubGlobal('fetch', vi.fn().mockResolvedValue({
-      ok: true,
-      json: vi.fn().mockResolvedValue({
-        pairs: [{ pairAddress, baseToken: { address: TOKEN_A } }],
-      }),
-    }));
+    // Pair resolution now runs in the Background service worker via chrome.runtime.sendMessage.
+    // The callback is deferred via queueMicrotask to simulate real async message passing,
+    // ensuring extractTokenAddresses() returns [] on the first call (before resolution).
+    (chrome.runtime.sendMessage as ReturnType<typeof vi.fn>).mockImplementation(
+      (_msg: unknown, callback: (response: unknown) => void) => {
+        queueMicrotask(() => callback({
+          success: true,
+          data: {
+            results: [
+              { pairAddress: pairAddress, tokenAddress: TOKEN_A },
+            ],
+          },
+        }));
+      },
+    );
 
     expect(platform.extractTokenAddresses()).toEqual([]);
     await new Promise<void>((resolve) => setTimeout(resolve, 0));
     expect(platform.extractTokenAddresses()).toContain(TOKEN_A);
-
-    vi.unstubAllGlobals();
-    vi.stubGlobal('chrome', {
-      runtime: { id: 'test-extension-id', sendMessage: vi.fn() },
-    });
   });
 
   it('extracts Birdeye token addresses from token routes', () => {
