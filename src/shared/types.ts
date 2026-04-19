@@ -131,6 +131,7 @@ export interface WatchlistEntry {
 export interface WatchlistAlert {
   id: string;
   token_address: string;
+  chain: string;
   title: string;
   message: string;
   severity: string;

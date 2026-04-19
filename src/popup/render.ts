@@ -3,6 +3,7 @@
 // These functions have no module-level side effects and can be imported in tests.
 
 import type { CheckResult, ConfidenceLevel, RiskLevel, Subscores, TokenScore } from '../shared/types';
+import { buildCheckUrl } from '../shared/check-url';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -402,18 +403,22 @@ export function renderChecks(score: TokenScore, listEl: HTMLElement, _tier: stri
 
   // For free/anonymous: add "View full analysis" CTA directly after the locked check
   if (!isPaid) {
-    const ctaWrapper = document.createElement('div');
-    ctaWrapper.style.cssText = 'padding: 8px 0 0;';
+    const ctaHref = buildCheckUrl(score.chain, score.address);
+    if (ctaHref) {
+      const ctaWrapper = document.createElement('div');
+      ctaWrapper.style.cssText = 'padding: 8px 0 0;';
 
-    const ctaLink = document.createElement('a');
-    ctaLink.href = `https://barryguard.com/check/${score.address}`;
-    ctaLink.target = '_blank';
-    ctaLink.rel = 'noopener noreferrer';
-    ctaLink.className = 'view-full-analysis-btn';
-    ctaLink.textContent = 'View full analysis on barryguard.com ↗';
+      const ctaLink = document.createElement('a');
+      ctaLink.href = ctaHref;
+      ctaLink.target = '_blank';
+      ctaLink.rel = 'noopener noreferrer';
+      ctaLink.className = 'view-full-analysis-btn';
+      ctaLink.textContent = 'View full analysis on barryguard.com ↗';
 
-    ctaWrapper.appendChild(ctaLink);
-    listEl.appendChild(ctaWrapper);
+      ctaWrapper.appendChild(ctaLink);
+      listEl.appendChild(ctaWrapper);
+    }
+    // Wenn ctaHref === null: CTA-Wrapper gar nicht anlegen/anhaengen.
   }
 }
 

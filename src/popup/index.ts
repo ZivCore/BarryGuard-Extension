@@ -23,6 +23,7 @@ import {
 } from '../shared/runtime-config';
 import { shortenAddress } from '../shared/format';
 import { isTokenScoreLikelyIncomplete } from '../shared/token-score';
+import { buildCheckUrl } from '../shared/check-url';
 import {
   getRiskLevel,
   renderChecks,
@@ -599,12 +600,16 @@ function renderWatchlistAlerts(): void {
     const actions = document.createElement('div');
     actions.className = 'mini-alert-actions';
 
-    const openLink = document.createElement('a');
-    openLink.href = `https://barryguard.com/check/${alert.token_address}`;
-    openLink.target = '_blank';
-    openLink.rel = 'noopener noreferrer';
-    openLink.textContent = 'Open full check';
-    actions.appendChild(openLink);
+    const openHref = buildCheckUrl(alert.chain, alert.token_address);
+    if (openHref) {
+      const openLink = document.createElement('a');
+      openLink.href = openHref;
+      openLink.target = '_blank';
+      openLink.rel = 'noopener noreferrer';
+      openLink.textContent = 'Open full check';
+      actions.appendChild(openLink);
+    }
+    // Wenn null: Link weglassen. "Mark read"-Button bleibt bestehen.
 
     if (!alert.read_at) {
       const markReadBtn = document.createElement('button');
@@ -1321,7 +1326,13 @@ function renderTokenDetail(score: TokenScore): void {
   // Full analysis link — dynamically set href
   const fullAnalysisLink = document.getElementById('view-full-analysis') as HTMLAnchorElement | null;
   if (fullAnalysisLink && score.address) {
-    fullAnalysisLink.href = `https://barryguard.com/check/${score.address}`;
+    const analysisHref = buildCheckUrl(score.chain, score.address);
+    if (analysisHref) {
+      fullAnalysisLink.href = analysisHref;
+      fullAnalysisLink.classList.remove('hidden');
+    } else {
+      fullAnalysisLink.classList.add('hidden');
+    }
   }
 
   // V2 rendering
@@ -2088,8 +2099,13 @@ function setupEventListeners(): void {
   elements.tokenDetail.viewFullAnalysis?.addEventListener('click', (event) => {
     event.preventDefault();
     const address = state.selectedToken?.address;
+    const chain = state.selectedToken?.score?.chain;
     if (address) {
-      openExternal(`https://barryguard.com/check/${address}`);
+      const href = buildCheckUrl(chain, address);
+      if (href) {
+        openExternal(href);
+      }
+      // href === null: no-op. Kein stiller Default auf falsche Chain-Seite.
     }
   });
 
