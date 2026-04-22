@@ -118,9 +118,9 @@ Der Background-Worker prueft beim Lesen gespeicherter Auth-Token, dass der JWT `
 
 Alle im Extension-Bundle enthaltenen `connect-src`- und `img-src`-Hosts sind zentral in `src/shared/csp-hosts.ts` definiert. Neue API-Endpunkte oder Logo-Quellen sind ausschliesslich dort einzutragen; `wxt.config.ts` und `manifest.json` beziehen die Werte daraus. Kein doppeltes Pflegen von Hostnamen in mehreren Dateien.
 
-### Hintergrunddienste fuer externe Daten
+### BarryGuard-API-only fuer tokenrelevante Daten
 
-Pump.fun-Token-Metadata-Anreicherung, DexScreener/DexTools-Pair-Aufloesung und aehnliche externe Datenabrufe laufen ausschliesslich im Background-Worker (Service Worker), nicht in Content-Scripts auf Drittanbieter-Seiten. Content-Scripts senden eine Nachricht an den Background-Worker; der Worker fuehrt den Fetch aus und antwortet mit dem Ergebnis. Diese Trennung verhindert, dass Drittanbieter-Seiten ueber CSP oder CORS den Abruf beeinflussen koennen.
+Pump.fun-Token-Metadata, DexScreener-/DexTools-Pair-Aufloesung, Score-Refresh und aehnliche token- oder scoringrelevante Datenabrufe laufen nicht mehr direkt gegen Drittanbieter, sondern ausschliesslich ueber BarryGuard-API-Endpunkte. Content-Scripts und Popup senden nur Nachrichten an den Background-Worker; der Worker spricht dann ausschliesslich mit BarryGuard-Endpoints und nicht mit externen Token-Analyse-Providern. Dadurch bleiben Telemetrie, Rate-Limits und Provider-Zugriffe zentral kontrollierbar.
 
 ### URL-Aenderungserkennung via MutationObserver
 
