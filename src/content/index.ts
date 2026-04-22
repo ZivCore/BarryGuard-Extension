@@ -146,6 +146,27 @@ function persistSelectedToken(selectedToken: {
   });
 }
 
+function getTokenMetadataFromScore(score?: TokenScore): TokenMetadata | undefined {
+  if (!score) return undefined;
+
+  const name = typeof score.tokenName === 'string' && score.tokenName.trim() ? score.tokenName : undefined;
+  const symbol = typeof score.tokenSymbol === 'string' && score.tokenSymbol.trim() ? score.tokenSymbol : undefined;
+  const imageUrl = typeof score.tokenLogoUrl === 'string' && score.tokenLogoUrl.startsWith('https://')
+    ? score.tokenLogoUrl
+    : undefined;
+
+  if (!name && !symbol && !imageUrl) {
+    return score.token;
+  }
+
+  return {
+    ...(score.token ?? {}),
+    ...(name ? { name } : {}),
+    ...(symbol ? { symbol } : {}),
+    ...(imageUrl ? { imageUrl } : {}),
+  };
+}
+
 function detectPlatform(): IPlatform | null {
   for (const platform of PLATFORMS) {
     if (platform.matchesLocation(window.location)) {
@@ -513,25 +534,19 @@ export function initializeContentScript(): void {
           clearRenderRetry(address);
         }
 
-        if (platform.getCurrentPageAddress() === address) {
+          if (platform.getCurrentPageAddress() === address) {
           const selectedToken = platform.buildSelectedToken(address, score);
+          const metadata = {
+            ...(selectedToken.metadata ?? {}),
+            ...(getTokenMetadataFromScore(score) ?? {}),
+          };
 
-          // Persist score immediately so the popup can show it right away
-          persistSelectedToken(selectedToken);
-
-          // Metadata is fetched separately and persisted as an update
-          sendRuntimeMessage({ type: 'GET_TOKEN_METADATA', payload: address }, (metadataResponse) => {
-            const metadata = {
-              ...(selectedToken.metadata ?? {}),
-              ...((metadataResponse?.success ? metadataResponse.data : {}) as TokenMetadata | undefined),
-            };
-
-            persistSelectedToken({
-              ...selectedToken,
-              metadata,
-            });
+            // Persist score immediately so the popup can show it right away
+          persistSelectedToken({
+            ...selectedToken,
+            metadata,
           });
-        }
+          }
 
         return;
       }

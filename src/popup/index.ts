@@ -420,6 +420,29 @@ function scoreHasLockedChecks(score: TokenScore): boolean {
   );
 }
 
+function getTokenMetadataFromScore(score?: TokenScore | null): TokenMetadata | undefined {
+  if (!score) {
+    return undefined;
+  }
+
+  const name = typeof score.tokenName === 'string' && score.tokenName.trim() ? score.tokenName : undefined;
+  const symbol = typeof score.tokenSymbol === 'string' && score.tokenSymbol.trim() ? score.tokenSymbol : undefined;
+  const imageUrl = typeof score.tokenLogoUrl === 'string' && score.tokenLogoUrl.startsWith('https://')
+    ? score.tokenLogoUrl
+    : undefined;
+
+  if (!name && !symbol && !imageUrl) {
+    return score.token;
+  }
+
+  return {
+    ...(score.token ?? {}),
+    ...(name ? { name } : {}),
+    ...(symbol ? { symbol } : {}),
+    ...(imageUrl ? { imageUrl } : {}),
+  };
+}
+
 function getUsageSummary(): { limit: number; used: number; remaining: number; ratio: number } | null {
   // Prefer local hourly usage state tracked by the background service worker.
   // It is incremented after every analysis and is more current than the profile
@@ -1487,7 +1510,22 @@ function scheduleSelectedTokenScoreRefresh(): void {
 }
 
 async function hydrateSelectedTokenMetadata(selectedToken: SelectedToken): Promise<void> {
-  if (selectedToken.metadata?.name && selectedToken.metadata?.symbol && selectedToken.metadata?.imageUrl) {
+  const scoreMetadata = getTokenMetadataFromScore(selectedToken.score);
+  const mergedLocalMetadata = {
+    ...(scoreMetadata ?? {}),
+    ...(selectedToken.metadata ?? {}),
+  };
+
+  if (JSON.stringify(mergedLocalMetadata) !== JSON.stringify(selectedToken.metadata ?? {})) {
+    const mergedToken: SelectedToken = {
+      ...selectedToken,
+      metadata: mergedLocalMetadata,
+    };
+    state.selectedToken = mergedToken;
+    await chrome.storage.local.set({ selectedToken: mergedToken });
+  }
+
+  if (mergedLocalMetadata.name && mergedLocalMetadata.symbol && mergedLocalMetadata.imageUrl) {
     return;
   }
 
@@ -1507,13 +1545,13 @@ async function hydrateSelectedTokenMetadata(selectedToken: SelectedToken): Promi
       return;
     }
 
-    const mergedToken: SelectedToken = {
-      ...selectedToken,
-      metadata: {
-        ...(selectedToken.metadata ?? {}),
-        ...response.data,
-      },
-    };
+      const mergedToken: SelectedToken = {
+        ...selectedToken,
+        metadata: {
+          ...mergedLocalMetadata,
+          ...response.data,
+        },
+      };
 
     const before = JSON.stringify(selectedToken.metadata ?? {});
     const after = JSON.stringify(mergedToken.metadata ?? {});
@@ -1931,14 +1969,10 @@ async function handleAnalyze(): Promise<void> {
       return;
     }
 
-    const metadataResponse = await sendMessage<TokenMetadata>({
-      type: 'GET_TOKEN_METADATA',
-      payload: address,
-    }, 5000);
-    const metadata = {
-      ...response.data.token,
-      ...(metadataResponse.success ? metadataResponse.data : {}),
-    };
+      const metadata = {
+        ...(getTokenMetadataFromScore(response.data) ?? {}),
+        ...(response.data.token ?? {}),
+      };
 
     state.selectedToken = {
       address,

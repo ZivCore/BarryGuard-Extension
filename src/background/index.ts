@@ -42,6 +42,7 @@ const DEFAULT_HOURLY_ANALYSIS_LIMIT: Record<TierLevel, number> = {
   rescue_pass: 250,
   pro: 1000,
 };
+const TELEMETRY_SESSION_TTL_MS = 5 * 60 * 1000;
 
 const TIER_LIMITS_KEY = 'bg_tier_limits';
 const USAGE_CORRECTION_GRACE_MS = 60_000; // Don't correct usage downward within 60s of an increment
@@ -58,9 +59,41 @@ let _dynamicTierLimits: StoredTierLimits | null = null;
 let _lastIncrementAt = 0;
 // Sticky tier: prevents flicker during auth token refresh cycles
 let _lastConfirmedTier: TierLevel | null = null;
+const _tokenTelemetrySessions = new Map<string, { sessionId: string; expiresAt: number }>();
 
 interface SingleAnalysisState {
   lastAnalyzeAt?: number;
+}
+
+function buildTelemetrySessionKey(address: string, chain: string): string {
+  return `${chain}:${address.toLowerCase()}`;
+}
+
+function pruneExpiredTelemetrySessions(now = Date.now()): void {
+  for (const [key, entry] of _tokenTelemetrySessions.entries()) {
+    if (entry.expiresAt <= now) {
+      _tokenTelemetrySessions.delete(key);
+    }
+  }
+}
+
+function rememberTelemetrySession(address: string, chain: string, sessionId: string): void {
+  pruneExpiredTelemetrySessions();
+  _tokenTelemetrySessions.set(buildTelemetrySessionKey(address, chain), {
+    sessionId,
+    expiresAt: Date.now() + TELEMETRY_SESSION_TTL_MS,
+  });
+}
+
+function takeTelemetrySession(address: string, chain: string): string | undefined {
+  pruneExpiredTelemetrySessions();
+  const key = buildTelemetrySessionKey(address, chain);
+  const entry = _tokenTelemetrySessions.get(key);
+  if (!entry) {
+    return undefined;
+  }
+  _tokenTelemetrySessions.delete(key);
+  return entry.sessionId;
 }
 
 const DEFAULT_ACTION_ICON_PATHS = {
@@ -73,6 +106,26 @@ const DEFAULT_ACTION_ICON_PATHS = {
 type JsonRecord = Record<string, unknown>;
 
 const VALID_TIERS = ['free', 'rescue_pass', 'pro'] as const;
+
+function getTokenMetadataFromScore(score?: TokenScore | null): TokenMetadata | undefined {
+  if (!score) return undefined;
+  const name = typeof score.tokenName === 'string' && score.tokenName.trim() ? score.tokenName : undefined;
+  const symbol = typeof score.tokenSymbol === 'string' && score.tokenSymbol.trim() ? score.tokenSymbol : undefined;
+  const imageUrl = typeof score.tokenLogoUrl === 'string' && score.tokenLogoUrl.startsWith('https://')
+    ? score.tokenLogoUrl
+    : undefined;
+
+  if (!name && !symbol && !imageUrl) {
+    return score.token;
+  }
+
+  return {
+    ...(score.token ?? {}),
+    ...(name ? { name } : {}),
+    ...(symbol ? { symbol } : {}),
+    ...(imageUrl ? { imageUrl } : {}),
+  };
+}
 
 function asRecord(value: unknown): JsonRecord | null {
   return value && typeof value === 'object' ? (value as JsonRecord) : null;
@@ -666,76 +719,27 @@ async function getTokenMetadataFromBackend(
   }
 }
 
-interface DexScreenerPairsResponse {
-  pairs?: Array<{
-    pairAddress?: string;
-    url?: string;
-    baseToken?: { address?: string };
-  }>;
-}
-
 /**
- * Resolves DexScreener pair addresses to token addresses (E-M10).
- *
- * Previously done in Content Scripts (dextools.ts / dexscreener.ts), now moved
- * to the Background service worker. This is the single rate-limit point for
- * all DexScreener API calls from the extension, consistent with ADR-007.
- *
- * The pair-to-token mapping result is returned to the Content Script via
- * the RESOLVE_DEX_PAIR message response.
+ * Resolves pair addresses via the BarryGuard API so the extension never
+ * talks to external scoring-relevant providers directly.
  */
 async function resolveDexPairs(
   pairAddresses: string[],
   chain: string,
 ): Promise<{ pairAddress: string; tokenAddress: string }[]> {
   if (pairAddresses.length === 0) return [];
+  const sessionIdByPair = new Map<string, string>();
+  for (const pairAddress of pairAddresses) {
+    sessionIdByPair.set(pairAddress, crypto.randomUUID());
+  }
 
-  const BATCH_SIZE = 30;
-  const TIMEOUT_MS = 10_000;
-  const results: { pairAddress: string; tokenAddress: string }[] = [];
+  const response = await api.resolveDexPairs(pairAddresses, chain);
+  const results = response.success && response.data?.results ? response.data.results : [];
 
-  const PAIR_HREF_PATTERN = /^\/[a-z0-9]+\/([a-z0-9]{20,80})(?:[/?#]|$)/i;
-
-  for (let i = 0; i < pairAddresses.length; i += BATCH_SIZE) {
-    const batch = pairAddresses.slice(i, i + BATCH_SIZE);
-    const url = `https://api.dexscreener.com/latest/dex/pairs/${encodeURIComponent(chain)}/${batch.join(',')}`;
-
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), TIMEOUT_MS);
-    let response: Response;
-    try {
-      response = await fetch(url, { signal: controller.signal });
-      clearTimeout(timeoutId);
-    } catch {
-      clearTimeout(timeoutId);
-      continue;
-    }
-
-    if (!response.ok) continue;
-
-    let data: DexScreenerPairsResponse;
-    try {
-      data = await response.json() as DexScreenerPairsResponse;
-    } catch {
-      continue;
-    }
-
-    for (const pair of data.pairs ?? []) {
-      const tokenAddress = pair.baseToken?.address;
-      if (!tokenAddress) continue;
-
-      if (pair.pairAddress) {
-        results.push({ pairAddress: pair.pairAddress, tokenAddress });
-      }
-
-      const urlId = pair.url ? new URL(pair.url).pathname.match(PAIR_HREF_PATTERN)?.[1] : null;
-      if (urlId) {
-        results.push({ pairAddress: urlId, tokenAddress });
-      }
-
-      if (!urlId && batch.length === 1) {
-        results.push({ pairAddress: batch[0], tokenAddress });
-      }
+  for (const entry of results) {
+    const sessionId = sessionIdByPair.get(entry.pairAddress);
+    if (sessionId) {
+      rememberTelemetrySession(entry.tokenAddress, chain, sessionId);
     }
   }
 
@@ -1052,7 +1056,8 @@ async function getTokenScore(address: string, chain: string = 'solana') {
     }
 
     // 2. Server cache: GET /api/token/[address]
-    const existing = await api.getTokenScore(address, chain);
+    const telemetrySessionId = takeTelemetrySession(address, chain);
+    const existing = await api.getTokenScore(address, chain, telemetrySessionId);
     if (existing.success && existing.data) {
       const normalizedExisting = sanitizeTokenScore(existing.data, { expectedAddress: address });
       if (normalizedExisting) {
@@ -1086,7 +1091,7 @@ async function getTokenScore(address: string, chain: string = 'solana') {
     }
 
     // 4. Fresh analysis: POST /api/analyze
-    const fresh = await api.analyzeToken(address, chain);
+    const fresh = await api.analyzeToken(address, chain, telemetrySessionId);
     if (fresh.success && fresh.data) {
       const normalizedFresh = sanitizeTokenScore(fresh.data, { expectedAddress: address });
       if (!normalizedFresh) {
@@ -1160,7 +1165,20 @@ async function analyzeTokenList(addresses: string[]): Promise<ApiResponse<TokenL
     return hourlyLimit as ApiResponse<TokenListAnalysisData>;
   }
 
-  const response = await api.analyzeTokenList(missingAddresses);
+  const telemetrySessionIds: Record<string, string> = {};
+  for (const address of missingAddresses) {
+    const sessionId = takeTelemetrySession(address, 'solana');
+    if (sessionId) {
+      telemetrySessionIds[address] = sessionId;
+    }
+  }
+
+  const response = await api.analyzeTokenList(
+    missingAddresses,
+    'solana',
+    false,
+    Object.keys(telemetrySessionIds).length > 0 ? telemetrySessionIds : undefined,
+  );
   if (!response.success) {
     if (isQuotaExceededResponse(response)) {
       await syncUsageFromQuotaError(normalizedProfile, response);
@@ -1277,10 +1295,14 @@ async function markWatchlistAlertAsRead(id: string): Promise<ApiResponse<{ succe
 }
 
 async function openPopupForToken(selectedToken: SelectedToken) {
+  const scoreMetadata = getTokenMetadataFromScore(selectedToken.score);
   const hasMetadata = Boolean(
     selectedToken.metadata?.name
     || selectedToken.metadata?.symbol
-    || selectedToken.metadata?.imageUrl,
+    || selectedToken.metadata?.imageUrl
+    || scoreMetadata?.name
+    || scoreMetadata?.symbol
+    || scoreMetadata?.imageUrl,
   );
   const metadataResult = hasMetadata
     ? { success: false as const }
@@ -1288,6 +1310,7 @@ async function openPopupForToken(selectedToken: SelectedToken) {
   const enrichedToken: SelectedToken = {
     ...selectedToken,
     metadata: {
+      ...(scoreMetadata ?? {}),
       ...(selectedToken.metadata ?? {}),
       ...(metadataResult.success ? metadataResult.data : {}),
     },
@@ -1314,6 +1337,9 @@ export {
   incrementHourlyUsage as _incrementHourlyUsageForTest,
   isUnauthorizedResponse as _isUnauthorizedResponseForTest,
   refreshProfileStateIfNeeded as _refreshProfileStateIfNeededForTest,
+  resolveDexPairs as _resolveDexPairsForTest,
+  getTokenScore as _getTokenScoreForTest,
+  takeTelemetrySession as _takeTelemetrySessionForTest,
 };
 
 // Exported for unit testing only — do not import these in production code

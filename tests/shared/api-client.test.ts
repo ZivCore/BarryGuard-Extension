@@ -44,6 +44,60 @@ describe('BarryGuardApiClient', () => {
     );
   });
 
+  it('passes telemetry session id on single-token score requests', async () => {
+    mockOk({ score: 80, risk: 'low' });
+    await client.getTokenScore('abc123', 'solana', 'sess-1');
+
+    const url = String(mockFetch.mock.calls[0][0]);
+    expect(url).toContain('sessionId=sess-1');
+  });
+
+  it('posts pair resolution through BarryGuard API with session id', async () => {
+    mockOk({ results: [] });
+    await client.resolveDexPairs(['pair-1'], 'solana', 'sess-pair');
+
+    expect(mockFetch).toHaveBeenCalledWith(
+      'https://barryguard.com/api/resolve/pair',
+      expect.objectContaining({
+        credentials: 'include',
+        method: 'POST',
+        body: JSON.stringify({
+          provider: 'dexscreener',
+          chain: 'solana',
+          pairs: ['pair-1'],
+          sessionId: 'sess-pair',
+        }),
+      }),
+    );
+  });
+
+  it('includes telemetrySessionIds on analyze-list requests', async () => {
+    mockOk({ scores: [] });
+    await client.analyzeTokenList(['addr-1', 'addr-2'], 'solana', false, {
+      'addr-1': 'sess-a',
+      'addr-2': 'sess-b',
+    });
+
+    expect(mockFetch).toHaveBeenCalledWith(
+      'https://barryguard.com/api/analyze-list',
+      expect.objectContaining({
+        credentials: 'include',
+        method: 'POST',
+        body: JSON.stringify({
+          addresses: ['addr-1', 'addr-2'],
+          chain: 'solana',
+          force: false,
+          mode: 'light',
+          source: 'content_script',
+          telemetrySessionIds: {
+            'addr-1': 'sess-a',
+            'addr-2': 'sess-b',
+          },
+        }),
+      }),
+    );
+  });
+
   it('returns success:true on 200 response', async () => {
     mockOk({ score: 80 });
     const res = await client.getTokenScore('abc');

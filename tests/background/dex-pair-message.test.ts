@@ -1,147 +1,153 @@
-/**
- * dex-pair-message.test.ts — Step 9 (E-M10)
- * Tests the RESOLVE_DEX_PAIR message handler pattern.
- *
- * DexScreener/DexTools API calls must happen in the background service worker,
- * not in content scripts. This test verifies the message routing logic.
- */
+import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { describe, it, expect, vi, beforeEach } from 'vitest'
+const storageMock: Record<string, unknown> = {};
+const mockFetch = vi.fn();
 
-// ---------------------------------------------------------------------------
-// Simulated background handler for RESOLVE_DEX_PAIR message
-// ---------------------------------------------------------------------------
+vi.stubGlobal('fetch', mockFetch);
+vi.stubGlobal('crypto', {
+  randomUUID: vi.fn(() => 'session-pair-1'),
+});
 
-interface DexPairRequest {
-  type: 'RESOLVE_DEX_PAIR'
-  chain: string
-  address: string
-}
+vi.stubGlobal('chrome', {
+  storage: {
+    local: {
+      get: vi.fn(async (key: string) => ({ [key]: storageMock[key] })),
+      set: vi.fn(async (values: Record<string, unknown>) => {
+        Object.assign(storageMock, values);
+      }),
+      remove: vi.fn(async (key: string | string[]) => {
+        const keys = Array.isArray(key) ? key : [key];
+        keys.forEach((entry) => delete storageMock[entry]);
+      }),
+    },
+    session: {
+      get: vi.fn(async () => ({})),
+      set: vi.fn(async () => {}),
+      remove: vi.fn(async () => {}),
+    },
+  },
+  action: { setIcon: vi.fn(async () => {}) },
+  runtime: {
+    onMessage: { addListener: vi.fn() },
+    onInstalled: { addListener: vi.fn() },
+    onStartup: { addListener: vi.fn() },
+    getManifest: vi.fn(() => ({ version: '1.6.5' })),
+    id: 'test-ext-id',
+  },
+});
 
-interface DexPairResult {
-  pairAddress: string | null
-  baseToken: string | null
-  quoteToken: string | null
-}
+const {
+  _resolveDexPairsForTest: resolveDexPairs,
+  _getTokenScoreForTest: getTokenScore,
+  _takeTelemetrySessionForTest: takeTelemetrySession,
+} = await import('../../src/background/index');
 
-async function handleResolveDexPair(
-  request: DexPairRequest,
-  fetchFn: (url: string) => Promise<Response>
-): Promise<DexPairResult> {
-  const url = `https://api.dexscreener.com/latest/dex/tokens/${request.address}`
-  try {
-    const res = await fetchFn(url)
-    if (!res.ok) {
-      return { pairAddress: null, baseToken: null, quoteToken: null }
-    }
-    const data = await res.json() as { pairs?: Array<{ pairAddress: string; baseToken: { address: string }; quoteToken: { address: string } }> }
-    const pair = data.pairs?.[0]
-    if (!pair) return { pairAddress: null, baseToken: null, quoteToken: null }
-    return {
-      pairAddress: pair.pairAddress,
-      baseToken: pair.baseToken.address,
-      quoteToken: pair.quoteToken.address,
-    }
-  } catch {
-    return { pairAddress: null, baseToken: null, quoteToken: null }
-  }
-}
-
-describe('RESOLVE_DEX_PAIR background handler (E-M10)', () => {
-  let mockFetch: ReturnType<typeof vi.fn<[string], Promise<Response>>>
-
+describe('RESOLVE_DEX_PAIR boundary contract', () => {
   beforeEach(() => {
-    mockFetch = vi.fn<[string], Promise<Response>>()
-  })
+    Object.keys(storageMock).forEach((key) => delete storageMock[key]);
+    mockFetch.mockReset();
+  });
 
-  it('fetches from api.dexscreener.com (not from content script)', async () => {
-    mockFetch.mockResolvedValue({
+  it('delegates pair resolution to BarryGuard API instead of DexScreener directly', async () => {
+    mockFetch.mockResolvedValueOnce({
       ok: true,
+      status: 200,
       json: async () => ({
-        pairs: [
+        results: [
           {
             pairAddress: 'pair123',
-            baseToken: { address: 'So11111111111111111111111111111111111111112' },
-            quoteToken: { address: 'EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v' },
+            tokenAddress: 'So11111111111111111111111111111111111111112',
           },
         ],
       }),
-    } as Response)
+    });
 
-    const result = await handleResolveDexPair(
-      { type: 'RESOLVE_DEX_PAIR', chain: 'solana', address: 'So11111111111111111111111111111111111111112' },
-      mockFetch
-    )
+    const results = await resolveDexPairs(['pair123'], 'solana');
 
+    expect(results).toEqual([
+      {
+        pairAddress: 'pair123',
+        tokenAddress: 'So11111111111111111111111111111111111111112',
+      },
+    ]);
     expect(mockFetch).toHaveBeenCalledWith(
-      expect.stringContaining('api.dexscreener.com')
-    )
-    expect(result.pairAddress).toBe('pair123')
-  })
+      'https://barryguard.com/api/resolve/pair',
+      expect.objectContaining({
+        method: 'POST',
+        credentials: 'include',
+        body: JSON.stringify({
+          provider: 'dexscreener',
+          chain: 'solana',
+          pairs: ['pair123'],
+        }),
+      }),
+    );
+    expect(String(mockFetch.mock.calls[0][0])).not.toContain('api.dexscreener.com');
+  });
 
-  it('returns null fields on 4xx response', async () => {
-    mockFetch.mockResolvedValue({ ok: false, status: 404 } as Response)
+  it('stores a telemetry session for the resolved token and reuses it on the next score fetch', async () => {
+    mockFetch
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          results: [
+            {
+              pairAddress: 'pair123',
+              tokenAddress: 'So11111111111111111111111111111111111111112',
+            },
+          ],
+        }),
+      })
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 401,
+        headers: new Headers(),
+        json: async () => ({ message: 'Unauthorized' }),
+      })
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 404,
+        headers: new Headers(),
+        json: async () => ({ message: 'Not found' }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => ({
+          address: 'So11111111111111111111111111111111111111112',
+          chain: 'solana',
+          score: 84,
+          risk: 'low',
+          checks: {},
+          cached: false,
+        }),
+      });
 
-    const result = await handleResolveDexPair(
-      { type: 'RESOLVE_DEX_PAIR', chain: 'solana', address: 'unknown' },
-      mockFetch
-    )
+    await resolveDexPairs(['pair123'], 'solana');
 
-    expect(result.pairAddress).toBeNull()
-    expect(result.baseToken).toBeNull()
-    expect(result.quoteToken).toBeNull()
-  })
+    const fresh = await getTokenScore('So11111111111111111111111111111111111111112', 'solana');
 
-  it('returns null fields when pairs array is empty', async () => {
-    mockFetch.mockResolvedValue({
-      ok: true,
-      json: async () => ({ pairs: [] }),
-    } as Response)
-
-    const result = await handleResolveDexPair(
-      { type: 'RESOLVE_DEX_PAIR', chain: 'solana', address: 'no-pairs' },
-      mockFetch
-    )
-
-    expect(result.pairAddress).toBeNull()
-  })
-
-  it('returns null fields on network error (does not throw)', async () => {
-    mockFetch.mockRejectedValue(new Error('network error'))
-
-    const result = await handleResolveDexPair(
-      { type: 'RESOLVE_DEX_PAIR', chain: 'solana', address: 'addr' },
-      mockFetch
-    )
-
-    expect(result.pairAddress).toBeNull()
-    expect(result.baseToken).toBeNull()
-    expect(result.quoteToken).toBeNull()
-  })
-
-  it('uses the token address in the DexScreener URL', async () => {
-    const testAddress = 'TestAddr111111111111111111111111111111111111'
-    mockFetch.mockResolvedValue({ ok: false, status: 404 } as Response)
-
-    await handleResolveDexPair(
-      { type: 'RESOLVE_DEX_PAIR', chain: 'solana', address: testAddress },
-      mockFetch
-    )
-
-    expect(mockFetch).toHaveBeenCalledWith(expect.stringContaining(testAddress))
-  })
-
-  it('single rate-limit point: only one fetch per RESOLVE_DEX_PAIR message', async () => {
-    mockFetch.mockResolvedValue({
-      ok: true,
-      json: async () => ({ pairs: [] }),
-    } as Response)
-
-    await handleResolveDexPair(
-      { type: 'RESOLVE_DEX_PAIR', chain: 'solana', address: 'addr' },
-      mockFetch
-    )
-
-    expect(mockFetch).toHaveBeenCalledTimes(1)
-  })
-})
+    expect(fresh.success).toBe(true);
+    expect(mockFetch).toHaveBeenNthCalledWith(
+      3,
+      expect.stringContaining('/api/token/solana/So11111111111111111111111111111111111111112?source=content_script&sessionId=session-pair-1'),
+      expect.any(Object),
+    );
+    expect(mockFetch).toHaveBeenNthCalledWith(
+      4,
+      'https://barryguard.com/api/analyze',
+      expect.objectContaining({
+        method: 'POST',
+        body: JSON.stringify({
+          address: 'So11111111111111111111111111111111111111112',
+          chain: 'solana',
+          mode: 'full',
+          source: 'content_script',
+          sessionId: 'session-pair-1',
+        }),
+      }),
+    );
+    expect(takeTelemetrySession('So11111111111111111111111111111111111111112', 'solana')).toBeUndefined();
+  });
+});

@@ -120,22 +120,39 @@ export class BarryGuardApiClient {
     }
   }
 
-  analyzeToken(address: string, chain = 'solana'): Promise<ApiResponse<TokenScore>> {
+  analyzeToken(address: string, chain = 'solana', sessionId?: string): Promise<ApiResponse<TokenScore>> {
     return this.request<TokenScore>('/analyze', {
       method: 'POST',
-      body: JSON.stringify({ address, chain, mode: 'full', source: 'content_script' }),
+      body: JSON.stringify({ address, chain, mode: 'full', source: 'content_script', ...(sessionId ? { sessionId } : {}) }),
     });
   }
 
-  getTokenScore(address: string, chain = 'solana'): Promise<ApiResponse<TokenScore>> {
+  getTokenScore(address: string, chain = 'solana', sessionId?: string): Promise<ApiResponse<TokenScore>> {
     const params = new URLSearchParams({ source: 'content_script' });
+    if (sessionId) {
+      params.set('sessionId', sessionId);
+    }
     return this.request<TokenScore>(`/token/${encodeURIComponent(chain)}/${encodeURIComponent(address)}?${params.toString()}`);
   }
 
-  analyzeTokenList(addresses: string[], chain = 'solana', force = false): Promise<ApiResponse<unknown>> {
+  resolveDexPairs(pairs: string[], chain = 'solana', sessionId?: string): Promise<ApiResponse<{ results: Array<{ pairAddress: string; tokenAddress: string }> }>> {
+    return this.request<{ results: Array<{ pairAddress: string; tokenAddress: string }> }>('/resolve/pair', {
+      method: 'POST',
+      body: JSON.stringify({ provider: 'dexscreener', chain, pairs, ...(sessionId ? { sessionId } : {}) }),
+    });
+  }
+
+  analyzeTokenList(addresses: string[], chain = 'solana', force = false, telemetrySessionIds?: Record<string, string>): Promise<ApiResponse<unknown>> {
     return this.request<unknown>('/analyze-list', {
       method: 'POST',
-      body: JSON.stringify({ addresses, chain, force, mode: 'light', source: 'content_script' }),
+      body: JSON.stringify({
+        addresses,
+        chain,
+        force,
+        mode: 'light',
+        source: 'content_script',
+        ...(telemetrySessionIds && Object.keys(telemetrySessionIds).length > 0 ? { telemetrySessionIds } : {}),
+      }),
     });
   }
 

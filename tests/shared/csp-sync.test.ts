@@ -25,9 +25,9 @@ describe('CSP_API_HOSTS integrity', () => {
     }
   })
 
-  it('contains api.dexscreener.com (required by E-H2 for pair resolution)', () => {
-    const hasDexscreener = CSP_API_HOSTS.some(h => h.includes('api.dexscreener.com'))
-    expect(hasDexscreener).toBe(true)
+  it('does not include direct DexScreener API hosts after ADR-007 API-only migration', () => {
+    const hasDirectDexApiHost = CSP_API_HOSTS.some(h => h.includes('api.dexscreener.com'))
+    expect(hasDirectDexApiHost).toBe(false)
   })
 
   it('has no duplicate entries', () => {

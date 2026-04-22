@@ -38,7 +38,6 @@ export default defineConfig({
     permissions: ['storage', 'scripting'],
     host_permissions: [
       ...PLATFORM_HOST_PATTERNS,
-      '*://api.dexscreener.com/*',
       '*://barryguard.com/*',
       '*://www.barryguard.com/*',
       ...DEV_HOST_PERMISSIONS,

@@ -11,14 +11,6 @@
  *   from the host page itself — those use the page's own CSP, not the extension CSP.
  */
 export const CSP_API_HOSTS: string[] = [
-  // Platform APIs fetched from the service worker (pair resolution)
-  'https://api.dexscreener.com',
-
-  // Pump.fun endpoints — removed from content script (E-H3), now backend-only.
-  // Listed here in case future background fetches re-emerge; remove if not needed.
-  // 'https://pump.fun',
-  // 'https://frontend-api.pump.fun',
-
   // Platform page origins (needed for cross-origin fetch from content scripts
   // that load within those pages — covered by host_permissions for the page itself,
   // but must also appear in connect-src for service worker fetches).
