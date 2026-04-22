@@ -2,7 +2,7 @@
 
 ## Overview
 
-The popup is the main user interface of the extension. It opens when the user clicks the BarryGuard icon in the browser toolbar or clicks a score badge on a supported platform. It displays the full analysis for the selected token and provides account management.
+The popup is the main user interface of the extension. It opens when the user clicks the BarryGuard icon in the browser toolbar or clicks a score badge on a supported platform. It displays the current token analysis and account state.
 
 ## Screens
 
@@ -18,97 +18,41 @@ The popup operates as a state machine with 7 screens:
 | **register** | Account creation | User clicks "Sign up" |
 | **account** | Tier info, usage, subscription | User clicks account icon |
 
+## Timeout Budget
+
+- Lightweight popup-to-background reads still use the short 2.5-second default timeout.
+- Auth flows (`LOGIN`, `REGISTER`, `SEND_MAGIC_LINK`) use a longer timeout budget aligned with the real backend auth path.
+- Manual popup analysis waits longer than the shared 12-second HTTP client timeout so the popup does not fail before the background worker's BarryGuard API request finishes.
+
 ## Token Detail Screen
 
-The main screen showing the analysis result:
+The main screen shows:
 
-```
-┌────────────────────────────────┐
-│  [🔍] [⭐] [🔄] [👤]          │  ← Header actions
-├────────────────────────────────┤
-│  [Logo] Token Name             │
-│         TOKEN                  │
-│         addr...xyz [📋] [↗]   │  ← Copy + Solscan link
-│         View full analysis ↗   │  ← Link to barryguard.com
-├────────────────────────────────┤
-│       ┌──────────┐             │
-│       │  85/100  │             │  ← Score donut
-│       │ MODERATE │             │
-│       └──────────┘             │
-│  BarryGuard cannot guarantee   │
-│  safety. Use as risk signal.   │
-│  Analyzed 2m ago               │
-├────────────────────────────────┤
-│  Contract        ████████░ 82  │  ← Subscores
-│  Market Struct.  ██████░░░ 71  │
-│  Behavior        █████████ 92  │
-├────────────────────────────────┤
-│  Top Concerns                  │
-│  • Creator wallet < 24h old    │
-│  • 35% held by top wallet      │
-│  • Liquidity unlocked          │
-├────────────────────────────────┤
-│  All Checks                    │
-│  ✅ Mint Authority             │
-│  ✅ Freeze Authority           │
-│  ⚠️ Top Holder Concentration   │
-│  ❌ Creator Wallet Age         │
-│  🔒 (locked — upgrade to see)  │
-│  ...                           │
-└────────────────────────────────┘
-```
-
-### Header Actions
-
-| Icon | Action |
-|------|--------|
-| 🔍 | Open manual token entry |
-| ⭐ | Toggle watchlist (authenticated users) |
-| 🔄 | Refresh analysis |
-| 👤 | Open account screen |
-
-### Score Donut
-
-Color-coded circular chart showing the risk score:
-
-| Risk Level | Score | Color |
-|------------|-------|-------|
-| DANGER | 0–29 | Red |
-| HIGH | 30–54 | Orange |
-| CAUTION | 55–74 | Yellow |
-| MODERATE | 75–89 | Green |
-| LOW | 90–100 | Teal |
-
-### Check Display
-
-Checks are grouped into three categories — **Contract**, **Market Structure**, and **Behavior** — and displayed in a fixed order. The number of visible checks depends on the user's tier. Free users see a subset; paid users see the full analysis.
-
-### Check Status Icons
-
-| Status | Icon | Meaning |
-|--------|------|---------|
-| success | ✅ | Check passed — no concern |
-| warning | ⚠️ | Elevated risk detected |
-| danger | ❌ | Significant risk detected |
-| locked | 🔒 | Requires higher tier to view |
+- Current token name, symbol, address, and logo
+- Risk score donut and risk label
+- Subscores for contract, market structure, and behavior
+- Top reasons and the full check list
+- Watchlist actions and alerts when available
 
 ## Manual Entry
 
-Users can manually enter a Solana token address (32–44 character base58 string) to analyze any token. Validation rejects invalid formats before sending to the API.
+Users can manually enter a Solana token address to analyze any token, even when the current tab has no supported token context. Input validation happens before the request is sent to the background worker.
 
 ## Account Screen
 
-Shows the user's current plan, usage this hour, and subscription management:
+The account screen shows:
 
-- **Tier badge** (Free / Rescue Pass / Pro)
-- **Usage bar** (e.g., "12 / 30 analyses this hour")
-- **Manage subscription** link (opens Stripe portal)
-- **Logout** button
+- Current tier badge
+- Hourly usage state
+- Subscription management link
+- Logout action
+
+Email/password login, registration, and magic-link requests use the auth-specific popup timeout budget instead of the legacy 2.5-second default that only fits lightweight local reads.
 
 ## Watchlist
 
-Authenticated users (Rescue Pass / Pro) can save tokens to a watchlist. The popup shows:
+Authenticated users on supported tiers can:
 
-- Watchlist toggle on the token detail screen
-- Watchlist alerts section (score changes for watched tokens)
-- Alert badges with unread count
+- Save the current token to the watchlist
+- See recent watchlist alerts for the selected token
+- Open the full BarryGuard check page from the popup

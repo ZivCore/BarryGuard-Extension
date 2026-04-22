@@ -80,7 +80,8 @@ Response: { access_token, refresh_token, expires_at }
 #### POST /api/auth/session
 Cookie-based session validation (used by auth sync content script).
 ```
-Response: { valid, user, profile }
+Headers:  X-Extension-Version (sent by the auth-sync content script)
+Response: { valid, user, profile, token? }
 ```
 
 #### POST /api/auth/logout
@@ -138,6 +139,7 @@ Public endpoint — returns cache TTLs and tier limits. Called on startup and ev
 - **Timeout:** 12 seconds (AbortController)
 - **Content-Type:** `application/json`
 - **Credentials:** `include`
+- **Popup budget:** popup auth/manual-analysis flows wait longer than 12 seconds so the popup does not fail before the underlying API request completes
 
 ## Error Handling
 
@@ -145,6 +147,7 @@ Public endpoint — returns cache TTLs and tier limits. Called on startup and ev
 |------------|-----------|-------------|
 | 400 | `validation` | Custom error from response body |
 | 403 | `plan_gate` | Feature requires a higher plan |
+| 429 | `SUSPICIOUS_BOT` | Request blocked by bot protection |
 | 429 | `rate_limit` or `cooldown` | Hourly limit / cooldown active |
 | 502, 503 | `server` | Blockchain data temporarily unavailable |
 | Timeout | `network` | Request timed out |

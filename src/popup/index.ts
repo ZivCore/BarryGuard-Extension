@@ -32,6 +32,11 @@ import {
   renderAnalysisFooter,
   getExplorerUrl,
 } from './render';
+import {
+  POPUP_ANALYZE_REQUEST_TIMEOUT_MS,
+  POPUP_AUTH_REQUEST_TIMEOUT_MS,
+  POPUP_DEFAULT_MESSAGE_TIMEOUT_MS,
+} from '../shared/popup-timeouts';
 
 type ScreenName = 'loading' | 'token-detail' | 'login' | 'register' | 'account' | 'manual' | 'no-token';
 
@@ -1581,7 +1586,10 @@ function getRuntimeErrorMessage(): string | null {
   return chrome.runtime.lastError.message || 'Runtime error';
 }
 
-function sendMessage<T>(message: RuntimeMessage, timeoutMs = 2500): Promise<ApiResponse<T>> {
+function sendMessage<T>(
+  message: RuntimeMessage,
+  timeoutMs = POPUP_DEFAULT_MESSAGE_TIMEOUT_MS,
+): Promise<ApiResponse<T>> {
   // H-11: Offline detection
   if (!navigator.onLine) {
     return Promise.resolve({
@@ -1759,7 +1767,7 @@ async function handleLogin(): Promise<void> {
     const response = await sendMessage<UserProfile>({
       type: 'LOGIN',
       payload: { email, password },
-    });
+    }, POPUP_AUTH_REQUEST_TIMEOUT_MS);
 
     if (!response.success || !response.data) {
       setStatusMessage(elements.login.message, response.error ?? 'Login failed.');
@@ -1808,7 +1816,7 @@ async function handleMagicLink(source: 'login' | 'register'): Promise<void> {
     const response = await sendMessage<{ message?: string }>({
       type: 'SEND_MAGIC_LINK',
       payload: { email },
-    });
+    }, POPUP_AUTH_REQUEST_TIMEOUT_MS);
 
     if (!response.success) {
       setStatusMessage(messageElement, response.error ?? 'Magic link could not be sent.');
@@ -1871,7 +1879,7 @@ async function handleRegister(): Promise<void> {
     const response = await sendMessage<UserProfile>({
       type: 'REGISTER',
       payload: { email, password },
-    });
+    }, POPUP_AUTH_REQUEST_TIMEOUT_MS);
 
     if (!response.success || !response.data) {
       setRegisterError(response.error ?? 'Registration failed.');
@@ -1931,7 +1939,7 @@ async function handleAnalyze(): Promise<void> {
     const response = await sendMessage<TokenScore>({
       type: 'ANALYZE_TOKEN',
       payload: address,
-    }, 5000);
+    }, POPUP_ANALYZE_REQUEST_TIMEOUT_MS);
 
     if (!response.success || !response.data) {
       if (response.errorType === 'anon_daily_limit') {

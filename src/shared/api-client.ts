@@ -2,7 +2,7 @@
 import type { ApiErrorType, ApiResponse, AuthToken, TokenScore, UserProfile, WatchlistAlert, WatchlistStatus } from './types';
 import { getApiBaseUrl } from './runtime-config';
 
-const REQUEST_TIMEOUT_MS = 12000;
+export const REQUEST_TIMEOUT_MS = 12000;
 
 export class BarryGuardApiClient {
   private authToken: AuthToken | null = null;

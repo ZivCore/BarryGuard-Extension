@@ -1,6 +1,6 @@
 // tests/shared/api-client.test.ts
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { BarryGuardApiClient } from '../../src/shared/api-client';
+import { BarryGuardApiClient, REQUEST_TIMEOUT_MS } from '../../src/shared/api-client';
 
 const mockFetch = vi.fn();
 vi.stubGlobal('fetch', mockFetch);
@@ -167,6 +167,27 @@ describe('BarryGuardApiClient', () => {
     expect(res.success).toBe(false);
     expect(res.statusCode).toBe(429);
     expect(res.errorCode).toBe('ANON_DAILY_LIMIT');
+  });
+
+  it('passes through suspicious-bot error types from the API', async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: false,
+      status: 429,
+      headers: new Headers(),
+      json: async () => ({
+        error: 'Suspicious bot detected',
+        errorType: 'SUSPICIOUS_BOT',
+      }),
+    });
+
+    const res = await client.getTokenScore('abc');
+    expect(res.success).toBe(false);
+    expect(res.statusCode).toBe(429);
+    expect(res.errorType).toBe('SUSPICIOUS_BOT');
+  });
+
+  it('exports the HTTP timeout contract used by popup timeout budgeting', () => {
+    expect(REQUEST_TIMEOUT_MS).toBe(12000);
   });
 
   it('does not set errorCode when error body has no code field', async () => {

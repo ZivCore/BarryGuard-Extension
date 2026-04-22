@@ -43,9 +43,13 @@ export default defineContentScript({
 
     async function fetchAndDeliverSession(): Promise<void> {
       try {
+        const extensionVersion = chrome.runtime?.getManifest?.().version;
         const res = await fetch(`${window.location.origin}/api/auth/session`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
+          headers: {
+            'Content-Type': 'application/json',
+            ...(extensionVersion ? { 'X-Extension-Version': extensionVersion } : {}),
+          },
           credentials: 'include',
         });
 

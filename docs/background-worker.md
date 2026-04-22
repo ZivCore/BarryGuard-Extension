@@ -94,7 +94,7 @@ Check local cache (TTL + tier match)
 Authentication state is synced from the BarryGuard website via a dedicated content script (`barryguard-auth.content.ts`) that runs on `barryguard.com`:
 
 1. Content script checks for auth cookies every 10 seconds
-2. If cookie found, fetches session data via `POST /api/auth/session`
+2. If cookie found, fetches session data via `POST /api/auth/session` and tags the request with `X-Extension-Version`
 3. Sends `WEBSITE_SESSION_DETECTED` to background worker
 4. Background stores token in session storage, profile in local storage
 5. Every 60 seconds: refreshes session data (includes usage counters)
