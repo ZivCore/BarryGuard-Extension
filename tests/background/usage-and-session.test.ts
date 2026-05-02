@@ -37,6 +37,7 @@ const {
   _incrementHourlyUsageForTest: incrementHourlyUsage,
   _refreshProfileStateIfNeededForTest: refreshProfileStateIfNeeded,
   _syncHourlyUsageStateForTest: syncHourlyUsageState,
+  _getTokenScoreForTest: getTokenScore,
   _isUnauthorizedResponseForTest: isUnauthorizedResponse,
 } = await import('../../src/background/index');
 
@@ -113,5 +114,53 @@ describe('background session invalidation', () => {
 
     expect(profile).toBeNull();
     expect(storageMock.user_profile).toBeUndefined();
+  });
+});
+
+describe('background token score lookup', () => {
+  beforeEach(() => {
+    Object.keys(storageMock).forEach((key) => delete storageMock[key]);
+    mockFetch.mockReset();
+  });
+
+  it('treats token cache 404 as a miss and falls through to fresh analysis', async () => {
+    const address = 'So11111111111111111111111111111111111111112';
+    const freshScore = {
+      address,
+      chain: 'solana',
+      score: 88,
+      risk: 'low',
+      checks: {},
+      reasons: [],
+      analyzedAt: '2026-05-02T12:00:00.000Z',
+    };
+
+    mockFetch
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 401,
+        json: async () => ({ message: 'Unauthorized' }),
+      })
+      .mockResolvedValueOnce({
+        ok: false,
+        status: 404,
+        json: async () => ({ error: 'Token not found in cache', code: 'NOT_FOUND' }),
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        status: 200,
+        json: async () => freshScore,
+      });
+
+    const result = await getTokenScore(address, 'solana');
+
+    expect(result.success).toBe(true);
+    expect(result).toMatchObject({
+      success: true,
+      data: { address, cached: false },
+    });
+    expect(mockFetch).toHaveBeenCalledTimes(3);
+    expect(String(mockFetch.mock.calls[1][0])).toContain(`/token/solana/${address}`);
+    expect(String(mockFetch.mock.calls[2][0])).toContain('/analyze');
   });
 });

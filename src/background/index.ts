@@ -950,6 +950,11 @@ function mapApiFailure<T>(response: ApiResponse<T>): ApiResponse<T> {
   };
 }
 
+function isTemporaryTokenLookupFailure<T>(response: ApiResponse<T>): boolean {
+  return !response.success
+    && (response.statusCode === 429 || response.statusCode === 503 || response.statusCode === 504);
+}
+
 async function maybeEnforceSingleCooldown(profile: UserProfile | null): Promise<ApiResponse<never> | null> {
   const cooldownSeconds = getCooldownSeconds(profile);
   if (cooldownSeconds <= 0) {
@@ -1075,6 +1080,8 @@ async function getTokenScore(address: string, chain: string = 'solana') {
           return { success: true, data: { ...normalizedExisting, cached: true } };
         }
       }
+    } else if (isTemporaryTokenLookupFailure(existing)) {
+      return mapApiFailure(existing);
     }
 
     // 3. Cooldown/Limit checks

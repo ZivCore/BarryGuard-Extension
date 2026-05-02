@@ -112,6 +112,22 @@ describe('BarryGuardApiClient', () => {
     expect(res.error).toBe('HTTP 500');
   });
 
+  it('returns a normal 404 response for token cache misses', async () => {
+    mockFetch.mockResolvedValueOnce({
+      ok: false,
+      status: 404,
+      headers: new Headers(),
+      json: async () => ({ message: 'Token cache miss' }),
+    });
+
+    const res = await client.getTokenScore('abc');
+
+    expect(res.success).toBe(false);
+    expect(res.statusCode).toBe(404);
+    expect(res.error).toBe('Token cache miss');
+    expect(res.errorType).toBeUndefined();
+  });
+
   it('includes Authorization header when token is set', async () => {
     client.setAuthToken({ access_token: 'mytoken123' });
     mockOk({});
@@ -184,6 +200,19 @@ describe('BarryGuardApiClient', () => {
     expect(res.success).toBe(false);
     expect(res.statusCode).toBe(429);
     expect(res.errorType).toBe('SUSPICIOUS_BOT');
+  });
+
+  it.each([
+    [503, 'Analysis service is busy. Please retry shortly.'],
+    [504, 'Analysis service timed out. Please retry shortly.'],
+  ])('keeps %s as a visible temporary service error', async (status, message) => {
+    mockError(status);
+
+    const res = await client.getTokenScore('abc');
+
+    expect(res.success).toBe(false);
+    expect(res.statusCode).toBe(status);
+    expect(res.error).toBe(message);
   });
 
   it('exports the HTTP timeout contract used by popup timeout budgeting', () => {

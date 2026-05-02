@@ -84,6 +84,7 @@ const RETRY_BASE_DELAY_MS = 1500;
 const MAX_DETAIL_RETRY_ATTEMPTS = 6;
 const STORAGE_RECONCILE_INTERVAL_MS = 1000;
 const MAX_STORAGE_RECONCILE_ATTEMPTS = 180;
+export const LIST_INDIVIDUAL_FETCH_CONCURRENCY = 3;
 
 function isExtensionContextInvalidatedError(error: unknown): boolean {
   const message =
@@ -239,7 +240,33 @@ export function shouldRetryTokenScoreFetch(
     return false;
   }
 
+  if (response.statusCode === 429 || response.statusCode === 503 || response.statusCode === 504) {
+    return false;
+  }
+
   return true;
+}
+
+export async function runWithConcurrencyLimit<T>(
+  items: T[],
+  limit: number,
+  worker: (item: T) => Promise<void>,
+): Promise<void> {
+  const concurrency = Math.max(1, Math.floor(limit));
+  let nextIndex = 0;
+
+  async function runNext(): Promise<void> {
+    const index = nextIndex;
+    nextIndex += 1;
+    if (index >= items.length) {
+      return;
+    }
+
+    await worker(items[index]);
+    await runNext();
+  }
+
+  await Promise.all(items.slice(0, concurrency).map(() => runNext()));
 }
 
 export function shouldApplySelectedTokenScore(
@@ -320,6 +347,9 @@ export function initializeContentScript(): void {
   }
   const pending = new Set<string>();
   const resolvedScores = new Map<string, TokenScore>();
+  const individualFetchQueue: string[] = [];
+  const queuedIndividualFetches = new Set<string>();
+  let individualFetchDrain: Promise<void> | null = null;
   const retryAttempts = new Map<string, number>();
   const retryTimers = new Map<string, number>();
   const renderRetryAttempts = new Map<string, number>();
@@ -370,6 +400,11 @@ export function initializeContentScript(): void {
     clearStorageReconcile(address);
     pending.delete(address);
     resolvedScores.delete(address);
+    queuedIndividualFetches.delete(address);
+    const queuedIndex = individualFetchQueue.indexOf(address);
+    if (queuedIndex >= 0) {
+      individualFetchQueue.splice(queuedIndex, 1);
+    }
   }
 
   function shouldRetryScoreFetch(address: string, response: ApiResponse<TokenScore> | undefined): boolean {
@@ -509,8 +544,9 @@ export function initializeContentScript(): void {
     );
   }
 
-  function fetchAndRender(address: string): void {
+  function fetchAndRender(address: string, onSettled?: () => void): void {
     if (pending.has(address)) {
+      onSettled?.();
       return;
     }
 
@@ -523,6 +559,7 @@ export function initializeContentScript(): void {
     const chain = (platform.detectChainFromUrl?.(window.location.href) ?? platform.chains?.[0]) ?? 'solana';
     sendRuntimeMessage({ type: 'GET_TOKEN_SCORE', payload: { address, chain } }, (response) => {
       pending.delete(address);
+      onSettled?.();
       if (response?.success && response.data) {
         clearRetry(address);
         const score = response.data as TokenScore;
@@ -534,19 +571,19 @@ export function initializeContentScript(): void {
           clearRenderRetry(address);
         }
 
-          if (platform.getCurrentPageAddress() === address) {
+        if (platform.getCurrentPageAddress() === address) {
           const selectedToken = platform.buildSelectedToken(address, score);
           const metadata = {
             ...(selectedToken.metadata ?? {}),
             ...(getTokenMetadataFromScore(score) ?? {}),
           };
 
-            // Persist score immediately so the popup can show it right away
+          // Persist score immediately so the popup can show it right away
           persistSelectedToken({
             ...selectedToken,
             metadata,
           });
-          }
+        }
 
         return;
       }
@@ -574,6 +611,43 @@ export function initializeContentScript(): void {
         scheduleRetry(address);
       }
     });
+  }
+
+  function ensureIndividualFetchDrain(): void {
+    if (individualFetchDrain) {
+      return;
+    }
+
+    individualFetchDrain = (async () => {
+      while (individualFetchQueue.length > 0) {
+        const batch = individualFetchQueue.splice(0, LIST_INDIVIDUAL_FETCH_CONCURRENCY);
+        batch.forEach((address) => queuedIndividualFetches.delete(address));
+        await runWithConcurrencyLimit(batch, LIST_INDIVIDUAL_FETCH_CONCURRENCY, async (address) => {
+          await new Promise<void>((resolve) => {
+            fetchAndRender(address, resolve);
+          });
+        });
+      }
+    })().finally(() => {
+      individualFetchDrain = null;
+      if (individualFetchQueue.length > 0) {
+        ensureIndividualFetchDrain();
+      }
+    });
+  }
+
+  function enqueueIndividualFetches(addresses: string[]): void {
+    for (const address of addresses) {
+      if (resolvedScores.has(address) || pending.has(address) || queuedIndividualFetches.has(address)) {
+        continue;
+      }
+
+      queuedIndividualFetches.add(address);
+      individualFetchQueue.push(address);
+      platform.renderLoadingBadge(address);
+    }
+
+    ensureIndividualFetchDrain();
   }
 
   function syncVisibleBadges(addresses: string[]): void {
@@ -681,13 +755,13 @@ export function initializeContentScript(): void {
             }
           } else {
             // Batch failed — fall back to individual fetches
-            needsFetch.forEach((address) => fetchAndRender(address));
+            enqueueIndividualFetches(needsFetch);
           }
         },
       );
     } else {
       // Free tier — individual fetches (batch not available)
-      needsFetch.forEach((address) => fetchAndRender(address));
+      enqueueIndividualFetches(needsFetch);
     }
   }
 

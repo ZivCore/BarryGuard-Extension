@@ -35,12 +35,14 @@ Response: TokenScore object
 
 #### GET /api/token/:address
 
-Retrieve cached analysis from the server.
+Retrieve cached analysis from the server. This endpoint is cache-only and does not start a fresh analysis.
 
 ```
 Query:    ?chain=solana
-Response: TokenScore object or null
+Response: TokenScore object, or 404 cache-miss JSON when no fresh cache entry exists
 ```
+
+The background worker treats a 404 cache miss as expected and then calls `POST /api/analyze`. Temporary backend pressure responses (`429`, `503`, `504`) are returned to the UI without content-script retry loops.
 
 #### POST /api/analyze-list
 

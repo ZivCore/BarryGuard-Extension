@@ -65,8 +65,8 @@ The background worker implements a three-level cache:
 
 ### Level 2: Server Cache
 
-- `GET /api/token/:address` — returns the most recent cached score from the backend
-- Used as a faster alternative to a full analysis
+- `GET /api/token/:address` — returns the most recent fresh cached score from the backend
+- Cache miss or stale cache returns 404 and does not trigger backend analysis
 
 ### Level 3: Fresh Analysis
 
@@ -86,6 +86,8 @@ Check local cache (TTL + tier match)
             ├─ SUCCESS → cache locally, return
             └─ ERROR → return error
 ```
+
+Content-script list fallbacks cap concurrent individual score fetches at 3. Visible temporary backend pressure statuses (`429`, `503`, `504`) are not retried by the content script.
 
 ## Authentication
 

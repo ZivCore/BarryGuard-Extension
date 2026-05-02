@@ -1,6 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import {
+  LIST_INDIVIDUAL_FETCH_CONCURRENCY,
   getCurrentPageAddress,
+  runWithConcurrencyLimit,
   selectAddressesForTier,
   shouldApplySelectedTokenScore,
   shouldRetryTokenScoreFetch,
@@ -91,6 +93,33 @@ describe('content tier gating', () => {
       'Gur3msAr6KPmoFogSabvuAxe4ZzjtNwv5WudJ49Ppump',
       { success: false, statusCode: 403, errorType: 'plan_gate', error: 'Forbidden' },
     )).toBe(false);
+  });
+
+  it.each([429, 503, 504])('does not retry visible temporary status %s', (statusCode) => {
+    expect(shouldRetryTokenScoreFetch(
+      'Gur3msAr6KPmoFogSabvuAxe4ZzjtNwv5WudJ49Ppump',
+      'Gur3msAr6KPmoFogSabvuAxe4ZzjtNwv5WudJ49Ppump',
+      { success: false, statusCode, error: `HTTP ${statusCode}` },
+    )).toBe(false);
+  });
+
+  it('limits concurrent individual list fetch work', async () => {
+    let active = 0;
+    let maxActive = 0;
+
+    await runWithConcurrencyLimit(
+      Array.from({ length: 9 }, (_, index) => index),
+      LIST_INDIVIDUAL_FETCH_CONCURRENCY,
+      async () => {
+        active += 1;
+        maxActive = Math.max(maxActive, active);
+        await new Promise((resolve) => setTimeout(resolve, 5));
+        active -= 1;
+      },
+    );
+
+    expect(maxActive).toBeLessThanOrEqual(LIST_INDIVIDUAL_FETCH_CONCURRENCY);
+    expect(maxActive).toBeGreaterThan(1);
   });
 
   it('applies a stored selected token score for the current token page', () => {

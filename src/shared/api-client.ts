@@ -44,7 +44,10 @@ export class BarryGuardApiClient {
       clearTimeout(timeoutId);
       timeoutId = null;
       if (res.ok) {
-        return { success: true, data: await res.json() as T, statusCode: res.status };
+        const data = await res.json() as T;
+        return data === null
+          ? { success: true, statusCode: res.status }
+          : { success: true, data, statusCode: res.status };
       }
 
       const err = await res.json().catch(() => ({ error: `HTTP ${res.status}` })) as {
@@ -86,6 +89,8 @@ export class BarryGuardApiClient {
         errorMessage = 'Blockchain data temporarily unavailable. Try again in a moment.';
       } else if (res.status === 503) {
         errorMessage = 'Analysis service is busy. Please retry shortly.';
+      } else if (res.status === 504) {
+        errorMessage = 'Analysis service timed out. Please retry shortly.';
       }
 
       return {
