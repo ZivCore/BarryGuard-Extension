@@ -2087,13 +2087,19 @@ async function init(): Promise<void> {
     await sendMessage({ type: 'REFRESH_USAGE' }, 3000).catch(() => {});
     await loadUsageState();
     const tabTokenState = await detectActiveTabTokenState();
-    if (tabTokenState === 'no-token') {
+    // Plan platform-overhaul 2026-05-06 Step 10: only load the cached token
+    // when the active tab actively reports `has-token`. `'no-token'` and
+    // `'unknown'` (no content script on this page = unsupported domain) BOTH
+    // route to the empty-state screen; otherwise an unsupported tab would
+    // silently render the previously analyzed token with a stale "analyzing"
+    // hint, contradicting the empty-state requirement.
+    if (tabTokenState === 'has-token') {
+      await loadSelectedToken();
+      await refreshSelectedTokenScore();
+    } else {
       state.selectedToken = null;
       await chrome.storage.local.remove('selectedToken');
       showScreen('no-token');
-    } else {
-      await loadSelectedToken();
-      await refreshSelectedTokenScore();
     }
   } catch (error) {
     console.error('[BarryGuard] Popup initialization failed:', error);
