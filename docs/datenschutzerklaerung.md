@@ -23,12 +23,14 @@ Je nach Nutzung der Extension koennen insbesondere die folgenden Daten verarbeit
 
 ### a) Account- und Registrierungsdaten
 
-Wenn du ein BarryGuard-Konto erstellst oder dich anmeldest, koennen insbesondere folgende Daten verarbeitet werden:
+Seit Extension-Version 1.7.0 erfolgen Konto-Erstellung und Anmeldung ausschliesslich auf der BarryGuard-Webseite (`https://www.barryguard.com/login?source=extension`). Die "Login"-Schaltflaeche im Popup oeffnet einen neuen Browser-Tab; die Extension selbst fragt weder E-Mail noch Passwort ab.
 
-- E-Mail-Adresse
-- Passwort
-- interne Nutzer-ID
-- Auth- und Session-Token
+Nach erfolgreicher Anmeldung auf der Webseite liest das bestehende Auth-Sync-Content-Script (`barryguard-auth.content.ts`) auf `*://*.barryguard.com/*`-Seiten den BarryGuard-Session-Cookie aus und uebergibt einen erneuerbaren Session-Token an den Service Worker der Extension. Die Extension speichert ausschliesslich:
+
+- interne Nutzer-ID (aus der Webseiten-Session uebernommen)
+- Auth- und Session-Token (zum Aufruf authentifizierter API-Endpunkte)
+
+Die Extension speichert weder E-Mail-Adresse noch Passwort. Wenn du dein Konto auf der Webseite erstellst oder verwaltest, verarbeitet die Webseite selbst die Registrierungsdaten (E-Mail-Adresse, Passwort, Konto-Informationen) gemaess der Datenschutzerklaerung der BarryGuard-Webseite.
 
 ### b) Plan- und Abo-Daten
 

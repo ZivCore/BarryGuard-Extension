@@ -149,9 +149,9 @@ BarryGuard processes subscription-related data for paid users, such as plan tier
 
 #### Authentication Information
 
-Yes.
+Yes — but credentials are never entered inside the extension popup.
 
-BarryGuard processes login credentials during sign-in or registration and stores authentication/session tokens locally so the user session can persist in the extension.
+Since version 1.7.0, the extension does NOT collect login credentials directly. Clicking "Login" in the popup opens the BarryGuard website (`https://www.barryguard.com/login?source=extension`) in a new browser tab, where the user authenticates with the website's standard login flow. Once signed in on the website, the existing auth-sync content script (`barryguard-auth.content.ts`) reads the BarryGuard session cookie and forwards a refreshable session token to the extension's background service worker so the extension can call authenticated API endpoints. The extension stores the session token locally; it never stores email or password.
 
 #### Personal Communications
 

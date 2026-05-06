@@ -23,12 +23,14 @@ Depending on how the extension is used, BarryGuard may process the following cat
 
 ### a) Account and Registration Data
 
-If you create a BarryGuard account or sign in, BarryGuard may process:
+Since extension version 1.7.0, account creation and sign-in happen exclusively on the BarryGuard website (`https://www.barryguard.com/login?source=extension`). The "Login" button in the popup opens a new browser tab; the extension itself never asks for email or password.
 
-- email address
-- password
-- internal user ID
-- authentication and session tokens
+After successful sign-in on the website, the existing auth-sync content script (`barryguard-auth.content.ts`) reads the BarryGuard session cookie on `*://*.barryguard.com/*` pages and forwards a refreshable session token to the extension's background service worker. The extension stores only:
+
+- internal user ID (received from the website session)
+- authentication and session tokens (used to call authenticated API endpoints)
+
+The extension never stores email or password. If you create or manage your account on the website, the website itself processes the registration data (email address, password, account information) under the BarryGuard website privacy policy.
 
 ### b) Plan and Subscription Data
 

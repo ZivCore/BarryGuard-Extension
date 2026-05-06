@@ -35,6 +35,9 @@ export default defineConfig({
     name: 'BarryGuard',
     description: 'Solana token risk overlays on Pump.fun, PumpSwap, Raydium & 7 more platforms. 23 on-chain checks. No wallet access.',
     homepage_url: 'https://barryguard.com',
+    // Plan platform-overhaul 2026-05-06, Step 11: theme color matches the new
+    // mobile design tokens (--paper background) used by the popup CSS.
+    theme_color: '#ede6d8',
     permissions: ['storage', 'scripting'],
     host_permissions: [
       ...PLATFORM_HOST_PATTERNS,
