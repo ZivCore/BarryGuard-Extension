@@ -46,7 +46,7 @@ The background worker treats a 404 cache miss as expected and then calls `POST /
 
 #### POST /api/analyze-list
 
-Batch analysis of multiple tokens (Rescue Pass / Pro only).
+Batch analysis of multiple tokens for signed-in users. Anonymous extension users are blocked locally with `Mass scan requires sign-in`; Free users are not blocked by the extension.
 
 ```
 Request:  { addresses: string[], chain: "solana", mode: "light" }
@@ -55,23 +55,7 @@ Response: { scores: TokenScore[] }
 
 ### Authentication
 
-#### POST /api/auth/login
-```
-Request:  { email, password }
-Response: { success, token: { access_token, refresh_token, expires_at }, user, profile }
-```
-
-#### POST /api/auth/register
-```
-Request:  { email, password }
-Response: Same as login
-```
-
-#### POST /api/auth/magic-link
-```
-Request:  { email }
-Response: { success, message }
-```
+The popup does not call login/register/magic-link endpoints directly. Login and registration happen on the BarryGuard website via `https://www.barryguard.com/login?source=extension`; the website session sync content script then passes the authenticated session back to the background worker.
 
 #### POST /api/auth/refresh
 ```

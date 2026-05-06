@@ -6,7 +6,7 @@ The popup is the main user interface of the extension. It opens when the user cl
 
 ## Screens
 
-The popup operates as a state machine with 7 screens:
+The popup operates as a state machine with 5 screens:
 
 | Screen | Purpose | When Shown |
 |--------|---------|------------|
@@ -14,14 +14,12 @@ The popup operates as a state machine with 7 screens:
 | **token-detail** | Full analysis display | When a token is selected |
 | **no-token** | Prompt to select a token | When no token is in context |
 | **manual-entry** | Token address input | User clicks search icon |
-| **login** | Email/password + magic link + Google | Unauthenticated user |
-| **register** | Account creation | User clicks "Sign up" |
 | **account** | Tier info, usage, subscription | User clicks account icon |
 
 ## Timeout Budget
 
 - Lightweight popup-to-background reads still use the short 2.5-second default timeout.
-- Auth flows (`LOGIN`, `REGISTER`, `SEND_MAGIC_LINK`) use a longer timeout budget aligned with the real backend auth path.
+- Active-tab token detection uses a 250 ms budget. If the content script reports no token, the popup shows `no-token` immediately and ignores stale `selectedToken` storage. If detection times out or the content script is unavailable, the popup falls back to the previous selected-token/loading path.
 - Manual popup analysis waits longer than the shared 12-second HTTP client timeout so the popup does not fail before the background worker's BarryGuard API request finishes.
 
 ## Token Detail Screen
@@ -38,6 +36,14 @@ The main screen shows:
 
 Users can manually enter a Solana token address to analyze any token, even when the current tab has no supported token context. Input validation happens before the request is sent to the background worker.
 
+## Website Login And Account
+
+The extension no longer renders native login/register screens or sends login/register/magic-link API requests. Sign-in and account management happen on the BarryGuard website:
+
+- Login CTA opens `https://www.barryguard.com/login?source=extension`.
+- Account/Profile CTA opens `https://www.barryguard.com/dashboard?source=extension`.
+- Website session sync still hands authenticated sessions back to the extension via `barryguard-auth.content.ts`.
+
 ## Account Screen
 
 The account screen shows:
@@ -47,7 +53,7 @@ The account screen shows:
 - Subscription management link
 - Logout action
 
-Email/password login, registration, and magic-link requests use the auth-specific popup timeout budget instead of the legacy 2.5-second default that only fits lightweight local reads.
+The account screen remains available only for already-synced local profile state; entry points that previously opened login now redirect to the website.
 
 ## Watchlist
 

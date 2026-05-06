@@ -87,7 +87,7 @@ describe('BarryGuardApiClient', () => {
           addresses: ['addr-1', 'addr-2'],
           chain: 'solana',
           force: false,
-          mode: 'light',
+          mode: 'essential',
           source: 'content_script',
           telemetrySessionIds: {
             'addr-1': 'sess-a',
@@ -140,24 +140,12 @@ describe('BarryGuardApiClient', () => {
     );
   });
 
-  it('stores auth token after successful login', async () => {
-    mockOk({ token: { access_token: 'tok' }, user: { email: 'a@b.com', tier: 'free' } });
-    await client.login('a@b.com', 'pass');
-    expect(client.getAuthToken()?.access_token).toBe('tok');
-  });
+  it('does not expose popup-native login or magic-link methods', () => {
+    const apiClient = client as unknown as Record<string, unknown>;
 
-  it('sends magic link requests to the backend auth endpoint', async () => {
-    mockOk({ message: 'Magic link sent.' });
-    const res = await client.sendMagicLink('a@b.com');
-    expect(res.success).toBe(true);
-    expect(mockFetch).toHaveBeenCalledWith(
-      'https://barryguard.com/api/auth/magic-link',
-      expect.objectContaining({
-        credentials: 'include',
-        method: 'POST',
-        body: JSON.stringify({ email: 'a@b.com' }),
-      }),
-    );
+    expect(apiClient.login).toBeUndefined();
+    expect(apiClient.register).toBeUndefined();
+    expect(apiClient.sendMagicLink).toBeUndefined();
   });
 
   it('clears auth token after logout', async () => {

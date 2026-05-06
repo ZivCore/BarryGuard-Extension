@@ -831,6 +831,18 @@ export function initializeContentScript(): void {
         sendResponse({ pong: true });
         return;
       }
+      if (message?.type === 'GET_TAB_TOKEN_DETECTION_STATE') {
+        const currentPageAddress = platform.getCurrentPageAddress();
+        const extractedAddresses = platform.extractTokenAddresses();
+        sendResponse({
+          success: true,
+          data: {
+            hasToken: Boolean(currentPageAddress || extractedAddresses.length > 0),
+            address: currentPageAddress ?? extractedAddresses[0] ?? null,
+          },
+        });
+        return;
+      }
       if (message?.type === 'TAB_URL_CHANGED') {
         handleUrlChange();
         setTimeout(handleUrlChange, 200);

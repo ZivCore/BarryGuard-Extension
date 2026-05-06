@@ -32,6 +32,7 @@ export interface Subscores {
 
 export type ConfidenceLevel = 'high' | 'medium' | 'low';
 export type CoverageRisk = 'low' | 'moderate' | 'high' | 'severe';
+export type AnalysisMode = 'full' | 'essential';
 
 export interface TokenScore {
   address: string;
@@ -43,6 +44,8 @@ export interface TokenScore {
   reasons?: string[];
   confidence?: ConfidenceLevel;
   coverageRisk?: CoverageRisk | null;
+  analysisMode?: AnalysisMode;
+  effectiveAnalysisMode?: AnalysisMode;
   cached: boolean;
   analyzedAt?: string;
   tokenName?: string;

@@ -72,7 +72,7 @@ Zur Bereitstellung der Extension-Funktion koennen ausserdem folgende Daten verar
 
 - manuell eingegebene Token-Adressen
 - Klicks auf BarryGuard-Badges oder Buttons in der Extension
-- lokal gespeicherte Nutzungszaehler fuer stundenbasierte Limits
+- lokal gespeicherte Nutzungszaehler fuer planbasierte Request-Limits
 - lokal zwischengespeicherte Analyseergebnisse
 
 ## 4. Zwecke der Verarbeitung

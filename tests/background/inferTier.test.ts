@@ -94,9 +94,9 @@ describe('normalizeProfile', () => {
     expect(['free', 'rescue_pass', 'pro']).toContain(result.tier);
   });
 
-  it('sets tokenListAnalysis capability to false for free tier', () => {
+  it('sets tokenListAnalysis capability to true for free tier', () => {
     const result = normalizeProfile({ tier: 'free', email: 'a@b.com' });
-    expect(result.capabilities?.tokenListAnalysis).toBe(false);
+    expect(result.capabilities?.tokenListAnalysis).toBe(true);
   });
 
   it('sets tokenListAnalysis capability to true for paid tier', () => {

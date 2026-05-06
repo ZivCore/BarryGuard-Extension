@@ -11,7 +11,7 @@ import type {
 } from '../shared/types';
 import {
   getAccountUrl,
-  getForgotPasswordUrl,
+  getAppBaseUrl,
   getLoginUrl,
   normalizeOAuthNavigationUrl,
   getPricingUrl,
@@ -19,7 +19,6 @@ import {
   sanitizeCustomerPortalUrl,
   sanitizeExplorerUrl,
   sanitizeExternalNavigationUrl,
-  sanitizeOAuthNavigationUrl,
 } from '../shared/runtime-config';
 import { shortenAddress } from '../shared/format';
 import { isTokenScoreLikelyIncomplete } from '../shared/token-score';
@@ -34,11 +33,10 @@ import {
 } from './render';
 import {
   POPUP_ANALYZE_REQUEST_TIMEOUT_MS,
-  POPUP_AUTH_REQUEST_TIMEOUT_MS,
   POPUP_DEFAULT_MESSAGE_TIMEOUT_MS,
 } from '../shared/popup-timeouts';
 
-type ScreenName = 'loading' | 'token-detail' | 'login' | 'register' | 'account' | 'manual' | 'no-token';
+type ScreenName = 'loading' | 'token-detail' | 'account' | 'manual' | 'no-token';
 
 interface RuntimeMessage {
   type: string;
@@ -54,6 +52,11 @@ interface PopupState {
   usageState: HourlyUsageState | null;
   watchlistStatus: WatchlistStatus | null;
   watchlistAlerts: WatchlistAlert[];
+}
+
+interface TabTokenDetectionState {
+  hasToken: boolean;
+  address: string | null;
 }
 
 interface PlanBranding {
@@ -88,8 +91,6 @@ const elements = {
   screens: {
     loading: document.getElementById('loading'),
     tokenDetail: document.getElementById('token-detail-screen'),
-    login: document.getElementById('login-screen'),
-    register: document.getElementById('register-screen'),
     account: document.getElementById('account-screen'),
     manual: document.getElementById('manual-entry-screen'),
     noToken: document.getElementById('no-token-screen'),
@@ -124,35 +125,12 @@ const elements = {
     confidenceBadge: document.getElementById('confidence-badge'),
     refreshBtn: document.getElementById('refresh-btn'),
     viewFullAnalysis: document.getElementById('view-full-analysis'),
+    quickScanBadge: document.getElementById('quick-scan-badge') as HTMLButtonElement | null,
     watchlistToggleBtn: document.getElementById('watchlist-toggle-btn') as HTMLButtonElement | null,
     watchlistBadge: document.getElementById('watchlist-badge'),
     watchlistError: document.getElementById('watchlist-error'),
     watchlistAlertsSection: document.getElementById('watchlist-alerts-section'),
     watchlistAlertsList: document.getElementById('watchlist-alerts-list'),
-  },
-  login: {
-    email: document.getElementById('email') as HTMLInputElement | null,
-    password: document.getElementById('password') as HTMLInputElement | null,
-    loginBtn: document.getElementById('login-btn') as HTMLButtonElement | null,
-    magicLinkBtn: document.getElementById('magic-link-btn') as HTMLButtonElement | null,
-    message: document.getElementById('login-message'),
-    googleBtn: document.getElementById('google-login-btn'),
-    backBtn: document.getElementById('login-back-btn'),
-    forgotPassword: document.getElementById('forgot-password-link'),
-    registerLink: document.getElementById('register-link'),
-  },
-  register: {
-    email: document.getElementById('register-email') as HTMLInputElement | null,
-    password: document.getElementById('register-password') as HTMLInputElement | null,
-    passwordConfirm: document.getElementById('register-password-confirm') as HTMLInputElement | null,
-    registerBtn: document.getElementById('register-btn') as HTMLButtonElement | null,
-    termsCheckbox: document.getElementById('terms-checkbox') as HTMLInputElement | null,
-    magicLinkBtn: document.getElementById('register-magic-link-btn') as HTMLButtonElement | null,
-    message: document.getElementById('register-message'),
-    googleBtn: document.getElementById('register-google-btn'),
-    backBtn: document.getElementById('register-back-btn'),
-    toLoginLink: document.getElementById('to-login-link'),
-    error: document.getElementById('register-error'),
   },
   account: {
     email: document.getElementById('account-email'),
@@ -211,6 +189,11 @@ function applyPlanBranding(): void {
   if (elements.account.tierLogo) {
     elements.account.tierLogo.src = branding.tierLogo;
   }
+
+  const noTokenAccountButton = document.getElementById('no-token-account-btn');
+  if (noTokenAccountButton) {
+    noTokenAccountButton.textContent = state.isLoggedIn ? 'Open dashboard' : 'Open BarryGuard to login';
+  }
 }
 
 function openExternal(url: string): boolean {
@@ -227,6 +210,33 @@ function openExternal(url: string): boolean {
 
   window.open(safeUrl, '_blank', 'noopener,noreferrer');
   return true;
+}
+
+function withExtensionSource(url: string): string {
+  const parsed = new URL(url);
+  parsed.searchParams.set('source', 'extension');
+  return parsed.toString();
+}
+
+function getDashboardUrl(): string {
+  return `${getAppBaseUrl()}/dashboard`;
+}
+
+function openWebsiteLogin(): void {
+  openExternal(withExtensionSource(getLoginUrl()));
+}
+
+function openWebsiteDashboard(): void {
+  openExternal(withExtensionSource(getDashboardUrl()));
+}
+
+function openAccountDestination(): void {
+  if (state.isLoggedIn) {
+    openWebsiteDashboard();
+    return;
+  }
+
+  openWebsiteLogin();
 }
 
 async function copyTextToClipboard(text: string): Promise<boolean> {
@@ -297,6 +307,14 @@ async function handleTokenAddressCopy(): Promise<void> {
   showCopyToast(copied ? 'Copied' : 'Copy failed');
 }
 
+function handleQuickScanBadgeClick(): void {
+  const href = elements.tokenDetail.quickScanBadge?.dataset.href;
+  if (!href) {
+    return;
+  }
+  openExternal(href);
+}
+
 function handleUpgradeFlow(): void {
   const trustedPortalUrl = state.userProfile?.customerPortalUrl
     ? sanitizeCustomerPortalUrl(state.userProfile.customerPortalUrl)
@@ -321,8 +339,6 @@ function showScreen(screen: ScreenName): void {
   const targetMap: Record<ScreenName, HTMLElement | null> = {
     loading: elements.screens.loading,
     'token-detail': elements.screens.tokenDetail,
-    login: elements.screens.login,
-    register: elements.screens.register,
     account: elements.screens.account,
     manual: elements.screens.manual,
     'no-token': elements.screens.noToken,
@@ -353,21 +369,6 @@ function setManualError(message: string | null): void {
 
   elements.manual.error.textContent = message;
   elements.manual.error.classList.remove('hidden');
-}
-
-function setRegisterError(message: string | null): void {
-  if (!elements.register.error) {
-    return;
-  }
-
-  if (!message) {
-    elements.register.error.classList.add('hidden');
-    elements.register.error.textContent = '';
-    return;
-  }
-
-  elements.register.error.textContent = message;
-  elements.register.error.classList.remove('hidden');
 }
 
 function setStatusMessage(element: HTMLElement | null | undefined, message: string | null): void {
@@ -784,7 +785,7 @@ async function handleWatchlistToggle(): Promise<void> {
   }
 
   if (!state.isLoggedIn || !state.userProfile) {
-    showScreen('login');
+    openWebsiteLogin();
     return;
   }
 
@@ -808,7 +809,7 @@ async function handleWatchlistToggle(): Promise<void> {
 
     if (!response.success) {
       if (response.statusCode === 401) {
-        showScreen('login');
+        openWebsiteLogin();
         return;
       }
 
@@ -1083,27 +1084,16 @@ function renderAnonDailyLimitState(): void {
     btnRow.style.display = 'flex';
     btnRow.style.gap = '8px';
     btnRow.style.padding = '12px 0';
-    const registerBtn = document.createElement('button');
-    registerBtn.id = 'anon-register-btn';
-    registerBtn.className = 'btn-primary';
-    registerBtn.style.flex = '1';
-    registerBtn.textContent = 'Create free account';
     const loginBtn = document.createElement('button');
     loginBtn.id = 'anon-login-btn';
-    loginBtn.className = 'btn-secondary';
+    loginBtn.className = 'btn-primary';
     loginBtn.style.flex = '1';
-    loginBtn.textContent = 'Log in';
-    btnRow.appendChild(registerBtn);
+    loginBtn.textContent = 'Open BarryGuard to login';
     btnRow.appendChild(loginBtn);
     elements.tokenDetail.checksList.appendChild(btnRow);
 
-    registerBtn.addEventListener('click', () => {
-      setRegisterError(null);
-      setStatusMessage(elements.register.message, null);
-      showScreen('register');
-    });
     loginBtn.addEventListener('click', () => {
-      showScreen('login');
+      openWebsiteLogin();
     });
   }
   if (elements.tokenDetail.viewExplorer instanceof HTMLAnchorElement) {
@@ -1196,6 +1186,21 @@ function renderTokenDetail(score: TokenScore): void {
   const risk = getRiskLevel(score.score);
   const userTier = getEffectiveViewerTier();
   const branding = getPlanBranding(userTier);
+
+  // Step 8: Quick scan badge for essential-mode payloads
+  const analysisMode = score.effectiveAnalysisMode ?? score.analysisMode ?? null;
+  const isQuickScan = analysisMode === 'essential';
+  if (elements.tokenDetail.quickScanBadge) {
+    elements.tokenDetail.quickScanBadge.classList.toggle('hidden', !isQuickScan);
+    if (isQuickScan) {
+      const href = buildCheckUrl(score.chain, score.address);
+      if (href) {
+        elements.tokenDetail.quickScanBadge.dataset.href = href;
+      } else {
+        delete elements.tokenDetail.quickScanBadge.dataset.href;
+      }
+    }
+  }
 
   // Show refresh button only for paid tiers (rescue_pass, pro)
   const refreshBtn = elements.tokenDetail.refreshBtn as HTMLElement | null;
@@ -1664,16 +1669,7 @@ async function loadUserProfile(): Promise<boolean> {
 }
 
 async function handleAccountOpen(): Promise<void> {
-  if (!state.isLoggedIn) {
-    showScreen('login');
-    return;
-  }
-
-  await loadUserProfile();
-  await sendMessage({ type: 'REFRESH_USAGE' }, 3000).catch(() => {});
-  await loadUsageState();
-  updateAccountScreen();
-  showScreen(state.isLoggedIn ? 'account' : 'login');
+  openAccountDestination();
 }
 
 async function loadUsageState(): Promise<void> {
@@ -1699,6 +1695,19 @@ async function loadSelectedToken(): Promise<void> {
   } catch {
     handleSelectedTokenUpdate(null);
   }
+}
+
+async function detectActiveTabTokenState(): Promise<'has-token' | 'no-token' | 'unknown'> {
+  const response = await sendMessage<TabTokenDetectionState>(
+    { type: 'GET_TAB_TOKEN_DETECTION_STATE' },
+    250,
+  );
+
+  if (!response.success || !response.data) {
+    return 'unknown';
+  }
+
+  return response.data.hasToken ? 'has-token' : 'no-token';
 }
 
 async function refreshSelectedTokenScore(): Promise<void> {
@@ -1745,161 +1754,6 @@ async function refreshSelectedTokenScore(): Promise<void> {
   scheduleSelectedTokenScoreRefresh();
 }
 
-
-async function handleLogin(): Promise<void> {
-  const email = elements.login.email?.value.trim() ?? '';
-  const password = elements.login.password?.value ?? '';
-  setStatusMessage(elements.login.message, null);
-
-  if (!email || !password) {
-    setStatusMessage(elements.login.message, 'Please enter email and password.');
-    return;
-  }
-
-  if (!elements.login.loginBtn) {
-    return;
-  }
-
-  elements.login.loginBtn.disabled = true;
-  elements.login.loginBtn.textContent = 'Logging in...';
-
-  try {
-    const response = await sendMessage<UserProfile>({
-      type: 'LOGIN',
-      payload: { email, password },
-    }, POPUP_AUTH_REQUEST_TIMEOUT_MS);
-
-    if (!response.success || !response.data) {
-      setStatusMessage(elements.login.message, response.error ?? 'Login failed.');
-      return;
-    }
-
-    state.isLoggedIn = true;
-    state.userProfile = response.data;
-    applyPlanBranding();
-    renderUsageIndicator();
-    await refreshSelectedTokenScore();
-    await refreshWatchlistForSelectedToken();
-    showCurrentOrEmptyToken();
-    showScreen('token-detail');
-  } finally {
-    elements.login.loginBtn.disabled = false;
-    elements.login.loginBtn.textContent = 'Login';
-  }
-}
-
-async function handleMagicLink(source: 'login' | 'register'): Promise<void> {
-  const email = source === 'login'
-    ? elements.login.email?.value.trim() ?? ''
-    : elements.register.email?.value.trim() ?? '';
-  const button = source === 'login' ? elements.login.magicLinkBtn : elements.register.magicLinkBtn;
-  const messageElement = source === 'login' ? elements.login.message : elements.register.message;
-
-  setStatusMessage(messageElement, null);
-  if (source === 'register') {
-    setRegisterError(null);
-  }
-
-  if (!email) {
-    setStatusMessage(messageElement, 'Enter your email first.');
-    return;
-  }
-
-  if (!button) {
-    return;
-  }
-
-  button.disabled = true;
-  button.textContent = 'Sending...';
-
-  try {
-    const response = await sendMessage<{ message?: string }>({
-      type: 'SEND_MAGIC_LINK',
-      payload: { email },
-    }, POPUP_AUTH_REQUEST_TIMEOUT_MS);
-
-    if (!response.success) {
-      setStatusMessage(messageElement, response.error ?? 'Magic link could not be sent.');
-      return;
-    }
-
-    setStatusMessage(messageElement, response.data?.message ?? 'Magic link sent. Check your email.');
-  } finally {
-    button.disabled = false;
-    button.textContent = 'Send Magic Link';
-  }
-}
-
-async function handleRegister(): Promise<void> {
-  const email = elements.register.email?.value.trim() ?? '';
-  const password = elements.register.password?.value ?? '';
-  const passwordConfirm = elements.register.passwordConfirm?.value ?? '';
-
-  setRegisterError(null);
-
-  if (!email || !password) {
-    setRegisterError('Please enter email and password.');
-    return;
-  }
-
-  if (password.length < 8) {
-    setRegisterError('Password must be at least 8 characters.');
-    return;
-  }
-  if (!/[A-Z]/.test(password)) {
-    setRegisterError('Password must contain at least one uppercase letter.');
-    return;
-  }
-  if (!/[a-z]/.test(password)) {
-    setRegisterError('Password must contain at least one lowercase letter.');
-    return;
-  }
-  if (!/[0-9]/.test(password)) {
-    setRegisterError('Password must contain at least one digit.');
-    return;
-  }
-  if (!/[^A-Za-z0-9]/.test(password)) {
-    setRegisterError('Password must contain at least one special character.');
-    return;
-  }
-
-  if (password !== passwordConfirm) {
-    setRegisterError('Passwords do not match.');
-    return;
-  }
-
-  if (!elements.register.registerBtn) {
-    return;
-  }
-
-  elements.register.registerBtn.disabled = true;
-  elements.register.registerBtn.textContent = 'Creating account...';
-
-  try {
-    const response = await sendMessage<UserProfile>({
-      type: 'REGISTER',
-      payload: { email, password },
-    }, POPUP_AUTH_REQUEST_TIMEOUT_MS);
-
-    if (!response.success || !response.data) {
-      setRegisterError(response.error ?? 'Registration failed.');
-      return;
-    }
-
-    state.isLoggedIn = true;
-    state.userProfile = response.data;
-    applyPlanBranding();
-    renderUsageIndicator();
-    await refreshSelectedTokenScore();
-    await refreshWatchlistForSelectedToken();
-    showCurrentOrEmptyToken();
-    showScreen('token-detail');
-  } finally {
-    const termsChecked = elements.register.termsCheckbox?.checked ?? false;
-    elements.register.registerBtn.disabled = !termsChecked;
-    elements.register.registerBtn.textContent = 'Create Account';
-  }
-}
 
 async function handleLogout(): Promise<void> {
   await sendMessage<void>({ type: 'LOGOUT' });
@@ -2068,7 +1922,7 @@ async function handleOAuth(): Promise<void> {
     return;
   }
 
-  setStatusMessage(elements.login.message, response.error ?? 'Google login is currently unavailable.');
+  openWebsiteLogin();
 }
 
 function setupEventListeners(): void {
@@ -2151,6 +2005,10 @@ function setupEventListeners(): void {
     }
   });
 
+  elements.tokenDetail.quickScanBadge?.addEventListener('click', () => {
+    handleQuickScanBadgeClick();
+  });
+
   elements.tokenDetail.tokenAddress?.addEventListener('click', () => {
     void handleTokenAddressCopy();
   });
@@ -2165,58 +2023,6 @@ function setupEventListeners(): void {
         openExternal(explorerUrl);
       }
     }
-  });
-
-  elements.login.backBtn?.addEventListener('click', () => showScreen('token-detail'));
-  elements.login.loginBtn?.addEventListener('click', () => {
-    void handleLogin();
-  });
-  // M-16: Enter-to-submit on login
-  elements.login.password?.addEventListener('keydown', (event) => {
-    if (event.key === 'Enter') { event.preventDefault(); void handleLogin(); }
-  });
-  elements.login.magicLinkBtn?.addEventListener('click', () => {
-    void handleMagicLink('login');
-  });
-  elements.login.googleBtn?.addEventListener('click', () => {
-    void handleOAuth();
-  });
-  elements.login.forgotPassword?.addEventListener('click', (event) => {
-    event.preventDefault();
-    openExternal(getForgotPasswordUrl());
-  });
-  elements.login.registerLink?.addEventListener('click', (event) => {
-    event.preventDefault();
-    setRegisterError(null);
-    setStatusMessage(elements.register.message, null);
-    showScreen('register');
-  });
-
-  elements.register.backBtn?.addEventListener('click', () => showScreen('login'));
-  elements.register.toLoginLink?.addEventListener('click', (event) => {
-    event.preventDefault();
-    showScreen('login');
-  });
-  elements.register.termsCheckbox?.addEventListener('change', () => {
-    const checked = elements.register.termsCheckbox?.checked ?? false;
-    if (elements.register.registerBtn) elements.register.registerBtn.disabled = !checked;
-    if (elements.register.magicLinkBtn) elements.register.magicLinkBtn.disabled = !checked;
-    if (elements.register.googleBtn instanceof HTMLButtonElement) elements.register.googleBtn.disabled = !checked;
-    const hint = document.getElementById('register-terms-hint');
-    if (hint) hint.style.display = checked ? 'none' : '';
-  });
-  elements.register.registerBtn?.addEventListener('click', () => {
-    void handleRegister();
-  });
-  // M-16: Enter-to-submit on register
-  elements.register.passwordConfirm?.addEventListener('keydown', (event) => {
-    if (event.key === 'Enter') { event.preventDefault(); void handleRegister(); }
-  });
-  elements.register.magicLinkBtn?.addEventListener('click', () => {
-    void handleMagicLink('register');
-  });
-  elements.register.googleBtn?.addEventListener('click', () => {
-    void handleOAuth();
   });
 
   elements.account.backBtn?.addEventListener('click', () => {
@@ -2257,7 +2063,7 @@ function setupEventListeners(): void {
   });
   // L-11: Account access from no-token screen
   document.getElementById('no-token-account-btn')?.addEventListener('click', () => {
-    void handleAccountOpen();
+    openAccountDestination();
   });
 
   document.addEventListener('keydown', (event) => {
@@ -2280,17 +2086,22 @@ async function init(): Promise<void> {
     // Ask background worker to correct stale usage before reading it
     await sendMessage({ type: 'REFRESH_USAGE' }, 3000).catch(() => {});
     await loadUsageState();
-    await loadSelectedToken();
-    await refreshSelectedTokenScore();
+    const tabTokenState = await detectActiveTabTokenState();
+    if (tabTokenState === 'no-token') {
+      state.selectedToken = null;
+      await chrome.storage.local.remove('selectedToken');
+      showScreen('no-token');
+    } else {
+      await loadSelectedToken();
+      await refreshSelectedTokenScore();
+    }
   } catch (error) {
     console.error('[BarryGuard] Popup initialization failed:', error);
     renderPrimaryTokenState();
   } finally {
     applyPlanBranding();
     renderUsageIndicator();
-    if (!state.isLoggedIn && !state.selectedToken) {
-      showScreen('login');
-    } else if (!state.selectedToken) {
+    if (!state.selectedToken) {
       showScreen('no-token');
     } else {
       showScreen('token-detail');

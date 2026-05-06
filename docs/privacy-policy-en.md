@@ -72,7 +72,7 @@ BarryGuard may also process:
 
 - token addresses manually entered by the user
 - clicks on BarryGuard badges or buttons inside the extension
-- locally stored hourly usage counters
+- locally stored usage counters for plan-based request limits
 - locally cached analysis results
 
 ## 4. Purposes of Processing

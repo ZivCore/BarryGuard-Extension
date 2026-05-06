@@ -128,7 +128,7 @@ export class BarryGuardApiClient {
   analyzeToken(address: string, chain = 'solana', sessionId?: string): Promise<ApiResponse<TokenScore>> {
     return this.request<TokenScore>('/analyze', {
       method: 'POST',
-      body: JSON.stringify({ address, chain, mode: 'full', source: 'content_script', ...(sessionId ? { sessionId } : {}) }),
+      body: JSON.stringify({ address, chain, mode: 'essential', source: 'content_script', ...(sessionId ? { sessionId } : {}) }),
     });
   }
 
@@ -154,7 +154,7 @@ export class BarryGuardApiClient {
         addresses,
         chain,
         force,
-        mode: 'light',
+        mode: 'essential',
         source: 'content_script',
         ...(telemetrySessionIds && Object.keys(telemetrySessionIds).length > 0 ? { telemetrySessionIds } : {}),
       }),
@@ -163,31 +163,6 @@ export class BarryGuardApiClient {
 
   getUserTier(): Promise<ApiResponse<UserProfile>> {
     return this.request<UserProfile>('/user/tier');
-  }
-
-  async login(email: string, password: string): Promise<ApiResponse<{ token: AuthToken; user: UserProfile }>> {
-    const res = await this.request<{ token: AuthToken; user: UserProfile }>('/auth/login', {
-      method: 'POST',
-      body: JSON.stringify({ email, password }),
-    });
-    if (res.success && res.data) this.authToken = res.data.token;
-    return res;
-  }
-
-  async register(email: string, password: string): Promise<ApiResponse<{ token: AuthToken; user: UserProfile }>> {
-    const res = await this.request<{ token: AuthToken; user: UserProfile }>('/auth/register', {
-      method: 'POST',
-      body: JSON.stringify({ email, password }),
-    });
-    if (res.success && res.data) this.authToken = res.data.token;
-    return res;
-  }
-
-  sendMagicLink(email: string): Promise<ApiResponse<{ message?: string }>> {
-    return this.request<{ message?: string }>('/auth/magic-link', {
-      method: 'POST',
-      body: JSON.stringify({ email }),
-    });
   }
 
   oauthLogin(provider: string): Promise<ApiResponse<{ url: string }>> {

@@ -142,7 +142,7 @@ describe('RESOLVE_DEX_PAIR boundary contract', () => {
         body: JSON.stringify({
           address: 'So11111111111111111111111111111111111111112',
           chain: 'solana',
-          mode: 'full',
+          mode: 'essential',
           source: 'content_script',
           sessionId: 'session-pair-1',
         }),

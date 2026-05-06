@@ -1,4 +1,17 @@
 :root {
+  /* Mobile-design tokens (Step 11) */
+  --paper: #ede6d8;
+  --paper-strong: #e4dac9;
+  --panel: rgba(255, 251, 244, 0.78);
+  --panel-strong: rgba(255, 248, 238, 0.95);
+  --panel-border: rgba(60, 77, 92, 0.14);
+  --accent: #c5392f;
+  --accent-ink: #8f3129;
+  --ink: #243342;
+  --ink-muted: #5a6872;
+  --ink-strong: #173b63;
+  --mono-strip: rgba(23, 59, 99, 0.07);
+
   --bg: #ede6d8;
   --bg-strong: #e4dac9;
   --surface: rgba(255, 251, 244, 0.78);
@@ -29,14 +42,14 @@ html {
   background:
     radial-gradient(circle at top left, rgba(185, 59, 52, 0.16), transparent 32%),
     radial-gradient(circle at top right, rgba(23, 59, 99, 0.18), transparent 30%),
-    linear-gradient(180deg, #f3ede0 0%, var(--bg) 58%, var(--bg-strong) 100%);
+    linear-gradient(180deg, #f3ede0 0%, var(--paper) 58%, var(--paper-strong) 100%);
 }
 
 body {
   background:
     linear-gradient(160deg, rgba(255, 255, 255, 0.2), transparent 45%),
     linear-gradient(180deg, rgba(255, 255, 255, 0.22), rgba(255, 255, 255, 0) 24%);
-  color: var(--text);
+  color: var(--ink);
   font-family: "Segoe UI", "Trebuchet MS", sans-serif;
   font-size: 14px;
   line-height: 1.5;
@@ -82,7 +95,7 @@ body {
   align-items: center;
   background:
     linear-gradient(145deg, rgba(255, 250, 243, 0.92), rgba(245, 236, 223, 0.9)),
-    linear-gradient(180deg, rgba(23, 59, 99, 0.07), transparent 55%);
+    linear-gradient(180deg, var(--mono-strip), transparent 55%);
   border-bottom: 1px solid rgba(23, 59, 99, 0.09);
   display: flex;
   gap: 14px;
@@ -113,7 +126,7 @@ body {
 }
 
 .brand-kicker {
-  color: var(--deep-blue);
+  color: var(--ink-strong);
   font-size: 11px;
   font-weight: 700;
   letter-spacing: 0.14em;
@@ -121,7 +134,7 @@ body {
 }
 
 .brand-title {
-  color: var(--deep-blue);
+  color: var(--ink-strong);
   font-family: Georgia, "Times New Roman", serif;
   font-size: 28px;
   font-weight: 700;
@@ -199,10 +212,84 @@ body {
 }
 
 .brand-subtitle {
-  color: #5b6871;
+  color: var(--ink-muted);
   font-size: 12px;
   margin-top: 6px;
   max-width: 220px;
+}
+
+.brand-placeholder {
+  background: var(--panel);
+  border: 1px solid var(--panel-border);
+  border-radius: 24px;
+  box-shadow: var(--shadow);
+  margin-top: 12px;
+  padding: 18px 16px;
+  text-align: center;
+}
+
+.no-token-icon {
+  font-size: 34px;
+  line-height: 1;
+  opacity: 0.85;
+}
+
+.no-token-title {
+  color: var(--ink-strong);
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 20px;
+  font-weight: 700;
+  margin-top: 10px;
+}
+
+.no-token-subtitle {
+  color: var(--ink-muted);
+  font-size: 12px;
+  margin-top: 6px;
+}
+
+.supported-platforms {
+  color: var(--ink-muted);
+  font-size: 11px;
+  margin-top: 16px;
+  opacity: 0.9;
+}
+
+.no-token-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.quick-scan-badge {
+  align-items: center;
+  background: rgba(71, 99, 85, 0.10);
+  border: 1px solid rgba(71, 99, 85, 0.22);
+  border-radius: 999px;
+  color: var(--success-text);
+  cursor: pointer;
+  display: inline-flex;
+  font-size: 10px;
+  font-weight: 800;
+  gap: 6px;
+  justify-content: center;
+  letter-spacing: 0.08em;
+  margin-top: 10px;
+  padding: 6px 10px;
+  text-transform: uppercase;
+  transition: background 0.16s ease, border-color 0.16s ease, transform 0.16s ease;
+  width: 100%;
+}
+
+.quick-scan-badge:hover {
+  background: rgba(71, 99, 85, 0.16);
+  border-color: rgba(71, 99, 85, 0.32);
+  transform: translateY(-1px);
+}
+
+.quick-scan-badge:active {
+  transform: translateY(0);
 }
 
 .screen {

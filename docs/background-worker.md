@@ -23,18 +23,16 @@ Content scripts and the popup communicate with the background worker via `chrome
 | Message Type | Payload | Response | Description |
 |-------------|---------|----------|-------------|
 | `GET_TOKEN_SCORE` | `{ address }` | `{ success, data: TokenScore }` | Fetch score (cache → server → fresh) |
-| `ANALYZE_TOKEN_LIST` | `{ addresses }` | `{ success, data: { scores } }` | Batch analysis (paid tiers) |
+| `ANALYZE_TOKEN_LIST` | `{ addresses }` | `{ success, data: { scores } }` | Batch analysis for signed-in users; anonymous users receive `401 Mass scan requires sign-in` |
 | `REFRESH_TOKEN_SCORE` | `{ address, chain }` | `TokenScore` | Force re-analysis (auth required) |
 | `GET_TOKEN_METADATA` | `{ address }` | `{ name, symbol, imageUrl }` | Scrape metadata from page |
 | `OPEN_POPUP_FOR_TOKEN` | `SelectedToken` | — | Open popup with token |
+| `GET_TAB_TOKEN_DETECTION_STATE` | — | `{ hasToken, address }` | Asks the active tab content script whether a token is currently detected |
 
 ### Authentication Messages
 
 | Message Type | Payload | Response |
 |-------------|---------|----------|
-| `LOGIN` | `{ email, password }` | `UserProfile` or error |
-| `REGISTER` | `{ email, password }` | `UserProfile` or error |
-| `SEND_MAGIC_LINK` | `{ email }` | `{ success }` |
 | `OAUTH_LOGIN` | `"google"` | Opens OAuth flow |
 | `LOGOUT` | — | — |
 | `GET_USER_TIER` | — | `UserProfile` |
@@ -93,7 +91,7 @@ Content-script list fallbacks cap concurrent individual score fetches at 3. Visi
 
 ### Session Sync
 
-Authentication state is synced from the BarryGuard website via a dedicated content script (`barryguard-auth.content.ts`) that runs on `barryguard.com`:
+Authentication happens on the BarryGuard website. The popup redirects login/account CTAs to the website, and authentication state is synced back via a dedicated content script (`barryguard-auth.content.ts`) that runs on `barryguard.com`:
 
 1. Content script checks for auth cookies every 10 seconds
 2. If cookie found, fetches session data via `POST /api/auth/session` and tags the request with `X-Extension-Version`

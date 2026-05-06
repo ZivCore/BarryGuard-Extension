@@ -1,6 +1,7 @@
 import { BarryGuardApiClient } from '../shared/api-client';
 import { TokenCache, updateCacheTTL } from '../shared/cache';
 import { logger } from '../shared/logger';
+import { updatePopupTimeouts } from '../shared/popup-timeouts';
 import { getApiBaseUrl, getExtensionHealthTelemetryEnabled, sanitizeCustomerPortalUrl } from '../shared/runtime-config';
 import { extractTokenScores, sanitizeTokenScore } from '../shared/token-score';
 import type {
@@ -421,6 +422,7 @@ async function syncCacheTTLsFromApi(): Promise<void> {
     const data = await response.json() as {
       cache?: { ttlMinutes?: Partial<Record<string, number>> };
       auth?: { tiers?: Record<string, { analysesPerHour?: number; cooldownSeconds?: number }> };
+      extension?: { popup?: { localBackgroundTimeoutMs?: number; requestExtraBufferMs?: number } };
     };
 
     // Sync cache TTLs
@@ -450,6 +452,15 @@ async function syncCacheTTLsFromApi(): Promise<void> {
       }
       _dynamicTierLimits = tierLimits;
       await chrome.storage.local.set({ [TIER_LIMITS_KEY]: tierLimits });
+    }
+
+    // Sync popup timeouts (UI) from server config
+    const popupConfig = data?.extension?.popup;
+    if (popupConfig && typeof popupConfig === 'object') {
+      updatePopupTimeouts({
+        localBackgroundTimeoutMs: popupConfig.localBackgroundTimeoutMs,
+        requestExtraBufferMs: popupConfig.requestExtraBufferMs,
+      });
     }
   } catch {
     // Non-fatal: extension continues with hardcoded defaults
@@ -603,7 +614,7 @@ function normalizeProfile(profile: UserProfile | JsonRecord): UserProfile {
     tier,
     capabilities: {
       singleTokenAnalysis: typedProfile.capabilities?.singleTokenAnalysis ?? true,
-      tokenListAnalysis: typedProfile.capabilities?.tokenListAnalysis ?? tier !== 'free',
+      tokenListAnalysis: typedProfile.capabilities?.tokenListAnalysis ?? (tier as TierLevel | 'anonymous') !== 'anonymous',
     },
     listRequestLimit: typedProfile.listRequestLimit ?? DEFAULT_LIST_REQUEST_LIMIT[tier],
     singleTokenCooldownSeconds:
@@ -1137,13 +1148,9 @@ async function analyzeTokenList(addresses: string[]): Promise<ApiResponse<TokenL
   const normalizedProfile = await refreshProfileStateIfNeeded();
   const tier = normalizedProfile?.tier ?? 'free';
 
-  if (!normalizedProfile?.capabilities?.tokenListAnalysis) {
-    return {
-      success: false,
-      error: 'List scanning is available on Rescue Pass and Pro.',
-      statusCode: 403,
-      errorType: 'plan_gate',
-    };
+  const blockReason = getListAnalysisBlockReason(normalizedProfile);
+  if (blockReason) {
+    return { success: false, ...blockReason };
   }
 
   const scores: TokenScore[] = [];
@@ -1228,6 +1235,18 @@ async function analyzeTokenList(addresses: string[]): Promise<ApiResponse<TokenL
       cachedAddresses,
       lockedCount,
     },
+  };
+}
+
+function getListAnalysisBlockReason(profile: UserProfile | null): Pick<ApiResponse<never>, 'error' | 'statusCode' | 'errorType'> | null {
+  if (profile) {
+    return null;
+  }
+
+  return {
+    error: 'Mass scan requires sign-in',
+    statusCode: 401,
+    errorType: 'plan_gate',
   };
 }
 
@@ -1339,6 +1358,7 @@ export {
   inferTier as _inferTierForTest,
   normalizeProfile as _normalizeProfileForTest,
   mergeProfileWithFallback as _mergeProfileWithFallbackForTest,
+  getListAnalysisBlockReason as _getListAnalysisBlockReasonForTest,
   getCooldownSeconds as _getCooldownSecondsForTest,
   syncHourlyUsageState as _syncHourlyUsageStateForTest,
   incrementHourlyUsage as _incrementHourlyUsageForTest,
@@ -1448,6 +1468,47 @@ export function initializeBackground(): void {
     }
   }
 
+  async function getActiveTabTokenDetectionState(): Promise<ApiResponse<{ hasToken: boolean; address: string | null }>> {
+    const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
+    if (!activeTab?.id) {
+      return { success: false, error: 'No active tab.' };
+    }
+
+    return new Promise((resolve) => {
+      try {
+        chrome.tabs.sendMessage(
+          activeTab.id!,
+          { type: 'GET_TAB_TOKEN_DETECTION_STATE' },
+          (response: ApiResponse<{ hasToken: boolean; address?: string | null }> | undefined) => {
+            const runtimeError = chrome.runtime.lastError?.message;
+            if (runtimeError) {
+              resolve({ success: false, error: runtimeError });
+              return;
+            }
+
+            if (!response?.success || !response.data) {
+              resolve({ success: false, error: response?.error ?? 'No token detection response.' });
+              return;
+            }
+
+            resolve({
+              success: true,
+              data: {
+                hasToken: response.data.hasToken === true,
+                address: typeof response.data.address === 'string' ? response.data.address : null,
+              },
+            });
+          },
+        );
+      } catch (error) {
+        resolve({
+          success: false,
+          error: error instanceof Error ? error.message : 'Token detection request failed.',
+        });
+      }
+    });
+  }
+
   chrome.tabs.onUpdated.addListener((tabId, changeInfo) => {
     if (!changeInfo.url) return;
     try {
@@ -1494,6 +1555,10 @@ export function initializeBackground(): void {
               tabUrl: sender.tab?.url ?? null,
             });
             respond({ success: true });
+            break;
+          }
+          case 'GET_TAB_TOKEN_DETECTION_STATE': {
+            respond(await getActiveTabTokenDetectionState());
             break;
           }
           case 'GET_TOKEN_SCORE': {
@@ -1628,58 +1693,6 @@ export function initializeBackground(): void {
             }
             const resolved = await resolveDexPairs(validPairs, dexChain);
             respond({ success: true, data: { results: resolved } });
-            break;
-          }
-          case 'LOGIN': {
-            const result = await api.login(message.payload.email, message.payload.password);
-            if (result.success && result.data) {
-              const normalizedUser = normalizeProfile({
-                ...(asRecord(result.data) ?? {}),
-                ...(asRecord(result.data.user) ?? {}),
-              });
-              // H-4: If token is null (e.g. email confirmation required), don't store auth or persist profile
-              if (!result.data.token) {
-                respond({ success: true, data: { ...normalizedUser, requiresEmailConfirmation: true } });
-                break;
-              }
-              // Auth token stored in session storage (cleared on browser restart — more secure)
-              await chrome.storage.session.set({ [AUTH_KEY]: result.data.token });
-              await persistProfileState(normalizedUser);
-              respond({ success: true, data: normalizedUser });
-              break;
-            }
-            respond(result.success ? { success: true, data: result.data?.user } : mapApiFailure(result));
-            break;
-          }
-          case 'REGISTER': {
-            const result = await api.register(message.payload.email, message.payload.password);
-            if (result.success && result.data) {
-              const normalizedUser = normalizeProfile({
-                ...(asRecord(result.data) ?? {}),
-                ...(asRecord(result.data.user) ?? {}),
-              });
-              // H-4: If token is null (e.g. email confirmation required), don't store auth or persist profile
-              if (!result.data.token) {
-                respond({ success: true, data: { ...normalizedUser, requiresEmailConfirmation: true } });
-                break;
-              }
-              // Auth token stored in session storage (cleared on browser restart — more secure)
-              await chrome.storage.session.set({ [AUTH_KEY]: result.data.token });
-              await persistProfileState(normalizedUser);
-              respond({ success: true, data: normalizedUser });
-              break;
-            }
-            respond(result.success ? { success: true, data: result.data?.user } : mapApiFailure(result));
-            break;
-          }
-          case 'SEND_MAGIC_LINK': {
-            const email = typeof message.payload?.email === 'string' ? message.payload.email.trim() : '';
-            if (!email) {
-              respond({ success: false, error: 'Email is required.' });
-              break;
-            }
-
-            respond(await api.sendMagicLink(email));
             break;
           }
           case 'OAUTH_LOGIN':

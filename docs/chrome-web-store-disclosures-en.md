@@ -173,7 +173,7 @@ BarryGuard does not build or store a browsing history of the user's visited webs
 
 Yes, limited.
 
-BarryGuard processes user actions that are necessary for the product to work, such as clicking BarryGuard badges, manually entering token addresses, login and logout actions, and usage needed to enforce hourly request limits.
+BarryGuard processes user actions that are necessary for the product to work, such as clicking BarryGuard badges, manually entering token addresses, login and logout actions, and usage needed to enforce plan-based request limits.
 
 #### Website Content
 
