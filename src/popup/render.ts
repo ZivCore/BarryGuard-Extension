@@ -4,6 +4,7 @@
 
 import type { CheckResult, ConfidenceLevel, RiskLevel, Subscores, TokenScore } from '../shared/types';
 import { buildCheckUrl } from '../shared/check-url';
+import { type CheckCategory, getCheckCategory, CATEGORY_ORDER } from './check-categories';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -297,16 +298,37 @@ export function getConfidenceDisplay(confidence: ConfidenceLevel): { text: strin
  */
 const CHECK_ORDER_SET = new Set<string>(CHECK_ORDER);
 
-export function renderChecks(score: TokenScore, listEl: HTMLElement, _tier: string = 'pro'): void {
+export function renderChecks(
+  score: TokenScore,
+  listEl: HTMLElement,
+  _tier: string = 'pro',
+  activeCategory: CheckCategory | null = null,
+): void {
   listEl.innerHTML = '';
   const isPaid = _tier !== 'free';
 
   const extraCheckKeys = Object.keys(score.checks).filter((k) => !CHECK_ORDER_SET.has(k));
   const allCheckKeys: string[] = [...CHECK_ORDER, ...extraCheckKeys];
 
+  // Plan platform-overhaul 2026-05-06, Step 11: count visible checks per
+  // category and update the tab badges; filter the rendered list to the
+  // active category. activeCategory=null preserves backward-compatible
+  // behaviour (render every check) for tests and legacy callers.
+  const counts: Record<CheckCategory, number> = { contract: 0, marketStructure: 0, behavior: 0 };
+  for (const key of allCheckKeys) {
+    const c = score.checks[key] as CheckResult | undefined;
+    if (!c && !CHECK_ORDER_SET.has(key)) continue;
+    counts[getCheckCategory(key)] += 1;
+  }
+  for (const category of CATEGORY_ORDER) {
+    const badge = document.getElementById(`tab-${category}-count`);
+    if (badge) badge.textContent = String(counts[category]);
+  }
+
   for (const checkKey of allCheckKeys) {
     const check = score.checks[checkKey] as CheckResult | undefined;
     if (!check && !CHECK_ORDER_SET.has(checkKey)) continue; // skip missing optional checks
+    if (activeCategory && getCheckCategory(checkKey) !== activeCategory) continue;
 
     // Gating is handled server-side via API response (locked flag)
     const isLockedCheck = check?.locked === true;

@@ -31,6 +31,7 @@ import {
   renderAnalysisFooter,
   getExplorerUrl,
 } from './render';
+import { type CheckCategory, CATEGORY_ORDER } from './check-categories';
 import {
   POPUP_ANALYZE_REQUEST_TIMEOUT_MS,
   POPUP_DEFAULT_MESSAGE_TIMEOUT_MS,
@@ -52,6 +53,11 @@ interface PopupState {
   usageState: HourlyUsageState | null;
   watchlistStatus: WatchlistStatus | null;
   watchlistAlerts: WatchlistAlert[];
+  // Plan platform-overhaul 2026-05-06, Step 11: which check-category tab is
+  // currently selected on the Token-Detail screen. Defaults to 'contract' so
+  // the user lands on the most-trust-relevant tab first (matches the
+  // Mobile-Web-Token-Check default tab).
+  activeCheckCategory: CheckCategory;
 }
 
 interface TabTokenDetectionState {
@@ -79,6 +85,7 @@ const state: PopupState = {
   usageState: null,
   watchlistStatus: null,
   watchlistAlerts: [],
+  activeCheckCategory: 'contract',
 };
 
 let isHydratingSelectedTokenMetadata = false;
@@ -1290,13 +1297,15 @@ function renderTokenDetail(score: TokenScore): void {
     elements.tokenDetail.scoreDonut.style.setProperty('--score-color', c);
     elements.tokenDetail.scoreDonut.style.setProperty('--score-deg', `${deg}deg`);
 
-    // Risk label inside donut
+    // Risk label inside donut — rendered as Status-Pill (Plan platform-overhaul
+    // 2026-05-06, Step 11: Status-Pills nach Web-Komponenten gespiegelt).
     const donutRiskLabel = document.getElementById('score-donut-risk-label');
     if (donutRiskLabel) {
       const RISK_SHORT: Record<string, string> = {
         danger: 'DANGER', high: 'HIGH', caution: 'CAUTION', moderate: 'MODERATE', low: 'LOW',
       };
       donutRiskLabel.textContent = RISK_SHORT[risk] ?? '';
+      donutRiskLabel.className = `score-donut-risk-label risk-pill-${risk}`;
     }
   }
   if (elements.tokenDetail.riskLabel) {
@@ -1375,7 +1384,7 @@ function renderTokenDetail(score: TokenScore): void {
   }
   renderAnalysisFooter(score, elements.tokenDetail.analyzedAt, elements.tokenDetail.confidenceBadge);
   if (elements.tokenDetail.checksList) {
-    renderChecks(score, elements.tokenDetail.checksList, getEffectiveViewerTier());
+    renderChecks(score, elements.tokenDetail.checksList, getEffectiveViewerTier(), state.activeCheckCategory);
   }
   renderWatchlistState();
 }
@@ -1925,7 +1934,36 @@ async function handleOAuth(): Promise<void> {
   openWebsiteLogin();
 }
 
+function applyActiveCheckTab(category: CheckCategory): void {
+  state.activeCheckCategory = category;
+  for (const cat of CATEGORY_ORDER) {
+    const tab = document.getElementById(`tab-${cat}`);
+    if (!tab) continue;
+    const isActive = cat === category;
+    tab.classList.toggle('is-active', isActive);
+    tab.setAttribute('aria-selected', isActive ? 'true' : 'false');
+  }
+  const score = state.selectedToken?.score;
+  if (score && elements.tokenDetail.checksList) {
+    renderChecks(score, elements.tokenDetail.checksList, getEffectiveViewerTier(), category);
+  }
+}
+
+function setupCheckCategoryTabs(): void {
+  const tabContainer = document.getElementById('check-category-tabs');
+  if (!tabContainer) return;
+  tabContainer.addEventListener('click', (event) => {
+    const target = (event.target as HTMLElement | null)?.closest<HTMLElement>('.check-category-tab');
+    if (!target) return;
+    const category = target.dataset.category as CheckCategory | undefined;
+    if (!category || !CATEGORY_ORDER.includes(category)) return;
+    if (state.activeCheckCategory === category) return;
+    applyActiveCheckTab(category);
+  });
+}
+
 function setupEventListeners(): void {
+  setupCheckCategoryTabs();
   chrome.storage.onChanged.addListener((changes, areaName) => {
     if (areaName !== 'local') {
       return;

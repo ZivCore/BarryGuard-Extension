@@ -1730,3 +1730,144 @@ body {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.7; }
 }
+
+/* Plan platform-overhaul 2026-05-06, Step 11: Tab-Reihe + Status-Pill +
+ * Mono-Identifier-Strip — gespiegelt von Mobile-Web-Token-Check
+ * (`/check/[chain]/[address]` Mobile-Variante, Tabs Contract/Market/Behavior). */
+
+.check-category-tabs {
+  display: flex;
+  gap: 8px;
+  padding: 12px 18px 0;
+  margin-top: 4px;
+}
+
+.check-category-tab {
+  align-items: center;
+  background: var(--panel);
+  border: 1px solid var(--panel-border);
+  border-radius: 999px;
+  color: var(--ink-muted);
+  cursor: pointer;
+  display: inline-flex;
+  flex: 1;
+  font-family: "JetBrains Mono", "SF Mono", "Consolas", monospace;
+  font-size: 11px;
+  font-weight: 700;
+  gap: 6px;
+  justify-content: center;
+  letter-spacing: 0.06em;
+  min-height: 36px;
+  padding: 8px 10px;
+  text-transform: uppercase;
+  transition: background 0.18s ease, color 0.18s ease, border-color 0.18s ease;
+}
+
+.check-category-tab:hover {
+  background: var(--panel-strong);
+  color: var(--ink-strong);
+}
+
+.check-category-tab.is-active {
+  background: var(--ink-strong);
+  border-color: var(--ink-strong);
+  color: var(--paper);
+}
+
+.check-category-tab-label {
+  white-space: nowrap;
+}
+
+.check-category-tab-count {
+  align-items: center;
+  background: rgba(23, 59, 99, 0.12);
+  border-radius: 999px;
+  color: inherit;
+  display: inline-flex;
+  font-size: 10px;
+  font-weight: 800;
+  justify-content: center;
+  letter-spacing: 0.04em;
+  min-width: 20px;
+  padding: 1px 6px;
+}
+
+.check-category-tab.is-active .check-category-tab-count {
+  background: rgba(255, 251, 244, 0.22);
+  color: var(--paper);
+}
+
+/* Status-Pill um den Risk-Label im Score-Donut-Hole */
+.score-donut-risk-label {
+  background: var(--panel);
+  border: 1px solid var(--panel-border);
+  border-radius: 999px;
+  color: var(--ink-strong);
+  display: inline-block;
+  font-family: "JetBrains Mono", "SF Mono", "Consolas", monospace;
+  font-size: 10px;
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  margin-top: 6px;
+  padding: 3px 10px;
+  text-transform: uppercase;
+}
+
+.score-donut-risk-label.risk-pill-danger,
+.score-donut-risk-label.risk-pill-high {
+  background: var(--danger-bg);
+  border-color: rgba(143, 49, 41, 0.35);
+  color: var(--danger-text);
+}
+
+.score-donut-risk-label.risk-pill-caution,
+.score-donut-risk-label.risk-pill-moderate {
+  background: var(--warning-bg);
+  border-color: rgba(134, 97, 42, 0.35);
+  color: var(--warning-text);
+}
+
+.score-donut-risk-label.risk-pill-low,
+.score-donut-risk-label.risk-pill-medium {
+  background: var(--success-bg);
+  border-color: rgba(51, 88, 69, 0.35);
+  color: var(--success-text);
+}
+
+/* Mono-Identifier-Strip — gespiegelt vom Mobile-Web-Token-Check-Header.
+ * Token-Adresse wird in mono uppercase mit Tracking + Trennlinie unten
+ * gerendert, statt eines Plain-Buttons. */
+.token-address-group {
+  align-items: center;
+  background: linear-gradient(180deg, var(--mono-strip), transparent 65%);
+  border-bottom: 1px solid rgba(23, 59, 99, 0.08);
+  border-top: 1px solid rgba(23, 59, 99, 0.08);
+  display: flex;
+  gap: 8px;
+  margin: 8px -18px 0;
+  padding: 10px 18px;
+}
+
+.token-address-group .token-address-label {
+  color: var(--ink-muted);
+  font-family: "JetBrains Mono", "SF Mono", "Consolas", monospace;
+  font-size: 9px;
+  font-weight: 800;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+}
+
+.token-address-group .token-address-button {
+  background: transparent;
+  border: 0;
+  color: var(--ink-strong);
+  cursor: pointer;
+  flex: 1;
+  font-family: "JetBrains Mono", "SF Mono", "Consolas", monospace;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  padding: 0;
+  text-align: left;
+}
+
