@@ -1290,9 +1290,9 @@ function renderTokenDetail(score: TokenScore): void {
   if (elements.tokenDetail.scoreValue) elements.tokenDetail.scoreValue.textContent = String(score.score);
   if (elements.tokenDetail.scoreDonut) {
     const colorMap: Record<string, string> = {
-      danger: '#c5392f', high: '#d4722a', caution: '#b88946', moderate: '#5a9a6b', low: '#2d7a4f',
+      danger: 'var(--score-danger)', high: 'var(--score-high)', caution: 'var(--score-caution)', moderate: 'var(--score-moderate)', low: 'var(--score-low)',
     };
-    const c = colorMap[risk] ?? '#c5392f';
+    const c = colorMap[risk] ?? 'var(--score-danger)';
     const deg = Math.round((score.score / 100) * 360);
     elements.tokenDetail.scoreDonut.className = `score-donut score-${risk}`;
     elements.tokenDetail.scoreDonut.style.setProperty('--score-color', c);

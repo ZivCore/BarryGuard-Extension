@@ -1,35 +1,188 @@
 :root {
-  /* Mobile-design tokens (Step 11) */
-  --paper: #ede6d8;
-  --paper-strong: #e4dac9;
-  --panel: rgba(255, 251, 244, 0.78);
-  --panel-strong: rgba(255, 248, 238, 0.95);
-  --panel-border: rgba(60, 77, 92, 0.14);
-  --accent: #c5392f;
-  --accent-ink: #8f3129;
-  --ink: #243342;
-  --ink-muted: #5a6872;
-  --ink-strong: #173b63;
-  --mono-strip: rgba(23, 59, 99, 0.07);
+  /* Literal color tokens generated from the pre-migration palette. */
+  --popup-color-14314f: color(srgb 0.0784 0.1922 0.3098);
+  --popup-color-15803d: color(srgb 0.0824 0.5020 0.2392);
+  --popup-color-173b63: color(srgb 0.0902 0.2314 0.3882);
+  --popup-color-1a3a5c: color(srgb 0.1020 0.2275 0.3608);
+  --popup-color-1c2740: color(srgb 0.1098 0.1529 0.2510);
+  --popup-color-1f5a35: color(srgb 0.1216 0.3529 0.2078);
+  --popup-color-214f7e: color(srgb 0.1294 0.3098 0.4941);
+  --popup-color-243342: color(srgb 0.1412 0.2000 0.2588);
+  --popup-color-244f7d: color(srgb 0.1412 0.3098 0.4902);
+  --popup-color-28588a: color(srgb 0.1569 0.3451 0.5412);
+  --popup-color-2d7a4f: color(srgb 0.1765 0.4784 0.3098);
+  --popup-color-335845: color(srgb 0.2000 0.3451 0.2706);
+  --popup-color-476355: color(srgb 0.2784 0.3882 0.3333);
+  --popup-color-4a5250: color(srgb 0.2902 0.3216 0.3137);
+  --popup-color-4d7c0f: color(srgb 0.3020 0.4863 0.0588);
+  --popup-color-5a6872: color(srgb 0.3529 0.4078 0.4471);
+  --popup-color-5a9a6b: color(srgb 0.3529 0.6039 0.4196);
+  --popup-color-7b8890: color(srgb 0.4824 0.5333 0.5647);
+  --popup-color-7d6255: color(srgb 0.4902 0.3843 0.3333);
+  --popup-color-86612a: color(srgb 0.5255 0.3804 0.1647);
+  --popup-color-8f3129: color(srgb 0.5608 0.1922 0.1608);
+  --popup-color-8f9aa3: color(srgb 0.5608 0.6039 0.6392);
+  --popup-color-991b1b: color(srgb 0.6000 0.1059 0.1059);
+  --popup-color-9f231a: color(srgb 0.6235 0.1373 0.1020);
+  --popup-color-a82c24: color(srgb 0.6588 0.1725 0.1412);
+  --popup-color-b45309: color(srgb 0.7059 0.3255 0.0353);
+  --popup-color-b88946: color(srgb 0.7216 0.5373 0.2745);
+  --popup-color-be123c: color(srgb 0.7451 0.0706 0.2353);
+  --popup-color-be443c: color(srgb 0.7451 0.2667 0.2353);
+  --popup-color-c2410c: color(srgb 0.7608 0.2549 0.0471);
+  --popup-color-c5392f: color(srgb 0.7725 0.2235 0.1843);
+  --popup-color-d44a3f: color(srgb 0.8314 0.2902 0.2471);
+  --popup-color-d4722a: color(srgb 0.8314 0.4471 0.1647);
+  --popup-color-dbe8df: color(srgb 0.8588 0.9098 0.8745);
+  --popup-color-e4dac9: color(srgb 0.8941 0.8549 0.7882);
+  --popup-color-ede6d8: color(srgb 0.9294 0.9020 0.8471);
+  --popup-color-f0eee9: color(srgb 0.9412 0.9333 0.9137);
+  --popup-color-f2d9d1: color(srgb 0.9490 0.8510 0.8196);
+  --popup-color-f3ede0: color(srgb 0.9529 0.9294 0.8784);
+  --popup-color-f4e5c2: color(srgb 0.9569 0.8980 0.7608);
+  --popup-color-f6f2e8: color(srgb 0.9647 0.9490 0.9098);
+  --popup-color-f7f2eb: color(srgb 0.9686 0.9490 0.9216);
+  --popup-color-f9f6f0: color(srgb 0.9765 0.9647 0.9412);
+  --popup-color-fbf9f4: color(srgb 0.9843 0.9765 0.9569);
+  --popup-color-fecaca: color(srgb 0.9961 0.7922 0.7922);
+  --popup-color-fef2f2: color(srgb 0.9961 0.9490 0.9490);
+  --popup-color-fff: color(srgb 1.0000 1.0000 1.0000);
+  --popup-color-fff9f2: color(srgb 1.0000 0.9765 0.9490);
+  --popup-color-ffffff: color(srgb 1.0000 1.0000 1.0000);
+  --popup-color-rgba-0-0-0-0-06: color-mix(in srgb, color(srgb 0.0000 0.0000 0.0000) 6.00%, transparent);
+  --popup-color-rgba-134-97-42-0-35: color-mix(in srgb, color(srgb 0.5255 0.3804 0.1647) 35.00%, transparent);
+  --popup-color-rgba-143-49-41-0-35: color-mix(in srgb, color(srgb 0.5608 0.1922 0.1608) 35.00%, transparent);
+  --popup-color-rgba-180-83-9-0-10: color-mix(in srgb, color(srgb 0.7059 0.3255 0.0353) 10.00%, transparent);
+  --popup-color-rgba-184-137-70-0-12: color-mix(in srgb, color(srgb 0.7216 0.5373 0.2745) 12.00%, transparent);
+  --popup-color-rgba-184-137-70-0-16: color-mix(in srgb, color(srgb 0.7216 0.5373 0.2745) 16.00%, transparent);
+  --popup-color-rgba-184-137-70-0-18: color-mix(in srgb, color(srgb 0.7216 0.5373 0.2745) 18.00%, transparent);
+  --popup-color-rgba-184-137-70-0-24: color-mix(in srgb, color(srgb 0.7216 0.5373 0.2745) 24.00%, transparent);
+  --popup-color-rgba-185-59-52-0-12: color-mix(in srgb, color(srgb 0.7255 0.2314 0.2039) 12.00%, transparent);
+  --popup-color-rgba-185-59-52-0-16: color-mix(in srgb, color(srgb 0.7255 0.2314 0.2039) 16.00%, transparent);
+  --popup-color-rgba-185-59-52-0-18: color-mix(in srgb, color(srgb 0.7255 0.2314 0.2039) 18.00%, transparent);
+  --popup-color-rgba-185-59-52-0-24: color-mix(in srgb, color(srgb 0.7255 0.2314 0.2039) 24.00%, transparent);
+  --popup-color-rgba-186-59-52-0-14: color-mix(in srgb, color(srgb 0.7294 0.2314 0.2039) 14.00%, transparent);
+  --popup-color-rgba-190-18-60-0-10: color-mix(in srgb, color(srgb 0.7451 0.0706 0.2353) 10.00%, transparent);
+  --popup-color-rgba-194-65-12-0-10: color-mix(in srgb, color(srgb 0.7608 0.2549 0.0471) 10.00%, transparent);
+  --popup-color-rgba-197-57-47-0-05: color-mix(in srgb, color(srgb 0.7725 0.2235 0.1843) 5.00%, transparent);
+  --popup-color-rgba-197-57-47-0-06: color-mix(in srgb, color(srgb 0.7725 0.2235 0.1843) 6.00%, transparent);
+  --popup-color-rgba-197-57-47-0-08: color-mix(in srgb, color(srgb 0.7725 0.2235 0.1843) 8.00%, transparent);
+  --popup-color-rgba-197-57-47-0-1: color-mix(in srgb, color(srgb 0.7725 0.2235 0.1843) 10.00%, transparent);
+  --popup-color-rgba-197-57-47-0-10: color-mix(in srgb, color(srgb 0.7725 0.2235 0.1843) 10.00%, transparent);
+  --popup-color-rgba-197-57-47-0-16: color-mix(in srgb, color(srgb 0.7725 0.2235 0.1843) 16.00%, transparent);
+  --popup-color-rgba-197-57-47-0-24: color-mix(in srgb, color(srgb 0.7725 0.2235 0.1843) 24.00%, transparent);
+  --popup-color-rgba-197-57-47-0-26: color-mix(in srgb, color(srgb 0.7725 0.2235 0.1843) 26.00%, transparent);
+  --popup-color-rgba-197-57-47-0-3: color-mix(in srgb, color(srgb 0.7725 0.2235 0.1843) 30.00%, transparent);
+  --popup-color-rgba-197-57-47-0-35: color-mix(in srgb, color(srgb 0.7725 0.2235 0.1843) 35.00%, transparent);
+  --popup-color-rgba-197-57-47-0-72: color-mix(in srgb, color(srgb 0.7725 0.2235 0.1843) 72.00%, transparent);
+  --popup-color-rgba-21-128-61-0-10: color-mix(in srgb, color(srgb 0.0824 0.5020 0.2392) 10.00%, transparent);
+  --popup-color-rgba-214-231-221-0-88: color-mix(in srgb, color(srgb 0.8392 0.9059 0.8667) 88.00%, transparent);
+  --popup-color-rgba-23-59-99-0-06: color-mix(in srgb, color(srgb 0.0902 0.2314 0.3882) 6.00%, transparent);
+  --popup-color-rgba-23-59-99-0-07: color-mix(in srgb, color(srgb 0.0902 0.2314 0.3882) 7.00%, transparent);
+  --popup-color-rgba-23-59-99-0-08: color-mix(in srgb, color(srgb 0.0902 0.2314 0.3882) 8.00%, transparent);
+  --popup-color-rgba-23-59-99-0-09: color-mix(in srgb, color(srgb 0.0902 0.2314 0.3882) 9.00%, transparent);
+  --popup-color-rgba-23-59-99-0-1: color-mix(in srgb, color(srgb 0.0902 0.2314 0.3882) 10.00%, transparent);
+  --popup-color-rgba-23-59-99-0-10: color-mix(in srgb, color(srgb 0.0902 0.2314 0.3882) 10.00%, transparent);
+  --popup-color-rgba-23-59-99-0-12: color-mix(in srgb, color(srgb 0.0902 0.2314 0.3882) 12.00%, transparent);
+  --popup-color-rgba-23-59-99-0-14: color-mix(in srgb, color(srgb 0.0902 0.2314 0.3882) 14.00%, transparent);
+  --popup-color-rgba-23-59-99-0-16: color-mix(in srgb, color(srgb 0.0902 0.2314 0.3882) 16.00%, transparent);
+  --popup-color-rgba-23-59-99-0-18: color-mix(in srgb, color(srgb 0.0902 0.2314 0.3882) 18.00%, transparent);
+  --popup-color-rgba-23-59-99-0-22: color-mix(in srgb, color(srgb 0.0902 0.2314 0.3882) 22.00%, transparent);
+  --popup-color-rgba-23-59-99-0-24: color-mix(in srgb, color(srgb 0.0902 0.2314 0.3882) 24.00%, transparent);
+  --popup-color-rgba-23-59-99-0-34: color-mix(in srgb, color(srgb 0.0902 0.2314 0.3882) 34.00%, transparent);
+  --popup-color-rgba-23-59-99-0-94: color-mix(in srgb, color(srgb 0.0902 0.2314 0.3882) 94.00%, transparent);
+  --popup-color-rgba-237-230-216-0-85: color-mix(in srgb, color(srgb 0.9294 0.9020 0.8471) 85.00%, transparent);
+  --popup-color-rgba-241-231-216-0-88: color-mix(in srgb, color(srgb 0.9451 0.9059 0.8471) 88.00%, transparent);
+  --popup-color-rgba-242-217-209-0-68: color-mix(in srgb, color(srgb 0.9490 0.8510 0.8196) 68.00%, transparent);
+  --popup-color-rgba-242-217-209-0-86: color-mix(in srgb, color(srgb 0.9490 0.8510 0.8196) 86.00%, transparent);
+  --popup-color-rgba-245-229-194-0-95: color-mix(in srgb, color(srgb 0.9608 0.8980 0.7608) 95.00%, transparent);
+  --popup-color-rgba-245-236-223-0-9: color-mix(in srgb, color(srgb 0.9608 0.9255 0.8745) 90.00%, transparent);
+  --popup-color-rgba-24-60-100-0-92: color-mix(in srgb, color(srgb 0.0941 0.2353 0.3922) 92.00%, transparent);
+  --popup-color-rgba-246-237-223-0-92: color-mix(in srgb, color(srgb 0.9647 0.9294 0.8745) 92.00%, transparent);
+  --popup-color-rgba-246-237-223-0-94: color-mix(in srgb, color(srgb 0.9647 0.9294 0.8745) 94.00%, transparent);
+  --popup-color-rgba-247-242-235-0-82: color-mix(in srgb, color(srgb 0.9686 0.9490 0.9216) 82.00%, transparent);
+  --popup-color-rgba-251-246-237-0-96: color-mix(in srgb, color(srgb 0.9843 0.9647 0.9294) 96.00%, transparent);
+  --popup-color-rgba-253-246-232-0-88: color-mix(in srgb, color(srgb 0.9922 0.9647 0.9098) 88.00%, transparent);
+  --popup-color-rgba-255-248-236-0-92: color-mix(in srgb, color(srgb 1.0000 0.9725 0.9255) 92.00%, transparent);
+  --popup-color-rgba-255-248-238-0-95: color-mix(in srgb, color(srgb 1.0000 0.9725 0.9333) 95.00%, transparent);
+  --popup-color-rgba-255-248-238-0-96: color-mix(in srgb, color(srgb 1.0000 0.9725 0.9333) 96.00%, transparent);
+  --popup-color-rgba-255-250-240-0-92: color-mix(in srgb, color(srgb 1.0000 0.9804 0.9412) 92.00%, transparent);
+  --popup-color-rgba-255-250-243-0-92: color-mix(in srgb, color(srgb 1.0000 0.9804 0.9529) 92.00%, transparent);
+  --popup-color-rgba-255-251-244-0-22: color-mix(in srgb, color(srgb 1.0000 0.9843 0.9569) 22.00%, transparent);
+  --popup-color-rgba-255-251-244-0-78: color-mix(in srgb, color(srgb 1.0000 0.9843 0.9569) 78.00%, transparent);
+  --popup-color-rgba-255-251-245-0-92: color-mix(in srgb, color(srgb 1.0000 0.9843 0.9608) 92.00%, transparent);
+  --popup-color-rgba-255-252-246-0-14: color-mix(in srgb, color(srgb 1.0000 0.9882 0.9647) 14.00%, transparent);
+  --popup-color-rgba-255-252-246-0-74: color-mix(in srgb, color(srgb 1.0000 0.9882 0.9647) 74.00%, transparent);
+  --popup-color-rgba-255-252-246-0-8: color-mix(in srgb, color(srgb 1.0000 0.9882 0.9647) 80.00%, transparent);
+  --popup-color-rgba-255-252-246-0-82: color-mix(in srgb, color(srgb 1.0000 0.9882 0.9647) 82.00%, transparent);
+  --popup-color-rgba-255-252-246-0-84: color-mix(in srgb, color(srgb 1.0000 0.9882 0.9647) 84.00%, transparent);
+  --popup-color-rgba-255-252-246-0-86: color-mix(in srgb, color(srgb 1.0000 0.9882 0.9647) 86.00%, transparent);
+  --popup-color-rgba-255-252-246-0-9: color-mix(in srgb, color(srgb 1.0000 0.9882 0.9647) 90.00%, transparent);
+  --popup-color-rgba-255-253-248-0-98: color-mix(in srgb, color(srgb 1.0000 0.9922 0.9725) 98.00%, transparent);
+  --popup-color-rgba-255-255-255-0: color-mix(in srgb, color(srgb 1.0000 1.0000 1.0000) 0.00%, transparent);
+  --popup-color-rgba-255-255-255-0-06: color-mix(in srgb, color(srgb 1.0000 1.0000 1.0000) 6.00%, transparent);
+  --popup-color-rgba-255-255-255-0-1: color-mix(in srgb, color(srgb 1.0000 1.0000 1.0000) 10.00%, transparent);
+  --popup-color-rgba-255-255-255-0-12: color-mix(in srgb, color(srgb 1.0000 1.0000 1.0000) 12.00%, transparent);
+  --popup-color-rgba-255-255-255-0-16: color-mix(in srgb, color(srgb 1.0000 1.0000 1.0000) 16.00%, transparent);
+  --popup-color-rgba-255-255-255-0-2: color-mix(in srgb, color(srgb 1.0000 1.0000 1.0000) 20.00%, transparent);
+  --popup-color-rgba-255-255-255-0-22: color-mix(in srgb, color(srgb 1.0000 1.0000 1.0000) 22.00%, transparent);
+  --popup-color-rgba-255-255-255-0-26: color-mix(in srgb, color(srgb 1.0000 1.0000 1.0000) 26.00%, transparent);
+  --popup-color-rgba-255-255-255-0-9: color-mix(in srgb, color(srgb 1.0000 1.0000 1.0000) 90.00%, transparent);
+  --popup-color-rgba-255-255-255-0-92: color-mix(in srgb, color(srgb 1.0000 1.0000 1.0000) 92.00%, transparent);
+  --popup-color-rgba-255-255-255-0-95: color-mix(in srgb, color(srgb 1.0000 1.0000 1.0000) 95.00%, transparent);
+  --popup-color-rgba-255-255-255-0-96: color-mix(in srgb, color(srgb 1.0000 1.0000 1.0000) 96.00%, transparent);
+  --popup-color-rgba-255-255-255-0-98: color-mix(in srgb, color(srgb 1.0000 1.0000 1.0000) 98.00%, transparent);
+  --popup-color-rgba-28-39-64-0-55: color-mix(in srgb, color(srgb 0.1098 0.1529 0.2510) 55.00%, transparent);
+  --popup-color-rgba-28-39-64-0-62: color-mix(in srgb, color(srgb 0.1098 0.1529 0.2510) 62.00%, transparent);
+  --popup-color-rgba-28-39-64-0-78: color-mix(in srgb, color(srgb 0.1098 0.1529 0.2510) 78.00%, transparent);
+  --popup-color-rgba-39-51-60-0-07: color-mix(in srgb, color(srgb 0.1529 0.2000 0.2353) 7.00%, transparent);
+  --popup-color-rgba-39-51-60-0-12: color-mix(in srgb, color(srgb 0.1529 0.2000 0.2353) 12.00%, transparent);
+  --popup-color-rgba-39-51-60-0-14: color-mix(in srgb, color(srgb 0.1529 0.2000 0.2353) 14.00%, transparent);
+  --popup-color-rgba-39-51-60-0-18: color-mix(in srgb, color(srgb 0.1529 0.2000 0.2353) 18.00%, transparent);
+  --popup-color-rgba-39-51-60-0-22: color-mix(in srgb, color(srgb 0.1529 0.2000 0.2353) 22.00%, transparent);
+  --popup-color-rgba-43-76-112-0-88: color-mix(in srgb, color(srgb 0.1686 0.2980 0.4392) 88.00%, transparent);
+  --popup-color-rgba-51-88-69-0-35: color-mix(in srgb, color(srgb 0.2000 0.3451 0.2706) 35.00%, transparent);
+  --popup-color-rgba-58-122-80-0-18: color-mix(in srgb, color(srgb 0.2275 0.4784 0.3137) 18.00%, transparent);
+  --popup-color-rgba-60-77-92-0-14: color-mix(in srgb, color(srgb 0.2353 0.3020 0.3608) 14.00%, transparent);
+  --popup-color-rgba-71-99-85-0-10: color-mix(in srgb, color(srgb 0.2784 0.3882 0.3333) 10.00%, transparent);
+  --popup-color-rgba-71-99-85-0-12: color-mix(in srgb, color(srgb 0.2784 0.3882 0.3333) 12.00%, transparent);
+  --popup-color-rgba-71-99-85-0-16: color-mix(in srgb, color(srgb 0.2784 0.3882 0.3333) 16.00%, transparent);
+  --popup-color-rgba-71-99-85-0-22: color-mix(in srgb, color(srgb 0.2784 0.3882 0.3333) 22.00%, transparent);
+  --popup-color-rgba-71-99-85-0-24: color-mix(in srgb, color(srgb 0.2784 0.3882 0.3333) 24.00%, transparent);
+  --popup-color-rgba-71-99-85-0-32: color-mix(in srgb, color(srgb 0.2784 0.3882 0.3333) 32.00%, transparent);
+  --popup-color-rgba-77-124-15-0-10: color-mix(in srgb, color(srgb 0.3020 0.4863 0.0588) 10.00%, transparent);
 
-  --bg: #ede6d8;
-  --bg-strong: #e4dac9;
-  --surface: rgba(255, 251, 244, 0.78);
-  --surface-strong: rgba(255, 248, 238, 0.95);
-  --surface-border: rgba(60, 77, 92, 0.14);
-  --text: #243342;
-  --muted: #5a6872;
-  --deep-blue: #173b63;
-  --swiss-red: #c5392f;
-  --warm-gold: #b88946;
-  --pine: #476355;
-  --danger-bg: #f2d9d1;
-  --danger-text: #8f3129;
-  --warning-bg: #f4e5c2;
-  --warning-text: #86612a;
-  --success-bg: #dbe8df;
-  --success-text: #335845;
-  --shadow: 0 18px 40px rgba(39, 51, 60, 0.14);
+  /* Mobile-design tokens (Step 11) */
+  --paper: var(--popup-color-ede6d8);
+  --paper-strong: var(--popup-color-e4dac9);
+  --panel: var(--popup-color-rgba-255-251-244-0-78);
+  --panel-strong: var(--popup-color-rgba-255-248-238-0-95);
+  --panel-border: var(--popup-color-rgba-60-77-92-0-14);
+  --accent: var(--popup-color-c5392f);
+  --accent-ink: var(--popup-color-8f3129);
+  --ink: var(--popup-color-243342);
+  --ink-muted: var(--popup-color-5a6872);
+  --ink-strong: var(--popup-color-173b63);
+  --mono-strip: var(--popup-color-rgba-23-59-99-0-07);
+
+  --bg: var(--popup-color-ede6d8);
+  --bg-strong: var(--popup-color-e4dac9);
+  --surface: var(--popup-color-rgba-255-251-244-0-78);
+  --surface-strong: var(--popup-color-rgba-255-248-238-0-95);
+  --surface-border: var(--popup-color-rgba-60-77-92-0-14);
+  --text: var(--popup-color-243342);
+  --muted: var(--popup-color-5a6872);
+  --deep-blue: var(--popup-color-173b63);
+  --swiss-red: var(--popup-color-c5392f);
+  --warm-gold: var(--popup-color-b88946);
+  --pine: var(--popup-color-476355);
+  --danger-bg: var(--popup-color-f2d9d1);
+  --danger-text: var(--popup-color-8f3129);
+  --warning-bg: var(--popup-color-f4e5c2);
+  --warning-text: var(--popup-color-86612a);
+  --success-bg: var(--popup-color-dbe8df);
+  --success-text: var(--popup-color-335845);
+  --shadow: 0 18px 40px var(--popup-color-rgba-39-51-60-0-14);
 }
 
 * {
@@ -40,15 +193,15 @@
 
 html {
   background:
-    radial-gradient(circle at top left, rgba(185, 59, 52, 0.16), transparent 32%),
-    radial-gradient(circle at top right, rgba(23, 59, 99, 0.18), transparent 30%),
-    linear-gradient(180deg, #f3ede0 0%, var(--paper) 58%, var(--paper-strong) 100%);
+    radial-gradient(circle at top left, var(--popup-color-rgba-185-59-52-0-16), transparent 32%),
+    radial-gradient(circle at top right, var(--popup-color-rgba-23-59-99-0-18), transparent 30%),
+    linear-gradient(180deg, var(--popup-color-f3ede0) 0%, var(--paper) 58%, var(--paper-strong) 100%);
 }
 
 body {
   background:
-    linear-gradient(160deg, rgba(255, 255, 255, 0.2), transparent 45%),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.22), rgba(255, 255, 255, 0) 24%);
+    linear-gradient(160deg, var(--popup-color-rgba-255-255-255-0-2), transparent 45%),
+    linear-gradient(180deg, var(--popup-color-rgba-255-255-255-0-22), var(--popup-color-rgba-255-255-255-0) 24%);
   color: var(--ink);
   font-family: "Segoe UI", "Trebuchet MS", sans-serif;
   font-size: 14px;
@@ -76,7 +229,7 @@ body {
 }
 
 .alpine-glow-left {
-  background: rgba(185, 59, 52, 0.18);
+  background: var(--popup-color-rgba-185-59-52-0-18);
   height: 170px;
   left: -56px;
   top: 86px;
@@ -84,7 +237,7 @@ body {
 }
 
 .alpine-glow-right {
-  background: rgba(23, 59, 99, 0.14);
+  background: var(--popup-color-rgba-23-59-99-0-14);
   height: 200px;
   right: -80px;
   top: 24px;
@@ -94,9 +247,9 @@ body {
 .brand-banner {
   align-items: center;
   background:
-    linear-gradient(145deg, rgba(255, 250, 243, 0.92), rgba(245, 236, 223, 0.9)),
+    linear-gradient(145deg, var(--popup-color-rgba-255-250-243-0-92), var(--popup-color-rgba-245-236-223-0-9)),
     linear-gradient(180deg, var(--mono-strip), transparent 55%);
-  border-bottom: 1px solid rgba(23, 59, 99, 0.09);
+  border-bottom: 1px solid var(--popup-color-rgba-23-59-99-0-09);
   display: flex;
   gap: 14px;
   padding: 18px 18px 16px;
@@ -104,8 +257,8 @@ body {
 }
 
 .brand-mark-frame {
-  background: linear-gradient(145deg, rgba(255, 255, 255, 0.9), rgba(241, 231, 216, 0.88));
-  border: 1px solid rgba(23, 59, 99, 0.14);
+  background: linear-gradient(145deg, var(--popup-color-rgba-255-255-255-0-9), var(--popup-color-rgba-241-231-216-0-88));
+  border: 1px solid var(--popup-color-rgba-23-59-99-0-14);
   border-radius: 24px;
   box-shadow: var(--shadow);
   flex-shrink: 0;
@@ -144,8 +297,8 @@ body {
 
 .usage-indicator {
   align-items: center;
-  background: rgba(255, 252, 246, 0.14);
-  border: 1px solid rgba(255, 255, 255, 0.16);
+  background: var(--popup-color-rgba-255-252-246-0-14);
+  border: 1px solid var(--popup-color-rgba-255-255-255-0-16);
   border-radius: 18px;
   display: flex;
   gap: 10px;
@@ -159,7 +312,7 @@ body {
   --usage-fill: 0deg;
   align-items: center;
   background:
-    conic-gradient(var(--deep-blue) 0deg, var(--swiss-red) var(--usage-fill), rgba(23, 59, 99, 0.12) var(--usage-fill), rgba(23, 59, 99, 0.12) 360deg);
+    conic-gradient(var(--deep-blue) 0deg, var(--swiss-red) var(--usage-fill), var(--popup-color-rgba-23-59-99-0-12) var(--usage-fill), var(--popup-color-rgba-23-59-99-0-12) 360deg);
   border-radius: 50%;
   display: flex;
   height: 46px;
@@ -169,8 +322,8 @@ body {
 }
 
 .usage-donut::after {
-  background: rgba(255, 251, 245, 0.92);
-  border: 1px solid rgba(23, 59, 99, 0.06);
+  background: var(--popup-color-rgba-255-251-245-0-92);
+  border: 1px solid var(--popup-color-rgba-23-59-99-0-06);
   border-radius: 50%;
   content: "";
   inset: 5px;
@@ -198,7 +351,7 @@ body {
 }
 
 .usage-label {
-  color: #f7f2eb;
+  color: var(--popup-color-f7f2eb);
   font-size: 11px;
   font-weight: 800;
   letter-spacing: 0.05em;
@@ -206,7 +359,7 @@ body {
 }
 
 .usage-meta {
-  color: rgba(247, 242, 235, 0.82);
+  color: var(--popup-color-rgba-247-242-235-0-82);
   font-size: 11px;
   margin-top: 1px;
 }
@@ -264,8 +417,8 @@ body {
 
 .quick-scan-badge {
   align-items: center;
-  background: rgba(71, 99, 85, 0.10);
-  border: 1px solid rgba(71, 99, 85, 0.22);
+  background: var(--popup-color-rgba-71-99-85-0-10);
+  border: 1px solid var(--popup-color-rgba-71-99-85-0-22);
   border-radius: 999px;
   color: var(--success-text);
   cursor: pointer;
@@ -283,8 +436,8 @@ body {
 }
 
 .quick-scan-badge:hover {
-  background: rgba(71, 99, 85, 0.16);
-  border-color: rgba(71, 99, 85, 0.32);
+  background: var(--popup-color-rgba-71-99-85-0-16);
+  border-color: var(--popup-color-rgba-71-99-85-0-32);
   transform: translateY(-1px);
 }
 
@@ -302,10 +455,10 @@ body {
 
 .loader {
   animation: spin 1s linear infinite;
-  border: 4px solid rgba(23, 59, 99, 0.12);
+  border: 4px solid var(--popup-color-rgba-23-59-99-0-12);
   border-radius: 50%;
   border-top-color: var(--swiss-red);
-  box-shadow: 0 0 0 6px rgba(255, 255, 255, 0.26);
+  box-shadow: 0 0 0 6px var(--popup-color-rgba-255-255-255-0-26);
   height: 44px;
   margin: 160px auto;
   width: 44px;
@@ -319,7 +472,7 @@ body {
 
 .header {
   align-items: center;
-  border-bottom: 1px solid rgba(23, 59, 99, 0.1);
+  border-bottom: 1px solid var(--popup-color-rgba-23-59-99-0-1);
   display: flex;
   justify-content: space-between;
   margin-bottom: 14px;
@@ -343,8 +496,8 @@ body {
 .back-btn,
 .icon-btn {
   align-items: center;
-  background: rgba(255, 252, 246, 0.8);
-  border: 1px solid rgba(23, 59, 99, 0.12);
+  background: var(--popup-color-rgba-255-252-246-0-8);
+  border: 1px solid var(--popup-color-rgba-23-59-99-0-12);
   border-radius: 12px;
   color: var(--deep-blue);
   cursor: pointer;
@@ -356,8 +509,8 @@ body {
 
 .back-btn:hover,
 .icon-btn:hover {
-  background: rgba(255, 255, 255, 0.95);
-  border-color: rgba(23, 59, 99, 0.22);
+  background: var(--popup-color-rgba-255-255-255-0-95);
+  border-color: var(--popup-color-rgba-23-59-99-0-22);
   transform: translateY(-1px);
 }
 
@@ -372,22 +525,22 @@ body {
 }
 
 .watchlist-icon-btn.is-active {
-  background: rgba(197, 57, 47, 0.1);
-  border-color: rgba(197, 57, 47, 0.24);
+  background: var(--popup-color-rgba-197-57-47-0-1);
+  border-color: var(--popup-color-rgba-197-57-47-0-24);
   color: var(--swiss-red);
 }
 
 .watchlist-icon-btn.is-attention {
-  border-color: rgba(197, 57, 47, 0.3);
-  box-shadow: 0 0 0 3px rgba(197, 57, 47, 0.08);
+  border-color: var(--popup-color-rgba-197-57-47-0-3);
+  box-shadow: 0 0 0 3px var(--popup-color-rgba-197-57-47-0-08);
 }
 
 .watchlist-badge {
   align-items: center;
   background: var(--swiss-red);
-  border: 2px solid #fff;
+  border: 2px solid var(--popup-color-fff);
   border-radius: 999px;
-  color: #fff;
+  color: var(--popup-color-fff);
   display: inline-flex;
   font-size: 9px;
   font-weight: 800;
@@ -454,10 +607,10 @@ body {
 }
 
 .token-logo {
-  background: rgba(255, 255, 255, 0.9);
-  border: 1px solid rgba(23, 59, 99, 0.12);
+  background: var(--popup-color-rgba-255-255-255-0-9);
+  border: 1px solid var(--popup-color-rgba-23-59-99-0-12);
   border-radius: 16px;
-  box-shadow: 0 8px 18px rgba(39, 51, 60, 0.12);
+  box-shadow: 0 8px 18px var(--popup-color-rgba-39-51-60-0-12);
   flex-shrink: 0;
   height: 48px;
   object-fit: cover;
@@ -470,10 +623,10 @@ body {
 
 .token-logo-placeholder {
   align-items: center;
-  background: linear-gradient(135deg, rgba(23, 59, 99, 0.08), rgba(23, 59, 99, 0.16));
-  border: 1px solid rgba(23, 59, 99, 0.12);
+  background: linear-gradient(135deg, var(--popup-color-rgba-23-59-99-0-08), var(--popup-color-rgba-23-59-99-0-16));
+  border: 1px solid var(--popup-color-rgba-23-59-99-0-12);
   border-radius: 16px;
-  color: var(--deep-blue, #1a3a5c);
+  color: var(--deep-blue, var(--popup-color-1a3a5c));
   display: flex;
   font-family: Georgia, "Times New Roman", serif;
   font-size: 20px;
@@ -493,9 +646,9 @@ body {
   inset: 0;
   align-items: center;
   background:
-    radial-gradient(circle at 30% 30%, rgba(255, 255, 255, 0.92), rgba(255, 255, 255, 0.1) 40%, transparent 60%),
-    linear-gradient(160deg, rgba(23, 59, 99, 0.08), rgba(197, 57, 47, 0.16));
-  border: 1px solid rgba(23, 59, 99, 0.12);
+    radial-gradient(circle at 30% 30%, var(--popup-color-rgba-255-255-255-0-92), var(--popup-color-rgba-255-255-255-0-1) 40%, transparent 60%),
+    linear-gradient(160deg, var(--popup-color-rgba-23-59-99-0-08), var(--popup-color-rgba-197-57-47-0-16));
+  border: 1px solid var(--popup-color-rgba-23-59-99-0-12);
   border-radius: 16px;
   display: flex;
   justify-content: center;
@@ -514,8 +667,8 @@ body {
 }
 
 .token-logo-loading-ring {
-  border: 1px solid rgba(23, 59, 99, 0.16);
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.12);
+  border: 1px solid var(--popup-color-rgba-23-59-99-0-16);
+  box-shadow: inset 0 0 0 1px var(--popup-color-rgba-255-255-255-0-12);
 }
 
 .token-logo-loading-ring-outer {
@@ -525,17 +678,17 @@ body {
 
 .token-logo-loading-ring-middle {
   inset: 12px;
-  border-color: rgba(197, 57, 47, 0.26);
+  border-color: var(--popup-color-rgba-197-57-47-0-26);
   animation: token-radar-breathe 1.9s ease-in-out infinite reverse;
 }
 
 .token-logo-loading-core {
   width: 12px;
   height: 12px;
-  background: radial-gradient(circle, #ffffff 0%, #d44a3f 45%, #9f231a 100%);
+  background: radial-gradient(circle, var(--popup-color-ffffff) 0%, var(--popup-color-d44a3f) 45%, var(--popup-color-9f231a) 100%);
   box-shadow:
-    0 0 0 4px rgba(197, 57, 47, 0.10),
-    0 0 18px rgba(197, 57, 47, 0.35);
+    0 0 0 4px var(--popup-color-rgba-197-57-47-0-10),
+    0 0 18px var(--popup-color-rgba-197-57-47-0-35);
   animation: token-core-pulse 1.1s ease-in-out infinite;
 }
 
@@ -546,9 +699,9 @@ body {
     from 0deg,
     transparent 0deg,
     transparent 300deg,
-    rgba(197, 57, 47, 0.05) 325deg,
-    rgba(197, 57, 47, 0.72) 348deg,
-    rgba(255, 255, 255, 0.92) 360deg
+    var(--popup-color-rgba-197-57-47-0-05) 325deg,
+    var(--popup-color-rgba-197-57-47-0-72) 348deg,
+    var(--popup-color-rgba-255-255-255-0-92) 360deg
   );
   mix-blend-mode: screen;
   animation: token-radar-sweep 1.35s linear infinite;
@@ -603,7 +756,7 @@ body {
 .chain-badge {
   display: inline-block;
   background: var(--deep-blue);
-  color: #fff;
+  color: var(--popup-color-fff);
   font-size: 9px;
   font-weight: 700;
   letter-spacing: 0.06em;
@@ -650,8 +803,8 @@ body {
 }
 
 .token-address-button {
-  background: rgba(255, 252, 246, 0.86);
-  border: 1px solid rgba(23, 59, 99, 0.1);
+  background: var(--popup-color-rgba-255-252-246-0-86);
+  border: 1px solid var(--popup-color-rgba-23-59-99-0-1);
   border-radius: 12px;
   cursor: pointer;
   flex: 1;
@@ -666,15 +819,15 @@ body {
 }
 
 .token-address-button:hover {
-  background: rgba(255, 255, 255, 0.98);
-  border-color: rgba(23, 59, 99, 0.22);
+  background: var(--popup-color-rgba-255-255-255-0-98);
+  border-color: var(--popup-color-rgba-23-59-99-0-22);
   transform: translateY(-1px);
 }
 
 .token-address-button.is-empty:hover,
 .token-address-button:disabled:hover {
-  background: rgba(255, 252, 246, 0.86);
-  border-color: rgba(23, 59, 99, 0.1);
+  background: var(--popup-color-rgba-255-252-246-0-86);
+  border-color: var(--popup-color-rgba-23-59-99-0-1);
   transform: none;
 }
 
@@ -687,16 +840,16 @@ body {
 }
 
 .token-address-button:focus-visible {
-  box-shadow: 0 0 0 4px rgba(23, 59, 99, 0.08);
+  box-shadow: 0 0 0 4px var(--popup-color-rgba-23-59-99-0-08);
   outline: none;
 }
 
 .copy-toast {
-  background: rgba(23, 59, 99, 0.94);
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  background: var(--popup-color-rgba-23-59-99-0-94);
+  border: 1px solid var(--popup-color-rgba-255-255-255-0-12);
   border-radius: 999px;
-  box-shadow: 0 8px 18px rgba(39, 51, 60, 0.18);
-  color: #f9f6f0;
+  box-shadow: 0 8px 18px var(--popup-color-rgba-39-51-60-0-18);
+  color: var(--popup-color-f9f6f0);
   font-size: 11px;
   font-weight: 800;
   letter-spacing: 0.08em;
@@ -752,8 +905,8 @@ body {
   background: conic-gradient(
     var(--score-color) 0deg,
     var(--score-color) var(--score-deg, 0deg),
-    rgba(0, 0, 0, 0.06) var(--score-deg, 0deg),
-    rgba(0, 0, 0, 0.06) 360deg
+    var(--popup-color-rgba-0-0-0-0-06) var(--score-deg, 0deg),
+    var(--popup-color-rgba-0-0-0-0-06) 360deg
   );
 }
 
@@ -762,7 +915,7 @@ body {
   position: absolute;
   inset: 8px;
   border-radius: 50%;
-  background: var(--bg, #ede6d8);
+  background: var(--bg, var(--popup-color-ede6d8));
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -816,18 +969,18 @@ body {
 }
 
 /* 5-level risk colors */
-.score-danger { --score-color: #c5392f; }
-.score-high { --score-color: #d4722a; }
-.score-caution { --score-color: #b88946; }
-.score-moderate { --score-color: #5a9a6b; }
-.score-low { --score-color: #2d7a4f; }
+.score-danger { --score-color: var(--popup-color-c5392f); }
+.score-high { --score-color: var(--popup-color-d4722a); }
+.score-caution { --score-color: var(--popup-color-b88946); }
+.score-moderate { --score-color: var(--popup-color-5a9a6b); }
+.score-low { --score-color: var(--popup-color-2d7a4f); }
 
 /* Risk label colors */
-.risk-label.risk-danger { color: #c5392f; }
-.risk-label.risk-high { color: #d4722a; }
-.risk-label.risk-caution { color: #b88946; }
-.risk-label.risk-moderate { color: #5a9a6b; }
-.risk-label.risk-low { color: #2d7a4f; }
+.risk-label.risk-danger { color: var(--popup-color-c5392f); }
+.risk-label.risk-high { color: var(--popup-color-d4722a); }
+.risk-label.risk-caution { color: var(--popup-color-b88946); }
+.risk-label.risk-moderate { color: var(--popup-color-5a9a6b); }
+.risk-label.risk-low { color: var(--popup-color-2d7a4f); }
 
 .risk-label {
   display: none; /* risk label now shown inside the score donut */
@@ -852,7 +1005,7 @@ body {
   background: var(--surface);
   border: 1px solid var(--surface-border);
   border-radius: 16px;
-  box-shadow: 0 10px 22px rgba(39, 51, 60, 0.07);
+  box-shadow: 0 10px 22px var(--popup-color-rgba-39-51-60-0-07);
   display: flex;
   gap: 10px;
   margin-bottom: 8px;
@@ -912,9 +1065,9 @@ body {
 .upgrade-banner {
   align-items: center;
   background:
-    linear-gradient(135deg, rgba(186, 59, 52, 0.14), rgba(184, 137, 70, 0.16)),
-    linear-gradient(180deg, rgba(255, 250, 240, 0.92), rgba(246, 237, 223, 0.92));
-  border: 1px solid rgba(185, 59, 52, 0.18);
+    linear-gradient(135deg, var(--popup-color-rgba-186-59-52-0-14), var(--popup-color-rgba-184-137-70-0-16)),
+    linear-gradient(180deg, var(--popup-color-rgba-255-250-240-0-92), var(--popup-color-rgba-246-237-223-0-92));
+  border: 1px solid var(--popup-color-rgba-185-59-52-0-18);
   border-radius: 18px;
   display: flex;
   gap: 12px;
@@ -931,13 +1084,13 @@ body {
 }
 
 .upgrade-text p {
-  color: #7d6255;
+  color: var(--popup-color-7d6255);
   font-size: 12px;
   margin-top: 2px;
 }
 
 .footer {
-  border-top: 1px solid rgba(23, 59, 99, 0.1);
+  border-top: 1px solid var(--popup-color-rgba-23-59-99-0-1);
   display: flex;
   align-items: stretch;
   gap: 12px;
@@ -980,8 +1133,8 @@ body {
 
 .link-btn {
   align-items: center;
-  background: rgba(255, 252, 246, 0.74);
-  border: 1px solid rgba(23, 59, 99, 0.12);
+  background: var(--popup-color-rgba-255-252-246-0-74);
+  border: 1px solid var(--popup-color-rgba-23-59-99-0-12);
   color: var(--deep-blue);
   display: inline-flex;
   flex: 1;
@@ -993,7 +1146,7 @@ body {
 }
 
 .link-btn:hover {
-  background: rgba(255, 255, 255, 0.95);
+  background: var(--popup-color-rgba-255-255-255-0-95);
 }
 
 .btn-primary,
@@ -1005,19 +1158,19 @@ body {
 }
 
 .btn-primary {
-  background: linear-gradient(135deg, var(--deep-blue), #28588a);
-  border: 1px solid rgba(23, 59, 99, 0.18);
-  box-shadow: 0 10px 22px rgba(23, 59, 99, 0.16);
-  color: #f9f6f0;
+  background: linear-gradient(135deg, var(--deep-blue), var(--popup-color-28588a));
+  border: 1px solid var(--popup-color-rgba-23-59-99-0-18);
+  box-shadow: 0 10px 22px var(--popup-color-rgba-23-59-99-0-16);
+  color: var(--popup-color-f9f6f0);
 }
 
 .btn-primary:hover {
-  background: linear-gradient(135deg, #14314f, #214f7e);
+  background: linear-gradient(135deg, var(--popup-color-14314f), var(--popup-color-214f7e));
 }
 
 .btn-primary:disabled {
-  background: #8f9aa3;
-  border-color: #8f9aa3;
+  background: var(--popup-color-8f9aa3);
+  border-color: var(--popup-color-8f9aa3);
   box-shadow: none;
   cursor: not-allowed;
   transform: none;
@@ -1025,14 +1178,14 @@ body {
 
 .btn-secondary,
 .btn-social {
-  background: rgba(255, 252, 246, 0.82);
-  border: 1px solid rgba(23, 59, 99, 0.12);
+  background: var(--popup-color-rgba-255-252-246-0-82);
+  border: 1px solid var(--popup-color-rgba-23-59-99-0-12);
   color: var(--deep-blue);
 }
 
 .btn-secondary:hover,
 .btn-social:hover {
-  background: rgba(255, 255, 255, 0.96);
+  background: var(--popup-color-rgba-255-255-255-0-96);
 }
 
 .btn-full {
@@ -1061,8 +1214,8 @@ body {
 }
 
 .form-group input {
-  background: rgba(255, 252, 246, 0.9);
-  border: 1px solid rgba(23, 59, 99, 0.12);
+  background: var(--popup-color-rgba-255-252-246-0-9);
+  border: 1px solid var(--popup-color-rgba-23-59-99-0-12);
   border-radius: 14px;
   color: var(--text);
   font-size: 14px;
@@ -1072,9 +1225,9 @@ body {
 }
 
 .form-group input:focus {
-  background: rgba(255, 255, 255, 0.98);
-  border-color: rgba(23, 59, 99, 0.34);
-  box-shadow: 0 0 0 4px rgba(23, 59, 99, 0.08);
+  background: var(--popup-color-rgba-255-255-255-0-98);
+  border-color: var(--popup-color-rgba-23-59-99-0-34);
+  box-shadow: 0 0 0 4px var(--popup-color-rgba-23-59-99-0-08);
   outline: none;
 }
 
@@ -1096,8 +1249,8 @@ body {
 }
 
 .error-message {
-  background: rgba(242, 217, 209, 0.86);
-  border: 1px solid rgba(185, 59, 52, 0.18);
+  background: var(--popup-color-rgba-242-217-209-0-86);
+  border: 1px solid var(--popup-color-rgba-185-59-52-0-18);
   border-radius: 14px;
   color: var(--danger-text);
   font-size: 13px;
@@ -1106,10 +1259,10 @@ body {
 }
 
 .status-message {
-  background: rgba(214, 231, 221, 0.88);
-  border: 1px solid rgba(58, 122, 80, 0.18);
+  background: var(--popup-color-rgba-214-231-221-0-88);
+  border: 1px solid var(--popup-color-rgba-58-122-80-0-18);
   border-radius: 14px;
-  color: #1f5a35;
+  color: var(--popup-color-1f5a35);
   font-size: 13px;
   margin-top: 12px;
   padding: 10px 12px;
@@ -1117,7 +1270,7 @@ body {
 
 .divider {
   align-items: center;
-  color: #7b8890;
+  color: var(--popup-color-7b8890);
   display: flex;
   font-size: 12px;
   gap: 12px;
@@ -1127,7 +1280,7 @@ body {
 
 .divider::before,
 .divider::after {
-  background: rgba(23, 59, 99, 0.1);
+  background: var(--popup-color-rgba-23-59-99-0-1);
   content: "";
   flex: 1;
   height: 1px;
@@ -1152,9 +1305,9 @@ body {
 
 .account-info {
   background:
-    linear-gradient(145deg, rgba(24, 60, 100, 0.92), rgba(43, 76, 112, 0.88)),
-    linear-gradient(180deg, rgba(255, 255, 255, 0.06), transparent 55%);
-  border: 1px solid rgba(23, 59, 99, 0.1);
+    linear-gradient(145deg, var(--popup-color-rgba-24-60-100-0-92), var(--popup-color-rgba-43-76-112-0-88)),
+    linear-gradient(180deg, var(--popup-color-rgba-255-255-255-0-06), transparent 55%);
+  border: 1px solid var(--popup-color-rgba-23-59-99-0-1);
   border-radius: 22px;
   margin-bottom: 18px;
   padding: 22px 18px;
@@ -1162,7 +1315,7 @@ body {
 }
 
 .account-email {
-  color: #f7f2eb;
+  color: var(--popup-color-f7f2eb);
   font-size: 16px;
   font-weight: 700;
   margin-bottom: 12px;
@@ -1186,23 +1339,23 @@ body {
 }
 
 .tier-badge.free {
-  background: rgba(255, 248, 236, 0.92);
+  background: var(--popup-color-rgba-255-248-236-0-92);
   color: var(--deep-blue);
 }
 
 .tier-badge.rescue-pass {
-  background: rgba(245, 229, 194, 0.95);
+  background: var(--popup-color-rgba-245-229-194-0-95);
   color: var(--warning-text);
 }
 
 .tier-badge.pro {
-  background: linear-gradient(135deg, #be443c, #244f7d);
-  color: #fff9f2;
+  background: linear-gradient(135deg, var(--popup-color-be443c), var(--popup-color-244f7d));
+  color: var(--popup-color-fff9f2);
 }
 
 .subscription-info {
-  background: rgba(255, 252, 246, 0.8);
-  border: 1px solid rgba(23, 59, 99, 0.1);
+  background: var(--popup-color-rgba-255-252-246-0-8);
+  border: 1px solid var(--popup-color-rgba-23-59-99-0-1);
   border-radius: 18px;
   margin-bottom: 18px;
   padding: 15px 16px;
@@ -1240,13 +1393,13 @@ body {
 
 .disclaimer {
   background:
-    linear-gradient(180deg, rgba(255, 248, 238, 0.96), rgba(246, 237, 223, 0.94));
-  border-top: 1px solid rgba(23, 59, 99, 0.09);
+    linear-gradient(180deg, var(--popup-color-rgba-255-248-238-0-96), var(--popup-color-rgba-246-237-223-0-94));
+  border-top: 1px solid var(--popup-color-rgba-23-59-99-0-09);
   padding: 13px 16px 15px;
 }
 
 .disclaimer p {
-  color: #4a5250;
+  color: var(--popup-color-4a5250);
   font-size: 10px;
   line-height: 1.5;
   text-align: center;
@@ -1269,9 +1422,9 @@ body {
 /* V2 Popup Styles */
 
 .disclaimer-text {
-  background: rgba(242, 217, 209, 0.68);
-  border-top: 1px solid rgba(185, 59, 52, 0.12);
-  border-bottom: 1px solid rgba(185, 59, 52, 0.12);
+  background: var(--popup-color-rgba-242-217-209-0-68);
+  border-top: 1px solid var(--popup-color-rgba-185-59-52-0-12);
+  border-bottom: 1px solid var(--popup-color-rgba-185-59-52-0-12);
   border-radius: 0;
   color: var(--danger-text);
   font-size: 10px;
@@ -1306,16 +1459,16 @@ body {
 }
 
 .mini-alert {
-  background: rgba(255, 252, 246, 0.84);
-  border: 1px solid rgba(23, 59, 99, 0.1);
+  background: var(--popup-color-rgba-255-252-246-0-84);
+  border: 1px solid var(--popup-color-rgba-23-59-99-0-1);
   border-radius: 16px;
   margin-bottom: 10px;
   padding: 12px;
 }
 
 .mini-alert.is-unread {
-  background: rgba(197, 57, 47, 0.06);
-  border-color: rgba(197, 57, 47, 0.16);
+  background: var(--popup-color-rgba-197-57-47-0-06);
+  border-color: var(--popup-color-rgba-197-57-47-0-16);
 }
 
 .mini-alert:last-child {
@@ -1389,7 +1542,7 @@ body {
 
 .subscore-bar-wrapper {
   flex: 1;
-  background: rgba(23, 59, 99, 0.08);
+  background: var(--popup-color-rgba-23-59-99-0-08);
   border-radius: 999px;
   height: 6px;
   overflow: hidden;
@@ -1401,11 +1554,11 @@ body {
 }
 
 /* Subscore bars — same 5 colors */
-.subscore-bar.score-danger { background: #c5392f; }
-.subscore-bar.score-high { background: #d4722a; }
-.subscore-bar.score-caution { background: #b88946; }
-.subscore-bar.score-moderate { background: #5a9a6b; }
-.subscore-bar.score-low { background: #2d7a4f; }
+.subscore-bar.score-danger { background: var(--popup-color-c5392f); }
+.subscore-bar.score-high { background: var(--popup-color-d4722a); }
+.subscore-bar.score-caution { background: var(--popup-color-b88946); }
+.subscore-bar.score-moderate { background: var(--popup-color-5a9a6b); }
+.subscore-bar.score-low { background: var(--popup-color-2d7a4f); }
 
 .subscore-value {
   color: var(--muted);
@@ -1416,8 +1569,8 @@ body {
 }
 
 .reasons-section {
-  background: rgba(253, 246, 232, 0.88);
-  border: 1px solid rgba(184, 137, 70, 0.18);
+  background: var(--popup-color-rgba-253-246-232-0-88);
+  border: 1px solid var(--popup-color-rgba-184-137-70-0-18);
   border-radius: 20px;
   padding: 14px;
 }
@@ -1462,7 +1615,7 @@ body {
 
 .analysis-footer {
   align-items: center;
-  border-top: 1px solid rgba(23, 59, 99, 0.1);
+  border-top: 1px solid var(--popup-color-rgba-23-59-99-0-1);
   display: flex;
   justify-content: space-between;
   margin-top: 12px;
@@ -1493,8 +1646,8 @@ body {
 }
 
 .confidence-badge {
-  background: rgba(71, 99, 85, 0.12);
-  border: 1px solid rgba(71, 99, 85, 0.24);
+  background: var(--popup-color-rgba-71-99-85-0-12);
+  border: 1px solid var(--popup-color-rgba-71-99-85-0-24);
   border-radius: 999px;
   color: var(--success-text);
   font-size: 9px;
@@ -1505,14 +1658,14 @@ body {
 }
 
 .confidence-badge.medium {
-  background: rgba(184, 137, 70, 0.12);
-  border-color: rgba(184, 137, 70, 0.24);
+  background: var(--popup-color-rgba-184-137-70-0-12);
+  border-color: var(--popup-color-rgba-184-137-70-0-24);
   color: var(--warning-text);
 }
 
 .confidence-badge.low {
-  background: rgba(185, 59, 52, 0.12);
-  border-color: rgba(185, 59, 52, 0.24);
+  background: var(--popup-color-rgba-185-59-52-0-12);
+  border-color: var(--popup-color-rgba-185-59-52-0-24);
   color: var(--danger-text);
 }
 
@@ -1538,10 +1691,10 @@ body {
 
 /* Badge Tooltip Styles */
 .barryguard-tooltip {
-  background: linear-gradient(180deg, rgba(255, 253, 248, 0.98), rgba(251, 246, 237, 0.96));
-  border: 1px solid rgba(23, 59, 99, 0.18);
+  background: linear-gradient(180deg, var(--popup-color-rgba-255-253-248-0-98), var(--popup-color-rgba-251-246-237-0-96));
+  border: 1px solid var(--popup-color-rgba-23-59-99-0-18);
   border-radius: 12px;
-  box-shadow: 0 8px 24px rgba(39, 51, 60, 0.22);
+  box-shadow: 0 8px 24px var(--popup-color-rgba-39-51-60-0-22);
   color: var(--text);
   font-size: 12px;
   line-height: 1.4;
@@ -1564,7 +1717,7 @@ body {
 }
 
 .barryguard-tooltip-divider {
-  background: rgba(23, 59, 99, 0.12);
+  background: var(--popup-color-rgba-23-59-99-0-12);
   height: 1px;
   margin: 8px 0;
 }
@@ -1603,8 +1756,8 @@ body {
 
 .barryguard-tooltip-link {
   align-items: center;
-  background: rgba(23, 59, 99, 0.08);
-  border: 1px solid rgba(23, 59, 99, 0.14);
+  background: var(--popup-color-rgba-23-59-99-0-08);
+  border: 1px solid var(--popup-color-rgba-23-59-99-0-14);
   border-radius: 8px;
   color: var(--deep-blue);
   display: inline-flex;
@@ -1617,8 +1770,8 @@ body {
 }
 
 .barryguard-tooltip-link:hover {
-  background: rgba(23, 59, 99, 0.14);
-  border-color: rgba(23, 59, 99, 0.24);
+  background: var(--popup-color-rgba-23-59-99-0-14);
+  border-color: var(--popup-color-rgba-23-59-99-0-24);
 }
 
 /* L-12: Refresh button spin animation */
@@ -1629,8 +1782,8 @@ body {
 /* M-14: Compact usage indicator for token-detail footer */
 .footer-usage {
   align-items: center;
-  background: rgba(23, 59, 99, 0.06);
-  border: 1px solid rgba(23, 59, 99, 0.10);
+  background: var(--popup-color-rgba-23-59-99-0-06);
+  border: 1px solid var(--popup-color-rgba-23-59-99-0-10);
   border-radius: 999px;
   display: inline-flex;
   font-size: 10px;
@@ -1667,7 +1820,7 @@ body {
   align-items: center;
   justify-content: center;
   gap: 6px;
-  background: rgba(237, 230, 216, 0.85);
+  background: var(--popup-color-rgba-237-230-216-0-85);
   border-radius: 12px;
   font-size: 11px;
   font-weight: 700;
@@ -1686,7 +1839,7 @@ body {
   width: 100%;
   padding: 12px 16px;
   background: var(--swiss-red);
-  color: #fff;
+  color: var(--popup-color-fff);
   border: none;
   border-radius: 14px;
   font-size: 13px;
@@ -1698,7 +1851,7 @@ body {
 }
 
 .view-full-analysis-btn:hover {
-  background: #a82c24;
+  background: var(--popup-color-a82c24);
 }
 
 /* Solscan icon link */
@@ -1714,7 +1867,7 @@ body {
 
 .solscan-icon-link:hover {
   color: var(--swiss-red);
-  background: rgba(197, 57, 47, 0.08);
+  background: var(--popup-color-rgba-197-57-47-0-08);
 }
 
 /* Rug warning banner */
@@ -1724,12 +1877,12 @@ body {
   gap: 8px;
   padding: 10px 14px;
   margin: 8px 0;
-  background: #fef2f2;
-  border: 1px solid #fecaca;
+  background: var(--popup-color-fef2f2);
+  border: 1px solid var(--popup-color-fecaca);
   border-radius: 10px;
   font-size: 11px;
   font-weight: 700;
-  color: #991b1b;
+  color: var(--popup-color-991b1b);
   grid-column: 1 / -1;
   letter-spacing: 0.02em;
   animation: rug-pulse 2s ease-in-out infinite;
@@ -1794,7 +1947,7 @@ body {
 
 .check-category-tab-count {
   align-items: center;
-  background: rgba(23, 59, 99, 0.12);
+  background: var(--popup-color-rgba-23-59-99-0-12);
   border-radius: 999px;
   color: inherit;
   display: inline-flex;
@@ -1807,7 +1960,7 @@ body {
 }
 
 .check-category-tab.is-active .check-category-tab-count {
-  background: rgba(255, 251, 244, 0.22);
+  background: var(--popup-color-rgba-255-251-244-0-22);
   color: var(--paper);
 }
 
@@ -1830,21 +1983,21 @@ body {
 .score-donut-risk-label.risk-pill-danger,
 .score-donut-risk-label.risk-pill-high {
   background: var(--danger-bg);
-  border-color: rgba(143, 49, 41, 0.35);
+  border-color: var(--popup-color-rgba-143-49-41-0-35);
   color: var(--danger-text);
 }
 
 .score-donut-risk-label.risk-pill-caution,
 .score-donut-risk-label.risk-pill-moderate {
   background: var(--warning-bg);
-  border-color: rgba(134, 97, 42, 0.35);
+  border-color: var(--popup-color-rgba-134-97-42-0-35);
   color: var(--warning-text);
 }
 
 .score-donut-risk-label.risk-pill-low,
 .score-donut-risk-label.risk-pill-medium {
   background: var(--success-bg);
-  border-color: rgba(51, 88, 69, 0.35);
+  border-color: var(--popup-color-rgba-51-88-69-0-35);
   color: var(--success-text);
 }
 
@@ -1854,8 +2007,8 @@ body {
 .token-address-group {
   align-items: center;
   background: linear-gradient(180deg, var(--mono-strip), transparent 65%);
-  border-bottom: 1px solid rgba(23, 59, 99, 0.08);
-  border-top: 1px solid rgba(23, 59, 99, 0.08);
+  border-bottom: 1px solid var(--popup-color-rgba-23-59-99-0-08);
+  border-top: 1px solid var(--popup-color-rgba-23-59-99-0-08);
   display: flex;
   gap: 8px;
   margin: 8px -18px 0;
@@ -1893,31 +2046,31 @@ body {
  * ─────────────────────────────────────────────────────────────────────────── */
 
 :root {
-  --rd-paper: #f0eee9;
-  --rd-panel: #fbf9f4;
-  --rd-panel-2: #f6f2e8;
-  --rd-line: rgba(23, 59, 99, 0.12);
-  --rd-line-strong: rgba(23, 59, 99, 0.22);
-  --rd-ink: #1c2740;
-  --rd-ink-soft: rgba(28, 39, 64, 0.78);
-  --rd-ink-mute: rgba(28, 39, 64, 0.55);
-  --rd-muted: rgba(28, 39, 64, 0.62);
-  --rd-accent: #c5392f;
+  --rd-paper: var(--popup-color-f0eee9);
+  --rd-panel: var(--popup-color-fbf9f4);
+  --rd-panel-2: var(--popup-color-f6f2e8);
+  --rd-line: var(--popup-color-rgba-23-59-99-0-12);
+  --rd-line-strong: var(--popup-color-rgba-23-59-99-0-22);
+  --rd-ink: var(--popup-color-1c2740);
+  --rd-ink-soft: var(--popup-color-rgba-28-39-64-0-78);
+  --rd-ink-mute: var(--popup-color-rgba-28-39-64-0-55);
+  --rd-muted: var(--popup-color-rgba-28-39-64-0-62);
+  --rd-accent: var(--popup-color-c5392f);
   --rd-mono: var(--font-jetbrains-mono, "JetBrains Mono"), ui-monospace, "SF Mono", Menlo, monospace;
   --rd-display: "Segoe UI", "Trebuchet MS", system-ui, sans-serif;
 
   /* Risk colors (match rescue-dial-theme.ts) */
-  --rd-risk-danger: #be123c;
-  --rd-risk-high: #c2410c;
-  --rd-risk-caution: #b45309;
-  --rd-risk-moderate: #4d7c0f;
-  --rd-risk-low: #15803d;
+  --rd-risk-danger: var(--popup-color-be123c);
+  --rd-risk-high: var(--popup-color-c2410c);
+  --rd-risk-caution: var(--popup-color-b45309);
+  --rd-risk-moderate: var(--popup-color-4d7c0f);
+  --rd-risk-low: var(--popup-color-15803d);
 
-  --rd-risk-danger-bg: rgba(190, 18, 60, 0.10);
-  --rd-risk-high-bg: rgba(194, 65, 12, 0.10);
-  --rd-risk-caution-bg: rgba(180, 83, 9, 0.10);
-  --rd-risk-moderate-bg: rgba(77, 124, 15, 0.10);
-  --rd-risk-low-bg: rgba(21, 128, 61, 0.10);
+  --rd-risk-danger-bg: var(--popup-color-rgba-190-18-60-0-10);
+  --rd-risk-high-bg: var(--popup-color-rgba-194-65-12-0-10);
+  --rd-risk-caution-bg: var(--popup-color-rgba-180-83-9-0-10);
+  --rd-risk-moderate-bg: var(--popup-color-rgba-77-124-15-0-10);
+  --rd-risk-low-bg: var(--popup-color-rgba-21-128-61-0-10);
 }
 
 /* ─── Top Header ────────────────────────────────────────────────────────── */
@@ -1963,7 +2116,7 @@ body {
 }
 
 .rd-barry-cross {
-  background: #ffffff;
+  background: var(--popup-color-ffffff);
   bottom: 7px;
   height: 3px;
   left: 50%;
@@ -2167,7 +2320,7 @@ body {
 .rd-copy-toast {
   background: var(--rd-ink);
   border-radius: 4px;
-  color: #ffffff;
+  color: var(--popup-color-ffffff);
   font-size: 10px;
   left: 50%;
   padding: 3px 8px;
@@ -2448,7 +2601,7 @@ body {
 
 .rd-tab.is-active .rd-tab-count {
   background: var(--rd-accent);
-  color: #ffffff;
+  color: var(--popup-color-ffffff);
 }
 
 /* ─── Checks container ──────────────────────────────────────────────────── */
