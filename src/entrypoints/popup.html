@@ -10,17 +10,44 @@
 </head>
 <body>
   <div id="app" class="app-shell">
-    <div class="alpine-glow alpine-glow-left"></div>
-    <div class="alpine-glow alpine-glow-right"></div>
 
-    <div class="brand-banner">
-      <div class="brand-mark-frame">
-        <img id="brand-logo" src="/logo.png" alt="BarryGuard brand logo" class="brand-mark">
+    <!-- Mobile-Design Top Header — Barry-Mark + Wordmark + (optional) timestamp -->
+    <div class="rd-top-header" id="rd-top-header">
+      <div class="rd-barry-mark" aria-hidden="true">
+        <span class="rd-barry-collar"></span>
+        <span class="rd-barry-cross"></span>
       </div>
-      <div class="brand-copy">
-        <div class="brand-kicker">Swiss Crypto Protector</div>
-        <div class="brand-title">BarryGuard</div>
-        <div class="brand-subtitle">Calm alpine signals for fast Solana decisions.</div>
+      <div class="rd-top-wordmark">BarryGuard</div>
+      <div class="rd-top-divider" aria-hidden="true"></div>
+      <span class="rd-top-tagline">Rescue dispatch</span>
+      <div class="rd-top-spacer"></div>
+      <span class="rd-top-timestamp" id="rd-top-timestamp"></span>
+      <div class="rd-top-actions" id="rd-top-actions">
+        <button id="manual-entry-btn" class="rd-icon-btn" title="Enter token address" aria-label="Enter token address manually">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <circle cx="11" cy="11" r="8"></circle>
+            <path d="m21 21-4.35-4.35"></path>
+          </svg>
+        </button>
+        <button id="watchlist-toggle-btn" class="rd-icon-btn watchlist-icon-btn" title="Watchlist" aria-label="Watchlist">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path>
+          </svg>
+          <span id="watchlist-badge" class="watchlist-badge hidden" aria-hidden="true"></span>
+        </button>
+        <button id="refresh-btn" class="rd-icon-btn" title="Refresh analysis" aria-label="Refresh analysis">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M23 4v6h-6"></path>
+            <path d="M1 20v-6h6"></path>
+            <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+          </svg>
+        </button>
+        <button id="header-account-btn" class="rd-icon-btn" title="Account" aria-label="Account">
+          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+            <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
+            <circle cx="12" cy="7" r="4"></circle>
+          </svg>
+        </button>
       </div>
     </div>
 
@@ -44,149 +71,154 @@
     </div>
 
     <div id="token-detail-screen" class="screen hidden">
-      <div class="header">
-        <h1 tabindex="-1">Token Analysis</h1>
-        <div class="header-actions">
-          <button id="manual-entry-btn" class="icon-btn" title="Enter token address" aria-label="Enter token address manually">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <circle cx="11" cy="11" r="8"></circle>
-              <path d="m21 21-4.35-4.35"></path>
-            </svg>
-          </button>
-          <button id="watchlist-toggle-btn" class="icon-btn watchlist-icon-btn" title="Watchlist" aria-label="Watchlist">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M19 21l-7-5-7 5V5a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2z"></path>
-            </svg>
-            <span id="watchlist-badge" class="watchlist-badge hidden" aria-hidden="true"></span>
-          </button>
-          <button id="refresh-btn" class="icon-btn" title="Refresh analysis" aria-label="Refresh analysis">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M23 4v6h-6"></path>
-              <path d="M1 20v-6h6"></path>
-              <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
-            </svg>
-          </button>
-          <button id="header-account-btn" class="icon-btn" title="Account" aria-label="Account">
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-              <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"></path>
-              <circle cx="12" cy="7" r="4"></circle>
-            </svg>
-          </button>
-        </div>
-      </div>
 
-      <div class="analysis-overview">
-        <div id="token-info">
-          <div class="token-header">
-            <div class="token-logo-wrapper">
-              <img id="token-logo" class="token-logo hidden" alt="Token logo">
-              <div id="token-logo-placeholder" class="token-logo-placeholder">?</div>
-              <div id="token-logo-loading" class="token-logo-loading hidden" aria-hidden="true">
-                <span class="token-logo-loading-ring token-logo-loading-ring-outer"></span>
-                <span class="token-logo-loading-ring token-logo-loading-ring-middle"></span>
-                <span class="token-logo-loading-core"></span>
-                <span class="token-logo-loading-scan"></span>
-              </div>
-            </div>
-            <div class="token-copy">
-              <div class="token-name" id="token-name">Loading...</div>
-              <div class="token-symbol" id="token-symbol"></div>
-            </div>
+      <!-- Mobile-Design Token Header — Logo + Name + Address + Risk Pill -->
+      <div class="rd-token-header">
+        <div class="rd-token-logo-wrapper">
+          <img id="token-logo" class="rd-token-logo hidden" alt="Token logo">
+          <div id="token-logo-placeholder" class="rd-token-logo-placeholder">?</div>
+          <div id="token-logo-loading" class="rd-token-logo-loading hidden" aria-hidden="true">
+            <span class="token-logo-loading-ring token-logo-loading-ring-outer"></span>
+            <span class="token-logo-loading-ring token-logo-loading-ring-middle"></span>
+            <span class="token-logo-loading-core"></span>
+            <span class="token-logo-loading-scan"></span>
           </div>
-          <div class="token-address-group">
-            <div class="token-address-label">Address</div>
-            <button type="button" class="token-address token-address-button" id="token-address"></button>
-            <a id="solscan-link" class="solscan-icon-link" href="#" target="_blank" rel="noopener noreferrer" title="View on Solscan" aria-label="View on Solscan">
-              <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+        </div>
+        <div class="rd-token-identity">
+          <div class="rd-token-name-row">
+            <span class="rd-token-name" id="token-name">Loading...</span>
+            <span class="rd-token-symbol" id="token-symbol"></span>
+          </div>
+          <div class="rd-token-address-row">
+            <button type="button" class="rd-token-address" id="token-address" aria-label="Copy token address"></button>
+            <a id="solscan-link" class="rd-token-explorer-link" href="#" target="_blank" rel="noopener noreferrer" title="View on explorer" aria-label="View on explorer">
+              <svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                 <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
                 <polyline points="15 3 21 3 21 9"></polyline>
                 <line x1="10" y1="14" x2="21" y2="3"></line>
               </svg>
             </a>
+            <div id="copy-toast" class="rd-copy-toast hidden" aria-live="polite">Copied</div>
           </div>
-          <div id="copy-toast" class="copy-toast hidden" aria-live="polite">Copied</div>
-          <a id="view-full-analysis" class="view-full-analysis-link" href="#" target="_blank" rel="noopener noreferrer">
-            View full analysis on barryguard.com ↗
-          </a>
-          <button id="quick-scan-badge" class="quick-scan-badge hidden" type="button" aria-label="Quick scan badge">
-            Quick scan ↗
-          </button>
         </div>
-
-        <div id="score-container">
-          <div class="score-donut" id="score-donut">
-            <div class="score-donut-hole">
-              <div class="score-donut-value-row">
-                <span class="score-donut-value" id="score-value">--</span><span class="score-donut-max">/100</span>
-              </div>
-              <div class="score-donut-label" id="score-donut-risk-label"></div>
-            </div>
-          </div>
-          <div class="score-label-large">SCORE</div>
-          <div id="coverage-risk" class="coverage-risk"></div>
-        </div>
-
-        <div class="disclaimer-text">
-          BarryGuard cannot guarantee safety. Use this as a risk signal, not a guarantee.
-        </div>
-
-        <div class="analyzed-at" id="analyzed-at">Analyzed just now</div>
-
-      </div>
-
-      <div id="subscores-container" class="subscores-section">
-        <div class="subscore-row" id="subscore-contract">
-          <span class="subscore-label">Contract</span>
-          <div class="subscore-bar-wrapper">
-            <div class="subscore-bar" id="subscore-contract-bar"></div>
-          </div>
-          <span class="subscore-value" id="subscore-contract-value">--/100</span>
-        </div>
-        <div class="subscore-row" id="subscore-marketStructure">
-          <span class="subscore-label">Market Structure</span>
-          <div class="subscore-bar-wrapper">
-            <div class="subscore-bar" id="subscore-marketStructure-bar"></div>
-          </div>
-          <span class="subscore-value" id="subscore-marketStructure-value">--/100</span>
-        </div>
-        <div class="subscore-row" id="subscore-behavior">
-          <span class="subscore-label">Behavior</span>
-          <div class="subscore-bar-wrapper">
-            <div class="subscore-bar" id="subscore-behavior-bar"></div>
-          </div>
-          <span class="subscore-value" id="subscore-behavior-value">--/100</span>
+        <div class="rd-risk-pill-stack">
+          <span id="score-donut-risk-label" class="rd-risk-pill" aria-live="polite">
+            <span class="rd-risk-pill-dot" aria-hidden="true"></span>
+            <span class="rd-risk-pill-text">Analyzing</span>
+          </span>
         </div>
       </div>
 
-      <div id="reasons-container" class="reasons-section hidden">
-        <h2>Top Concerns</h2>
-        <ul id="reasons-list"></ul>
+      <!-- Mobile-Design Triple-Concentric Rings (SVG injected by render.ts) -->
+      <div class="rd-rings" id="rd-rings"></div>
+
+      <!-- Mobile-Design Legend — 3-column subscores -->
+      <div class="rd-legend" id="rd-legend">
+        <div class="rd-legend-col" data-key="contract">
+          <div class="rd-legend-rule"></div>
+          <div class="rd-legend-label">Contract</div>
+          <div class="rd-legend-value-row">
+            <span class="rd-legend-value" id="rd-legend-contract-value">--</span>
+            <span class="rd-legend-max">/100</span>
+          </div>
+        </div>
+        <div class="rd-legend-col" data-key="market">
+          <div class="rd-legend-rule"></div>
+          <div class="rd-legend-label">Market</div>
+          <div class="rd-legend-value-row">
+            <span class="rd-legend-value" id="rd-legend-market-value">--</span>
+            <span class="rd-legend-max">/100</span>
+          </div>
+        </div>
+        <div class="rd-legend-col" data-key="behavior">
+          <div class="rd-legend-rule"></div>
+          <div class="rd-legend-label">Behavior</div>
+          <div class="rd-legend-value-row">
+            <span class="rd-legend-value" id="rd-legend-behavior-value">--</span>
+            <span class="rd-legend-max">/100</span>
+          </div>
+        </div>
       </div>
 
-      <div id="watchlist-alerts-section" class="watchlist-alerts hidden">
-        <h2>Risk Alerts</h2>
+      <!-- Mobile-Design Verdict Band — Risk-Headline + Reasons -->
+      <div class="rd-verdict-band" id="rd-verdict-band">
+        <div class="rd-verdict-head">
+          <span class="rd-verdict-headline" id="rd-verdict-headline">--</span>
+          <span class="rd-verdict-call">BARRY 1 · CH-VS</span>
+        </div>
+        <ul class="rd-verdict-reasons" id="rd-verdict-reasons"></ul>
+        <div id="coverage-risk" class="rd-coverage-risk"></div>
+      </div>
+
+      <!-- Watchlist alerts (existing feature) -->
+      <div id="watchlist-alerts-section" class="rd-watchlist-alerts hidden">
+        <h2 class="rd-watchlist-alerts-title">Risk Alerts</h2>
         <div id="watchlist-alerts-list"></div>
       </div>
 
-      <div id="check-category-tabs" class="check-category-tabs" role="tablist" aria-label="Check categories">
-        <button id="tab-contract" class="check-category-tab is-active" role="tab" type="button" aria-selected="true" data-category="contract">
-          <span class="check-category-tab-label">Contract</span>
-          <span class="check-category-tab-count" id="tab-contract-count">0</span>
+      <!-- Tab row (Step 11 explicit requirement) -->
+      <div id="check-category-tabs" class="rd-tabs" role="tablist" aria-label="Check categories">
+        <button id="tab-contract" class="rd-tab is-active" role="tab" type="button" aria-selected="true" data-category="contract">
+          <span class="rd-tab-label">Contract</span>
+          <span class="rd-tab-count" id="tab-contract-count">0</span>
         </button>
-        <button id="tab-marketStructure" class="check-category-tab" role="tab" type="button" aria-selected="false" data-category="marketStructure">
-          <span class="check-category-tab-label">Market</span>
-          <span class="check-category-tab-count" id="tab-marketStructure-count">0</span>
+        <button id="tab-marketStructure" class="rd-tab" role="tab" type="button" aria-selected="false" data-category="marketStructure">
+          <span class="rd-tab-label">Market</span>
+          <span class="rd-tab-count" id="tab-marketStructure-count">0</span>
         </button>
-        <button id="tab-behavior" class="check-category-tab" role="tab" type="button" aria-selected="false" data-category="behavior">
-          <span class="check-category-tab-label">Behavior</span>
-          <span class="check-category-tab-count" id="tab-behavior-count">0</span>
+        <button id="tab-behavior" class="rd-tab" role="tab" type="button" aria-selected="false" data-category="behavior">
+          <span class="rd-tab-label">Behavior</span>
+          <span class="rd-tab-count" id="tab-behavior-count">0</span>
         </button>
       </div>
 
-      <div id="checks-container">
+      <div id="checks-container" class="rd-checks-container">
         <div id="checks-list"></div>
       </div>
 
+      <!-- View full analysis link + quick-scan badge (utility) -->
+      <div class="rd-utility-row">
+        <a id="view-full-analysis" class="rd-view-full-analysis" href="#" target="_blank" rel="noopener noreferrer">
+          View full analysis on barryguard.com ↗
+        </a>
+        <button id="quick-scan-badge" class="rd-quick-scan-badge hidden" type="button" aria-label="Quick scan badge">
+          Quick scan ↗
+        </button>
+      </div>
+
+      <!-- Mobile-Design Data Strip — HLD / LIQ / MCAP / AGE -->
+      <div class="rd-data-strip" id="rd-data-strip">
+        <div class="rd-data-col">
+          <div class="rd-data-label">HLD</div>
+          <div class="rd-data-value" id="rd-data-holders">—</div>
+        </div>
+        <div class="rd-data-col">
+          <div class="rd-data-label">LIQ</div>
+          <div class="rd-data-value" id="rd-data-liquidity">—</div>
+        </div>
+        <div class="rd-data-col">
+          <div class="rd-data-label">MCAP</div>
+          <div class="rd-data-value" id="rd-data-marketcap">—</div>
+        </div>
+        <div class="rd-data-col">
+          <div class="rd-data-label">AGE</div>
+          <div class="rd-data-value" id="rd-data-age">—</div>
+        </div>
+      </div>
+
+      <!-- Hidden legacy refs (kept for index.ts compatibility, not visible) -->
+      <span id="score-value" class="hidden">--</span>
+      <span id="risk-label" class="hidden"></span>
+      <span id="confidence-badge" class="hidden"></span>
+      <span id="analyzed-at" class="hidden"></span>
+      <div id="score-donut" class="hidden"><div id="score-donut-ring"></div></div>
+      <div id="subscores-container" class="hidden">
+        <div class="subscore-row" id="subscore-contract"><span class="subscore-label">Contract</span><div class="subscore-bar-wrapper"><div class="subscore-bar" id="subscore-contract-bar"></div></div><span id="subscore-contract-value">--/100</span></div>
+        <div class="subscore-row" id="subscore-marketStructure"><span class="subscore-label">Market</span><div class="subscore-bar-wrapper"><div class="subscore-bar" id="subscore-marketStructure-bar"></div></div><span id="subscore-marketStructure-value">--/100</span></div>
+        <div class="subscore-row" id="subscore-behavior"><span class="subscore-label">Behavior</span><div class="subscore-bar-wrapper"><div class="subscore-bar" id="subscore-behavior-bar"></div></div><span id="subscore-behavior-value">--/100</span></div>
+      </div>
+      <div id="reasons-container" class="hidden"><h2>Top Concerns</h2><ul id="reasons-list"></ul></div>
+      <div id="watchlist-error" class="hidden"></div>
     </div>
 
     <div id="account-screen" class="screen hidden">
@@ -254,12 +286,12 @@
       </div>
     </div>
 
-    <div class="disclaimer">
-      <p>BarryGuard provides risk indicators based on on-chain data. This is not financial advice. A low risk score does not mean a token is safe. Only invest what you can afford to lose. DYOR.</p>
-      <p class="disclaimer-links">
-        <a href="https://barryguard.com/privacy" target="_blank" rel="noopener noreferrer" class="disclaimer-link">Privacy Policy</a>
+    <div class="rd-disclaimer-bottom">
+      <p class="rd-disclaimer-body">BarryGuard provides risk indicators based on on-chain data. This is not financial advice. A low risk score does not mean a token is safe. Only invest what you can afford to lose. DYOR.</p>
+      <p class="rd-disclaimer-links">
+        <a href="https://barryguard.com/privacy" target="_blank" rel="noopener noreferrer" class="rd-disclaimer-link">Privacy Policy</a>
         &nbsp;·&nbsp;
-        <a href="https://barryguard.com/terms" target="_blank" rel="noopener noreferrer" class="disclaimer-link">Terms of Service</a>
+        <a href="https://barryguard.com/terms" target="_blank" rel="noopener noreferrer" class="rd-disclaimer-link">Terms of Service</a>
       </p>
     </div>
   </div>

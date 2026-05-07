@@ -29,6 +29,7 @@ import {
   renderReasons,
   renderSubscores,
   renderAnalysisFooter,
+  renderRescueDial,
   getExplorerUrl,
 } from './render';
 import { type CheckCategory, CATEGORY_ORDER } from './check-categories';
@@ -1377,7 +1378,7 @@ function renderTokenDetail(score: TokenScore): void {
     }
   }
 
-  // V2 rendering
+  // V2 rendering (legacy hidden refs — kept for back-compat)
   renderSubscores(score);
   if (elements.tokenDetail.reasonsContainer && elements.tokenDetail.reasonsList) {
     renderReasons(score, elements.tokenDetail.reasonsContainer, elements.tokenDetail.reasonsList);
@@ -1386,6 +1387,12 @@ function renderTokenDetail(score: TokenScore): void {
   if (elements.tokenDetail.checksList) {
     renderChecks(score, elements.tokenDetail.checksList, getEffectiveViewerTier(), state.activeCheckCategory);
   }
+
+  // Step 11: Mobile-Design Mirror — composite Rescue-Dial layout
+  // (top-header timestamp, risk pill, triple-concentric rings, 3-col legend,
+  //  verdict band with reasons, HLD/LIQ/MCAP/AGE data strip).
+  renderRescueDial(score, getEffectiveViewerTier());
+
   renderWatchlistState();
 }
 

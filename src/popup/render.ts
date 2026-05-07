@@ -540,13 +540,342 @@ export function renderAnalysisFooter(
     if (cr && (cr === 'high' || cr === 'severe')) {
       const label = cr === 'severe' ? 'Very limited' : 'Limited';
       coverageEl.textContent = `Data quality: ${label}`;
-      coverageEl.className = 'coverage-risk visible';
+      coverageEl.className = 'rd-coverage-risk visible';
     } else if (cr === 'moderate') {
       coverageEl.textContent = 'Data quality: Partial';
-      coverageEl.className = 'coverage-risk moderate visible';
+      coverageEl.className = 'rd-coverage-risk moderate visible';
     } else {
       coverageEl.textContent = '';
-      coverageEl.className = 'coverage-risk';
+      coverageEl.className = 'rd-coverage-risk';
     }
   }
+}
+
+// ─── Mobile-Design Mirror Renderers (Step 11) ────────────────────────────────
+// Mirror src/components/token-check/rescue-dial/* from BarryGuard web app.
+// Each helper is independently exported for testability and to allow
+// renderRescueDial() to compose them in the popup pipeline.
+
+const RD_RISK_ORDER: RiskLevel[] = ['danger', 'high', 'caution', 'moderate', 'low'];
+
+function rdRiskLevelForScore(score: number): RiskLevel {
+  if (score >= 90) return 'low';
+  if (score >= 75) return 'moderate';
+  if (score >= 55) return 'caution';
+  if (score >= 30) return 'high';
+  return 'danger';
+}
+
+function rdSetRiskClass(el: HTMLElement | null, risk: RiskLevel | null, prefix: string): void {
+  if (!el) return;
+  for (const r of RD_RISK_ORDER) el.classList.remove(`${prefix}-${r}`);
+  if (risk) el.classList.add(`${prefix}-${risk}`);
+}
+
+function rdFormatTimestamp(iso: string): string {
+  try {
+    const d = new Date(iso);
+    if (Number.isNaN(d.getTime())) return '';
+    const day = String(d.getUTCDate()).padStart(2, '0');
+    const month = d.toLocaleString('en-US', { month: 'short', timeZone: 'UTC' }).toUpperCase();
+    const hh = String(d.getUTCHours()).padStart(2, '0');
+    const mm = String(d.getUTCMinutes()).padStart(2, '0');
+    return `${day} ${month} · ${hh}:${mm} UTC`;
+  } catch {
+    return '';
+  }
+}
+
+/**
+ * Render the top-header timestamp (UTC, formatted "DD MMM · HH:MM UTC").
+ */
+export function renderTopHeaderTimestamp(analyzedAt: string | undefined): void {
+  const el = document.getElementById('rd-top-timestamp');
+  if (!el) return;
+  el.textContent = analyzedAt ? rdFormatTimestamp(analyzedAt) : '';
+}
+
+/**
+ * Render the risk pill (label + colored dot) and apply risk-class to verdict
+ * band parent.
+ */
+export function renderRiskPill(risk: RiskLevel, riskLabel: string): void {
+  const pill = document.getElementById('score-donut-risk-label');
+  if (!pill) return;
+  const text = pill.querySelector<HTMLElement>('.rd-risk-pill-text');
+  if (text) text.textContent = (riskLabel || risk).toUpperCase();
+  pill.classList.remove('rd-risk-pill');
+  pill.classList.add('rd-risk-pill');
+  rdSetRiskClass(pill, risk, 'risk');
+}
+
+/**
+ * Render the SVG triple-concentric rings inside #rd-rings.
+ * Outer ring = Contract, middle = Market, inner = Behavior.
+ * Disabled (null) subscores render as gray track only.
+ */
+export function renderTripleRings(
+  score: number,
+  subscores: { contract?: number | null; market?: number | null; behavior?: number | null },
+): void {
+  const host = document.getElementById('rd-rings');
+  if (!host) return;
+
+  const SIZE = 220;
+  const CX = SIZE / 2;
+  const CY = SIZE / 2;
+  const GAP = 0.04;
+  const NS = 'http://www.w3.org/2000/svg';
+
+  const RINGS: Array<{ r: number; w: number; key: 'contract' | 'market' | 'behavior'; label: string }> = [
+    { r: 92, w: 12, key: 'contract', label: 'Contract subscore' },
+    { r: 74, w: 12, key: 'market', label: 'Market subscore' },
+    { r: 56, w: 12, key: 'behavior', label: 'Behavior subscore' },
+  ];
+
+  const colorVar = (risk: RiskLevel) => `var(--rd-risk-${risk})`;
+
+  const arcPath = (r: number, frac: number): string => {
+    const a0 = -Math.PI / 2 + GAP;
+    const sweep = Math.PI * 2 * (1 - (GAP * 2) / Math.PI);
+    const a1 = a0 + sweep * frac;
+    const x0 = CX + r * Math.cos(a0);
+    const y0 = CY + r * Math.sin(a0);
+    const x1 = CX + r * Math.cos(a1);
+    const y1 = CY + r * Math.sin(a1);
+    const large = sweep * frac > Math.PI ? 1 : 0;
+    return `M${x0},${y0} A${r},${r} 0 ${large} 1 ${x1},${y1}`;
+  };
+
+  const trackPath = (r: number): string => {
+    const a0 = -Math.PI / 2 + GAP;
+    const a1 = a0 + Math.PI * 2 - GAP * 2;
+    const x0 = CX + r * Math.cos(a0);
+    const y0 = CY + r * Math.sin(a0);
+    const x1 = CX + r * Math.cos(a1);
+    const y1 = CY + r * Math.sin(a1);
+    return `M${x0},${y0} A${r},${r} 0 1 1 ${x1},${y1}`;
+  };
+
+  // Build SVG from scratch each render to avoid stale arcs.
+  host.innerHTML = '';
+  const svg = document.createElementNS(NS, 'svg');
+  svg.setAttribute('width', String(SIZE));
+  svg.setAttribute('height', String(SIZE));
+  svg.setAttribute('viewBox', `0 0 ${SIZE} ${SIZE}`);
+  svg.setAttribute('role', 'img');
+  svg.setAttribute('aria-label', `Risk score ${score} out of 100`);
+
+  for (const ring of RINGS) {
+    const raw = subscores[ring.key];
+    const hasValue = raw != null && Number.isFinite(raw);
+    const v = hasValue ? Math.max(0, Math.min(100, raw as number)) : 0;
+    const frac = hasValue ? v / 100 : 0;
+    const trackEl = document.createElementNS(NS, 'path');
+    trackEl.setAttribute('d', trackPath(ring.r));
+    trackEl.setAttribute('stroke', 'var(--rd-line-strong)');
+    trackEl.setAttribute('stroke-width', String(ring.w));
+    trackEl.setAttribute('fill', 'none');
+    trackEl.setAttribute('stroke-linecap', 'round');
+    svg.appendChild(trackEl);
+
+    if (hasValue && frac > 0) {
+      const arc = document.createElementNS(NS, 'path');
+      arc.setAttribute('d', arcPath(ring.r, frac));
+      arc.setAttribute('stroke', colorVar(rdRiskLevelForScore(v)));
+      arc.setAttribute('stroke-width', String(ring.w));
+      arc.setAttribute('fill', 'none');
+      arc.setAttribute('stroke-linecap', 'round');
+      svg.appendChild(arc);
+    }
+  }
+
+  // Center score number
+  const txt = document.createElementNS(NS, 'text');
+  txt.setAttribute('x', String(CX));
+  txt.setAttribute('y', String(CY - 4));
+  txt.setAttribute('text-anchor', 'middle');
+  txt.setAttribute('fill', 'var(--rd-ink)');
+  txt.setAttribute('font-size', '40');
+  txt.setAttribute('font-weight', '700');
+  txt.setAttribute('letter-spacing', '-1.5');
+  txt.textContent = String(Number.isFinite(score) ? Math.round(score) : 0);
+  svg.appendChild(txt);
+
+  const sub = document.createElementNS(NS, 'text');
+  sub.setAttribute('x', String(CX));
+  sub.setAttribute('y', String(CY + 14));
+  sub.setAttribute('text-anchor', 'middle');
+  sub.setAttribute('fill', 'var(--rd-ink-mute)');
+  sub.setAttribute('font-size', '9.5');
+  sub.setAttribute('font-weight', '600');
+  sub.setAttribute('letter-spacing', '2');
+  sub.textContent = 'SCORE / 100';
+  svg.appendChild(sub);
+
+  host.appendChild(svg);
+}
+
+/**
+ * Render the 3-column legend (Contract/Market/Behavior subscores).
+ * Each column has a top rule colored by its risk level + value/100.
+ */
+export function renderLegendValues(
+  subscores: { contract?: number | null; market?: number | null; behavior?: number | null },
+): void {
+  const set = (key: 'contract' | 'market' | 'behavior') => {
+    const raw = subscores[key];
+    const hasValue = raw != null && Number.isFinite(raw);
+    const v = hasValue ? Math.round(Math.max(0, Math.min(100, raw as number))) : null;
+    const valueEl = document.getElementById(`rd-legend-${key}-value`);
+    const col = document.querySelector<HTMLElement>(`.rd-legend-col[data-key="${key}"]`);
+    if (valueEl) valueEl.textContent = v == null ? 'n/a' : String(v);
+    if (col) {
+      col.classList.toggle('is-disabled', !hasValue);
+      rdSetRiskClass(col, hasValue ? rdRiskLevelForScore(v as number) : null, 'risk');
+    }
+  };
+  set('contract');
+  set('market');
+  set('behavior');
+}
+
+/**
+ * Render the verdict band (risk-headline + reasons list).
+ * Apply risk-class to band parent for left-border + dot/headline color.
+ */
+export function renderVerdictBand(
+  risk: RiskLevel,
+  riskLabel: string,
+  reasons: string[] | undefined | null,
+  resolvedTier: string | undefined,
+): void {
+  const band = document.getElementById('rd-verdict-band');
+  const head = document.getElementById('rd-verdict-headline');
+  const list = document.getElementById('rd-verdict-reasons');
+  if (band) rdSetRiskClass(band, risk, 'risk');
+  if (head) head.textContent = (riskLabel || risk).toUpperCase();
+  if (!list) return;
+  list.innerHTML = '';
+  const all = Array.isArray(reasons) ? reasons : [];
+  const visibleLimit = resolvedTier === 'pro' || resolvedTier === 'rescue_pass' ? 8 : 5;
+  for (const reason of all.slice(0, visibleLimit)) {
+    const li = document.createElement('li');
+    const span = document.createElement('span');
+    span.textContent = reason;
+    li.appendChild(span);
+    list.appendChild(li);
+  }
+}
+
+function rdCompactNumber(n: number | null | undefined, opts?: { currency?: boolean }): string {
+  if (n == null || !Number.isFinite(n)) return '—';
+  const prefix = opts?.currency ? '$' : '';
+  const abs = Math.abs(n);
+  if (abs >= 1_000_000_000) return `${prefix}${(n / 1_000_000_000).toFixed(1)}B`;
+  if (abs >= 1_000_000) return `${prefix}${(n / 1_000_000).toFixed(1)}M`;
+  if (abs >= 1_000) return `${prefix}${(n / 1_000).toFixed(1)}K`;
+  return `${prefix}${Math.round(n)}`;
+}
+
+function rdFormatAge(check: CheckResult | undefined): string {
+  if (!check) return '—';
+  const desc = String(check.description ?? '').trim();
+  const m = desc.match(/(\d+(?:\.\d+)?)\s*(second|sec|min|minute|hour|day|week|month|year)s?/i);
+  if (m) {
+    const num = parseFloat(m[1]);
+    const unit = m[2].toLowerCase();
+    const map: Record<string, string> = {
+      second: 's', sec: 's', min: 'm', minute: 'm',
+      hour: 'h', day: 'd', week: 'w', month: 'mo', year: 'y',
+    };
+    return `${Math.round(num)}${map[unit] ?? ''}`;
+  }
+  if (typeof check.value === 'number' && Number.isFinite(check.value)) {
+    const s = check.value;
+    if (s >= 86400) return `${Math.floor(s / 86400)}d`;
+    if (s >= 3600) return `${Math.floor(s / 3600)}h`;
+    if (s >= 60) return `${Math.floor(s / 60)}m`;
+    return `${Math.floor(s)}s`;
+  }
+  return desc || '—';
+}
+
+/**
+ * Render the bottom data strip (HLD / LIQ / MCAP / AGE).
+ * Pulls values from score.checks where available — falls back to '—'.
+ */
+export function renderDataStrip(score: TokenScore): void {
+  const checks = score.checks ?? {};
+
+  const holderCheck = checks.holderCount;
+  let holders: number | null = null;
+  if (holderCheck) {
+    if (typeof holderCheck.value === 'number') holders = holderCheck.value;
+    else {
+      const m = String(holderCheck.description ?? '').match(/(\d[\d,]*)\s*(?:Wallets|holders|wallets)/i);
+      if (m) holders = parseInt(m[1].replace(/,/g, ''), 10);
+    }
+  }
+
+  const liqCheck = checks.liquidityDepth;
+  let liquidity: number | null = null;
+  if (liqCheck) {
+    if (typeof liqCheck.value === 'number') liquidity = liqCheck.value;
+    else {
+      const m = String(liqCheck.description ?? '').match(/\$?([\d.,]+)\s*([KMB])?/i);
+      if (m) {
+        let v = parseFloat(m[1].replace(/,/g, ''));
+        const mult = m[2]?.toUpperCase();
+        if (mult === 'K') v *= 1_000;
+        else if (mult === 'M') v *= 1_000_000;
+        else if (mult === 'B') v *= 1_000_000_000;
+        liquidity = Number.isFinite(v) ? v : null;
+      }
+    }
+  }
+
+  const mcapCheck = checks.priceImpact;
+  let marketCap: number | null = null;
+  if (mcapCheck) {
+    const m = String(mcapCheck.description ?? '').match(/\$?([\d.,]+)\s*([KMB])?\s*(?:market cap|mcap|MC)/i);
+    if (m) {
+      let v = parseFloat(m[1].replace(/,/g, ''));
+      const mult = m[2]?.toUpperCase();
+      if (mult === 'K') v *= 1_000;
+      else if (mult === 'M') v *= 1_000_000;
+      else if (mult === 'B') v *= 1_000_000_000;
+      marketCap = Number.isFinite(v) ? v : null;
+    }
+  }
+
+  const setText = (id: string, value: string) => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = value;
+  };
+  setText('rd-data-holders', rdCompactNumber(holders));
+  setText('rd-data-liquidity', rdCompactNumber(liquidity, { currency: true }));
+  setText('rd-data-marketcap', rdCompactNumber(marketCap, { currency: true }));
+  setText('rd-data-age', rdFormatAge(checks.tokenAge));
+}
+
+/**
+ * Composite Mobile-Design renderer — orchestrates all rd-* sections.
+ * Call this from the popup after a token score is loaded.
+ */
+export function renderRescueDial(score: TokenScore, resolvedTier?: string): void {
+  const risk = score.risk ?? getRiskLevel(score.score ?? 0);
+  const riskLabel = risk;
+  const subscores = {
+    contract: score.subscores?.contract ?? null,
+    market: score.subscores?.marketStructure ?? null,
+    behavior: score.subscores?.behavior ?? null,
+  };
+
+  renderTopHeaderTimestamp(score.analyzedAt);
+  renderRiskPill(risk, riskLabel);
+  renderTripleRings(score.score ?? 0, subscores);
+  renderLegendValues(subscores);
+  renderVerdictBand(risk, riskLabel, score.reasons, resolvedTier);
+  renderDataStrip(score);
 }
