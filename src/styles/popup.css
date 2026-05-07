@@ -1933,6 +1933,15 @@ body {
   z-index: 2;
 }
 
+.rd-brand-logo {
+  border-radius: 6px;
+  display: block;
+  flex-shrink: 0;
+  height: 28px;
+  object-fit: contain;
+  width: 28px;
+}
+
 .rd-barry-mark {
   background: repeating-linear-gradient(135deg, var(--rd-panel-2) 0 4px, var(--rd-panel) 4px 8px);
   border: 1px solid var(--rd-line);
