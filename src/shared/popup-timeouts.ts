@@ -1,8 +1,8 @@
-import { REQUEST_TIMEOUT_MS } from './api-client';
+import { ANALYSIS_REQUEST_TIMEOUT_MS, REQUEST_TIMEOUT_MS } from './api-client';
 
 export let POPUP_DEFAULT_MESSAGE_TIMEOUT_MS = 2500;
 export let POPUP_AUTH_REQUEST_TIMEOUT_MS = REQUEST_TIMEOUT_MS + 3000;
-export let POPUP_ANALYZE_REQUEST_TIMEOUT_MS = REQUEST_TIMEOUT_MS + 3000;
+export let POPUP_ANALYZE_REQUEST_TIMEOUT_MS = ANALYSIS_REQUEST_TIMEOUT_MS + 3000;
 
 export function updatePopupTimeouts(args: {
   localBackgroundTimeoutMs?: number;
@@ -18,6 +18,6 @@ export function updatePopupTimeouts(args: {
   if (typeof nextExtra === 'number' && Number.isFinite(nextExtra) && nextExtra >= 0) {
     const extra = Math.floor(nextExtra);
     POPUP_AUTH_REQUEST_TIMEOUT_MS = REQUEST_TIMEOUT_MS + extra;
-    POPUP_ANALYZE_REQUEST_TIMEOUT_MS = REQUEST_TIMEOUT_MS + extra;
+    POPUP_ANALYZE_REQUEST_TIMEOUT_MS = ANALYSIS_REQUEST_TIMEOUT_MS + extra;
   }
 }

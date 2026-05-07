@@ -1,6 +1,6 @@
 // tests/shared/api-client.test.ts
 import { describe, it, expect, beforeEach, vi } from 'vitest';
-import { BarryGuardApiClient, REQUEST_TIMEOUT_MS } from '../../src/shared/api-client';
+import { BarryGuardApiClient, ANALYSIS_REQUEST_TIMEOUT_MS, REQUEST_TIMEOUT_MS } from '../../src/shared/api-client';
 
 const mockFetch = vi.fn();
 vi.stubGlobal('fetch', mockFetch);
@@ -205,6 +205,7 @@ describe('BarryGuardApiClient', () => {
 
   it('exports the HTTP timeout contract used by popup timeout budgeting', () => {
     expect(REQUEST_TIMEOUT_MS).toBe(12000);
+    expect(ANALYSIS_REQUEST_TIMEOUT_MS).toBe(65000);
   });
 
   it('does not set errorCode when error body has no code field', async () => {

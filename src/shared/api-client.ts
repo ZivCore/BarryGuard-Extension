@@ -3,6 +3,11 @@ import type { ApiErrorType, ApiResponse, AuthToken, TokenScore, UserProfile, Wat
 import { getApiBaseUrl } from './runtime-config';
 
 export const REQUEST_TIMEOUT_MS = 12000;
+export const ANALYSIS_REQUEST_TIMEOUT_MS = 65000;
+
+type ApiRequestInit = RequestInit & {
+  timeoutMs?: number;
+};
 
 export class BarryGuardApiClient {
   private authToken: AuthToken | null = null;
@@ -19,13 +24,14 @@ export class BarryGuardApiClient {
     this.authToken = null;
   }
 
-  private async request<T>(path: string, options: RequestInit = {}): Promise<ApiResponse<T>> {
+  private async request<T>(path: string, options: ApiRequestInit = {}): Promise<ApiResponse<T>> {
+    const { timeoutMs = REQUEST_TIMEOUT_MS, ...fetchOptions } = options;
     const baseUrl = getApiBaseUrl();
     const extensionVersion = (typeof chrome !== 'undefined' && chrome?.runtime?.getManifest?.()?.version) ?? '';
     const headers: Record<string, string> = {
       'Content-Type': 'application/json',
       ...(extensionVersion ? { 'X-Extension-Version': extensionVersion } : {}),
-      ...(options.headers as Record<string, string>),
+      ...(fetchOptions.headers as Record<string, string>),
     };
     if (this.authToken) {
       headers['Authorization'] = `Bearer ${this.authToken.access_token}`;
@@ -34,9 +40,9 @@ export class BarryGuardApiClient {
     let timeoutId: ReturnType<typeof setTimeout> | null = null;
     try {
       const controller = new AbortController();
-      timeoutId = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS);
+      timeoutId = setTimeout(() => controller.abort(), timeoutMs);
       const res = await fetch(`${baseUrl}${path}`, {
-        ...options,
+        ...fetchOptions,
         credentials: 'include',
         headers,
         signal: controller.signal,
@@ -128,6 +134,7 @@ export class BarryGuardApiClient {
   analyzeToken(address: string, chain = 'solana', sessionId?: string): Promise<ApiResponse<TokenScore>> {
     return this.request<TokenScore>('/analyze', {
       method: 'POST',
+      timeoutMs: ANALYSIS_REQUEST_TIMEOUT_MS,
       body: JSON.stringify({ address, chain, mode: 'essential', source: 'content_script', ...(sessionId ? { sessionId } : {}) }),
     });
   }
@@ -150,6 +157,7 @@ export class BarryGuardApiClient {
   analyzeTokenList(addresses: string[], chain = 'solana', force = false, telemetrySessionIds?: Record<string, string>): Promise<ApiResponse<unknown>> {
     return this.request<unknown>('/analyze-list', {
       method: 'POST',
+      timeoutMs: ANALYSIS_REQUEST_TIMEOUT_MS,
       body: JSON.stringify({
         addresses,
         chain,

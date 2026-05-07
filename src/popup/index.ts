@@ -1745,7 +1745,7 @@ async function refreshSelectedTokenScore(): Promise<void> {
   const response = await sendMessage<TokenScore>({
     type: 'GET_TOKEN_SCORE',
     payload: selectedToken.address,
-  }, 5000);
+  }, POPUP_ANALYZE_REQUEST_TIMEOUT_MS);
 
   if (!response.success || !response.data) {
     if (needsInitialFetch || shouldRetryScoreRefresh(response)) {
