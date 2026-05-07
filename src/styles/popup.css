@@ -1,156 +1,156 @@
 :root {
-  /* Literal color tokens generated from the pre-migration palette. */
-  --popup-color-14314f: color(srgb 0.0784 0.1922 0.3098);
-  --popup-color-15803d: color(srgb 0.0824 0.5020 0.2392);
-  --popup-color-173b63: color(srgb 0.0902 0.2314 0.3882);
-  --popup-color-1a3a5c: color(srgb 0.1020 0.2275 0.3608);
-  --popup-color-1c2740: color(srgb 0.1098 0.1529 0.2510);
-  --popup-color-1f5a35: color(srgb 0.1216 0.3529 0.2078);
-  --popup-color-214f7e: color(srgb 0.1294 0.3098 0.4941);
-  --popup-color-243342: color(srgb 0.1412 0.2000 0.2588);
-  --popup-color-244f7d: color(srgb 0.1412 0.3098 0.4902);
-  --popup-color-28588a: color(srgb 0.1569 0.3451 0.5412);
-  --popup-color-2d7a4f: color(srgb 0.1765 0.4784 0.3098);
-  --popup-color-335845: color(srgb 0.2000 0.3451 0.2706);
-  --popup-color-476355: color(srgb 0.2784 0.3882 0.3333);
-  --popup-color-4a5250: color(srgb 0.2902 0.3216 0.3137);
-  --popup-color-4d7c0f: color(srgb 0.3020 0.4863 0.0588);
-  --popup-color-5a6872: color(srgb 0.3529 0.4078 0.4471);
-  --popup-color-5a9a6b: color(srgb 0.3529 0.6039 0.4196);
-  --popup-color-7b8890: color(srgb 0.4824 0.5333 0.5647);
-  --popup-color-7d6255: color(srgb 0.4902 0.3843 0.3333);
-  --popup-color-86612a: color(srgb 0.5255 0.3804 0.1647);
-  --popup-color-8f3129: color(srgb 0.5608 0.1922 0.1608);
-  --popup-color-8f9aa3: color(srgb 0.5608 0.6039 0.6392);
-  --popup-color-991b1b: color(srgb 0.6000 0.1059 0.1059);
-  --popup-color-9f231a: color(srgb 0.6235 0.1373 0.1020);
-  --popup-color-a82c24: color(srgb 0.6588 0.1725 0.1412);
-  --popup-color-b45309: color(srgb 0.7059 0.3255 0.0353);
-  --popup-color-b88946: color(srgb 0.7216 0.5373 0.2745);
-  --popup-color-be123c: color(srgb 0.7451 0.0706 0.2353);
-  --popup-color-be443c: color(srgb 0.7451 0.2667 0.2353);
-  --popup-color-c2410c: color(srgb 0.7608 0.2549 0.0471);
-  --popup-color-c5392f: color(srgb 0.7725 0.2235 0.1843);
-  --popup-color-d44a3f: color(srgb 0.8314 0.2902 0.2471);
-  --popup-color-d4722a: color(srgb 0.8314 0.4471 0.1647);
-  --popup-color-dbe8df: color(srgb 0.8588 0.9098 0.8745);
-  --popup-color-e4dac9: color(srgb 0.8941 0.8549 0.7882);
-  --popup-color-ede6d8: color(srgb 0.9294 0.9020 0.8471);
-  --popup-color-f0eee9: color(srgb 0.9412 0.9333 0.9137);
-  --popup-color-f2d9d1: color(srgb 0.9490 0.8510 0.8196);
-  --popup-color-f3ede0: color(srgb 0.9529 0.9294 0.8784);
-  --popup-color-f4e5c2: color(srgb 0.9569 0.8980 0.7608);
-  --popup-color-f6f2e8: color(srgb 0.9647 0.9490 0.9098);
-  --popup-color-f7f2eb: color(srgb 0.9686 0.9490 0.9216);
-  --popup-color-f9f6f0: color(srgb 0.9765 0.9647 0.9412);
-  --popup-color-fbf9f4: color(srgb 0.9843 0.9765 0.9569);
-  --popup-color-fecaca: color(srgb 0.9961 0.7922 0.7922);
-  --popup-color-fef2f2: color(srgb 0.9961 0.9490 0.9490);
-  --popup-color-fff: color(srgb 1.0000 1.0000 1.0000);
-  --popup-color-fff9f2: color(srgb 1.0000 0.9765 0.9490);
-  --popup-color-ffffff: color(srgb 1.0000 1.0000 1.0000);
-  --popup-color-rgba-0-0-0-0-06: color-mix(in srgb, color(srgb 0.0000 0.0000 0.0000) 6.00%, transparent);
-  --popup-color-rgba-134-97-42-0-35: color-mix(in srgb, color(srgb 0.5255 0.3804 0.1647) 35.00%, transparent);
-  --popup-color-rgba-143-49-41-0-35: color-mix(in srgb, color(srgb 0.5608 0.1922 0.1608) 35.00%, transparent);
-  --popup-color-rgba-180-83-9-0-10: color-mix(in srgb, color(srgb 0.7059 0.3255 0.0353) 10.00%, transparent);
-  --popup-color-rgba-184-137-70-0-12: color-mix(in srgb, color(srgb 0.7216 0.5373 0.2745) 12.00%, transparent);
-  --popup-color-rgba-184-137-70-0-16: color-mix(in srgb, color(srgb 0.7216 0.5373 0.2745) 16.00%, transparent);
-  --popup-color-rgba-184-137-70-0-18: color-mix(in srgb, color(srgb 0.7216 0.5373 0.2745) 18.00%, transparent);
-  --popup-color-rgba-184-137-70-0-24: color-mix(in srgb, color(srgb 0.7216 0.5373 0.2745) 24.00%, transparent);
-  --popup-color-rgba-185-59-52-0-12: color-mix(in srgb, color(srgb 0.7255 0.2314 0.2039) 12.00%, transparent);
-  --popup-color-rgba-185-59-52-0-16: color-mix(in srgb, color(srgb 0.7255 0.2314 0.2039) 16.00%, transparent);
-  --popup-color-rgba-185-59-52-0-18: color-mix(in srgb, color(srgb 0.7255 0.2314 0.2039) 18.00%, transparent);
-  --popup-color-rgba-185-59-52-0-24: color-mix(in srgb, color(srgb 0.7255 0.2314 0.2039) 24.00%, transparent);
-  --popup-color-rgba-186-59-52-0-14: color-mix(in srgb, color(srgb 0.7294 0.2314 0.2039) 14.00%, transparent);
-  --popup-color-rgba-190-18-60-0-10: color-mix(in srgb, color(srgb 0.7451 0.0706 0.2353) 10.00%, transparent);
-  --popup-color-rgba-194-65-12-0-10: color-mix(in srgb, color(srgb 0.7608 0.2549 0.0471) 10.00%, transparent);
-  --popup-color-rgba-197-57-47-0-05: color-mix(in srgb, color(srgb 0.7725 0.2235 0.1843) 5.00%, transparent);
-  --popup-color-rgba-197-57-47-0-06: color-mix(in srgb, color(srgb 0.7725 0.2235 0.1843) 6.00%, transparent);
-  --popup-color-rgba-197-57-47-0-08: color-mix(in srgb, color(srgb 0.7725 0.2235 0.1843) 8.00%, transparent);
-  --popup-color-rgba-197-57-47-0-1: color-mix(in srgb, color(srgb 0.7725 0.2235 0.1843) 10.00%, transparent);
-  --popup-color-rgba-197-57-47-0-10: color-mix(in srgb, color(srgb 0.7725 0.2235 0.1843) 10.00%, transparent);
-  --popup-color-rgba-197-57-47-0-16: color-mix(in srgb, color(srgb 0.7725 0.2235 0.1843) 16.00%, transparent);
-  --popup-color-rgba-197-57-47-0-24: color-mix(in srgb, color(srgb 0.7725 0.2235 0.1843) 24.00%, transparent);
-  --popup-color-rgba-197-57-47-0-26: color-mix(in srgb, color(srgb 0.7725 0.2235 0.1843) 26.00%, transparent);
-  --popup-color-rgba-197-57-47-0-3: color-mix(in srgb, color(srgb 0.7725 0.2235 0.1843) 30.00%, transparent);
-  --popup-color-rgba-197-57-47-0-35: color-mix(in srgb, color(srgb 0.7725 0.2235 0.1843) 35.00%, transparent);
-  --popup-color-rgba-197-57-47-0-72: color-mix(in srgb, color(srgb 0.7725 0.2235 0.1843) 72.00%, transparent);
-  --popup-color-rgba-21-128-61-0-10: color-mix(in srgb, color(srgb 0.0824 0.5020 0.2392) 10.00%, transparent);
-  --popup-color-rgba-214-231-221-0-88: color-mix(in srgb, color(srgb 0.8392 0.9059 0.8667) 88.00%, transparent);
-  --popup-color-rgba-23-59-99-0-06: color-mix(in srgb, color(srgb 0.0902 0.2314 0.3882) 6.00%, transparent);
-  --popup-color-rgba-23-59-99-0-07: color-mix(in srgb, color(srgb 0.0902 0.2314 0.3882) 7.00%, transparent);
-  --popup-color-rgba-23-59-99-0-08: color-mix(in srgb, color(srgb 0.0902 0.2314 0.3882) 8.00%, transparent);
-  --popup-color-rgba-23-59-99-0-09: color-mix(in srgb, color(srgb 0.0902 0.2314 0.3882) 9.00%, transparent);
-  --popup-color-rgba-23-59-99-0-1: color-mix(in srgb, color(srgb 0.0902 0.2314 0.3882) 10.00%, transparent);
-  --popup-color-rgba-23-59-99-0-10: color-mix(in srgb, color(srgb 0.0902 0.2314 0.3882) 10.00%, transparent);
-  --popup-color-rgba-23-59-99-0-12: color-mix(in srgb, color(srgb 0.0902 0.2314 0.3882) 12.00%, transparent);
-  --popup-color-rgba-23-59-99-0-14: color-mix(in srgb, color(srgb 0.0902 0.2314 0.3882) 14.00%, transparent);
-  --popup-color-rgba-23-59-99-0-16: color-mix(in srgb, color(srgb 0.0902 0.2314 0.3882) 16.00%, transparent);
-  --popup-color-rgba-23-59-99-0-18: color-mix(in srgb, color(srgb 0.0902 0.2314 0.3882) 18.00%, transparent);
-  --popup-color-rgba-23-59-99-0-22: color-mix(in srgb, color(srgb 0.0902 0.2314 0.3882) 22.00%, transparent);
-  --popup-color-rgba-23-59-99-0-24: color-mix(in srgb, color(srgb 0.0902 0.2314 0.3882) 24.00%, transparent);
-  --popup-color-rgba-23-59-99-0-34: color-mix(in srgb, color(srgb 0.0902 0.2314 0.3882) 34.00%, transparent);
-  --popup-color-rgba-23-59-99-0-94: color-mix(in srgb, color(srgb 0.0902 0.2314 0.3882) 94.00%, transparent);
-  --popup-color-rgba-237-230-216-0-85: color-mix(in srgb, color(srgb 0.9294 0.9020 0.8471) 85.00%, transparent);
-  --popup-color-rgba-241-231-216-0-88: color-mix(in srgb, color(srgb 0.9451 0.9059 0.8471) 88.00%, transparent);
-  --popup-color-rgba-242-217-209-0-68: color-mix(in srgb, color(srgb 0.9490 0.8510 0.8196) 68.00%, transparent);
-  --popup-color-rgba-242-217-209-0-86: color-mix(in srgb, color(srgb 0.9490 0.8510 0.8196) 86.00%, transparent);
-  --popup-color-rgba-245-229-194-0-95: color-mix(in srgb, color(srgb 0.9608 0.8980 0.7608) 95.00%, transparent);
-  --popup-color-rgba-245-236-223-0-9: color-mix(in srgb, color(srgb 0.9608 0.9255 0.8745) 90.00%, transparent);
-  --popup-color-rgba-24-60-100-0-92: color-mix(in srgb, color(srgb 0.0941 0.2353 0.3922) 92.00%, transparent);
-  --popup-color-rgba-246-237-223-0-92: color-mix(in srgb, color(srgb 0.9647 0.9294 0.8745) 92.00%, transparent);
-  --popup-color-rgba-246-237-223-0-94: color-mix(in srgb, color(srgb 0.9647 0.9294 0.8745) 94.00%, transparent);
-  --popup-color-rgba-247-242-235-0-82: color-mix(in srgb, color(srgb 0.9686 0.9490 0.9216) 82.00%, transparent);
-  --popup-color-rgba-251-246-237-0-96: color-mix(in srgb, color(srgb 0.9843 0.9647 0.9294) 96.00%, transparent);
-  --popup-color-rgba-253-246-232-0-88: color-mix(in srgb, color(srgb 0.9922 0.9647 0.9098) 88.00%, transparent);
-  --popup-color-rgba-255-248-236-0-92: color-mix(in srgb, color(srgb 1.0000 0.9725 0.9255) 92.00%, transparent);
-  --popup-color-rgba-255-248-238-0-95: color-mix(in srgb, color(srgb 1.0000 0.9725 0.9333) 95.00%, transparent);
-  --popup-color-rgba-255-248-238-0-96: color-mix(in srgb, color(srgb 1.0000 0.9725 0.9333) 96.00%, transparent);
-  --popup-color-rgba-255-250-240-0-92: color-mix(in srgb, color(srgb 1.0000 0.9804 0.9412) 92.00%, transparent);
-  --popup-color-rgba-255-250-243-0-92: color-mix(in srgb, color(srgb 1.0000 0.9804 0.9529) 92.00%, transparent);
-  --popup-color-rgba-255-251-244-0-22: color-mix(in srgb, color(srgb 1.0000 0.9843 0.9569) 22.00%, transparent);
-  --popup-color-rgba-255-251-244-0-78: color-mix(in srgb, color(srgb 1.0000 0.9843 0.9569) 78.00%, transparent);
-  --popup-color-rgba-255-251-245-0-92: color-mix(in srgb, color(srgb 1.0000 0.9843 0.9608) 92.00%, transparent);
-  --popup-color-rgba-255-252-246-0-14: color-mix(in srgb, color(srgb 1.0000 0.9882 0.9647) 14.00%, transparent);
-  --popup-color-rgba-255-252-246-0-74: color-mix(in srgb, color(srgb 1.0000 0.9882 0.9647) 74.00%, transparent);
-  --popup-color-rgba-255-252-246-0-8: color-mix(in srgb, color(srgb 1.0000 0.9882 0.9647) 80.00%, transparent);
-  --popup-color-rgba-255-252-246-0-82: color-mix(in srgb, color(srgb 1.0000 0.9882 0.9647) 82.00%, transparent);
-  --popup-color-rgba-255-252-246-0-84: color-mix(in srgb, color(srgb 1.0000 0.9882 0.9647) 84.00%, transparent);
-  --popup-color-rgba-255-252-246-0-86: color-mix(in srgb, color(srgb 1.0000 0.9882 0.9647) 86.00%, transparent);
-  --popup-color-rgba-255-252-246-0-9: color-mix(in srgb, color(srgb 1.0000 0.9882 0.9647) 90.00%, transparent);
-  --popup-color-rgba-255-253-248-0-98: color-mix(in srgb, color(srgb 1.0000 0.9922 0.9725) 98.00%, transparent);
-  --popup-color-rgba-255-255-255-0: color-mix(in srgb, color(srgb 1.0000 1.0000 1.0000) 0.00%, transparent);
-  --popup-color-rgba-255-255-255-0-06: color-mix(in srgb, color(srgb 1.0000 1.0000 1.0000) 6.00%, transparent);
-  --popup-color-rgba-255-255-255-0-1: color-mix(in srgb, color(srgb 1.0000 1.0000 1.0000) 10.00%, transparent);
-  --popup-color-rgba-255-255-255-0-12: color-mix(in srgb, color(srgb 1.0000 1.0000 1.0000) 12.00%, transparent);
-  --popup-color-rgba-255-255-255-0-16: color-mix(in srgb, color(srgb 1.0000 1.0000 1.0000) 16.00%, transparent);
-  --popup-color-rgba-255-255-255-0-2: color-mix(in srgb, color(srgb 1.0000 1.0000 1.0000) 20.00%, transparent);
-  --popup-color-rgba-255-255-255-0-22: color-mix(in srgb, color(srgb 1.0000 1.0000 1.0000) 22.00%, transparent);
-  --popup-color-rgba-255-255-255-0-26: color-mix(in srgb, color(srgb 1.0000 1.0000 1.0000) 26.00%, transparent);
-  --popup-color-rgba-255-255-255-0-9: color-mix(in srgb, color(srgb 1.0000 1.0000 1.0000) 90.00%, transparent);
-  --popup-color-rgba-255-255-255-0-92: color-mix(in srgb, color(srgb 1.0000 1.0000 1.0000) 92.00%, transparent);
-  --popup-color-rgba-255-255-255-0-95: color-mix(in srgb, color(srgb 1.0000 1.0000 1.0000) 95.00%, transparent);
-  --popup-color-rgba-255-255-255-0-96: color-mix(in srgb, color(srgb 1.0000 1.0000 1.0000) 96.00%, transparent);
-  --popup-color-rgba-255-255-255-0-98: color-mix(in srgb, color(srgb 1.0000 1.0000 1.0000) 98.00%, transparent);
-  --popup-color-rgba-28-39-64-0-55: color-mix(in srgb, color(srgb 0.1098 0.1529 0.2510) 55.00%, transparent);
-  --popup-color-rgba-28-39-64-0-62: color-mix(in srgb, color(srgb 0.1098 0.1529 0.2510) 62.00%, transparent);
-  --popup-color-rgba-28-39-64-0-78: color-mix(in srgb, color(srgb 0.1098 0.1529 0.2510) 78.00%, transparent);
-  --popup-color-rgba-39-51-60-0-07: color-mix(in srgb, color(srgb 0.1529 0.2000 0.2353) 7.00%, transparent);
-  --popup-color-rgba-39-51-60-0-12: color-mix(in srgb, color(srgb 0.1529 0.2000 0.2353) 12.00%, transparent);
-  --popup-color-rgba-39-51-60-0-14: color-mix(in srgb, color(srgb 0.1529 0.2000 0.2353) 14.00%, transparent);
-  --popup-color-rgba-39-51-60-0-18: color-mix(in srgb, color(srgb 0.1529 0.2000 0.2353) 18.00%, transparent);
-  --popup-color-rgba-39-51-60-0-22: color-mix(in srgb, color(srgb 0.1529 0.2000 0.2353) 22.00%, transparent);
-  --popup-color-rgba-43-76-112-0-88: color-mix(in srgb, color(srgb 0.1686 0.2980 0.4392) 88.00%, transparent);
-  --popup-color-rgba-51-88-69-0-35: color-mix(in srgb, color(srgb 0.2000 0.3451 0.2706) 35.00%, transparent);
-  --popup-color-rgba-58-122-80-0-18: color-mix(in srgb, color(srgb 0.2275 0.4784 0.3137) 18.00%, transparent);
-  --popup-color-rgba-60-77-92-0-14: color-mix(in srgb, color(srgb 0.2353 0.3020 0.3608) 14.00%, transparent);
-  --popup-color-rgba-71-99-85-0-10: color-mix(in srgb, color(srgb 0.2784 0.3882 0.3333) 10.00%, transparent);
-  --popup-color-rgba-71-99-85-0-12: color-mix(in srgb, color(srgb 0.2784 0.3882 0.3333) 12.00%, transparent);
-  --popup-color-rgba-71-99-85-0-16: color-mix(in srgb, color(srgb 0.2784 0.3882 0.3333) 16.00%, transparent);
-  --popup-color-rgba-71-99-85-0-22: color-mix(in srgb, color(srgb 0.2784 0.3882 0.3333) 22.00%, transparent);
-  --popup-color-rgba-71-99-85-0-24: color-mix(in srgb, color(srgb 0.2784 0.3882 0.3333) 24.00%, transparent);
-  --popup-color-rgba-71-99-85-0-32: color-mix(in srgb, color(srgb 0.2784 0.3882 0.3333) 32.00%, transparent);
-  --popup-color-rgba-77-124-15-0-10: color-mix(in srgb, color(srgb 0.3020 0.4863 0.0588) 10.00%, transparent);
+  /* Popup palette: keep pre-v1.7.5 colors as readable tokens. */
+  --popup-color-14314f: #14314f;
+  --popup-color-15803d: #15803d;
+  --popup-color-173b63: #173b63;
+  --popup-color-1a3a5c: #1a3a5c;
+  --popup-color-1c2740: #1c2740;
+  --popup-color-1f5a35: #1f5a35;
+  --popup-color-214f7e: #214f7e;
+  --popup-color-243342: #243342;
+  --popup-color-244f7d: #244f7d;
+  --popup-color-28588a: #28588a;
+  --popup-color-2d7a4f: #2d7a4f;
+  --popup-color-335845: #335845;
+  --popup-color-476355: #476355;
+  --popup-color-4a5250: #4a5250;
+  --popup-color-4d7c0f: #4d7c0f;
+  --popup-color-5a6872: #5a6872;
+  --popup-color-5a9a6b: #5a9a6b;
+  --popup-color-7b8890: #7b8890;
+  --popup-color-7d6255: #7d6255;
+  --popup-color-86612a: #86612a;
+  --popup-color-8f3129: #8f3129;
+  --popup-color-8f9aa3: #8f9aa3;
+  --popup-color-991b1b: #991b1b;
+  --popup-color-9f231a: #9f231a;
+  --popup-color-a82c24: #a82c24;
+  --popup-color-b45309: #b45309;
+  --popup-color-b88946: #b88946;
+  --popup-color-be123c: #be123c;
+  --popup-color-be443c: #be443c;
+  --popup-color-c2410c: #c2410c;
+  --popup-color-c5392f: #c5392f;
+  --popup-color-d44a3f: #d44a3f;
+  --popup-color-d4722a: #d4722a;
+  --popup-color-dbe8df: #dbe8df;
+  --popup-color-e4dac9: #e4dac9;
+  --popup-color-ede6d8: #ede6d8;
+  --popup-color-f0eee9: #f0eee9;
+  --popup-color-f2d9d1: #f2d9d1;
+  --popup-color-f3ede0: #f3ede0;
+  --popup-color-f4e5c2: #f4e5c2;
+  --popup-color-f6f2e8: #f6f2e8;
+  --popup-color-f7f2eb: #f7f2eb;
+  --popup-color-f9f6f0: #f9f6f0;
+  --popup-color-fbf9f4: #fbf9f4;
+  --popup-color-fecaca: #fecaca;
+  --popup-color-fef2f2: #fef2f2;
+  --popup-color-fff: #fff;
+  --popup-color-fff9f2: #fff9f2;
+  --popup-color-ffffff: #ffffff;
+  --popup-color-rgba-0-0-0-0-06: rgb(0 0 0 / 6%);
+  --popup-color-rgba-134-97-42-0-35: rgb(134 97 42 / 35%);
+  --popup-color-rgba-143-49-41-0-35: rgb(143 49 41 / 35%);
+  --popup-color-rgba-180-83-9-0-10: rgb(180 83 9 / 10%);
+  --popup-color-rgba-184-137-70-0-12: rgb(184 137 70 / 12%);
+  --popup-color-rgba-184-137-70-0-16: rgb(184 137 70 / 16%);
+  --popup-color-rgba-184-137-70-0-18: rgb(184 137 70 / 18%);
+  --popup-color-rgba-184-137-70-0-24: rgb(184 137 70 / 24%);
+  --popup-color-rgba-185-59-52-0-12: rgb(185 59 52 / 12%);
+  --popup-color-rgba-185-59-52-0-16: rgb(185 59 52 / 16%);
+  --popup-color-rgba-185-59-52-0-18: rgb(185 59 52 / 18%);
+  --popup-color-rgba-185-59-52-0-24: rgb(185 59 52 / 24%);
+  --popup-color-rgba-186-59-52-0-14: rgb(186 59 52 / 14%);
+  --popup-color-rgba-190-18-60-0-10: rgb(190 18 60 / 10%);
+  --popup-color-rgba-194-65-12-0-10: rgb(194 65 12 / 10%);
+  --popup-color-rgba-197-57-47-0-05: rgb(197 57 47 / 5%);
+  --popup-color-rgba-197-57-47-0-06: rgb(197 57 47 / 6%);
+  --popup-color-rgba-197-57-47-0-08: rgb(197 57 47 / 8%);
+  --popup-color-rgba-197-57-47-0-1: rgb(197 57 47 / 10%);
+  --popup-color-rgba-197-57-47-0-10: rgb(197 57 47 / 10%);
+  --popup-color-rgba-197-57-47-0-16: rgb(197 57 47 / 16%);
+  --popup-color-rgba-197-57-47-0-24: rgb(197 57 47 / 24%);
+  --popup-color-rgba-197-57-47-0-26: rgb(197 57 47 / 26%);
+  --popup-color-rgba-197-57-47-0-3: rgb(197 57 47 / 30%);
+  --popup-color-rgba-197-57-47-0-35: rgb(197 57 47 / 35%);
+  --popup-color-rgba-197-57-47-0-72: rgb(197 57 47 / 72%);
+  --popup-color-rgba-21-128-61-0-10: rgb(21 128 61 / 10%);
+  --popup-color-rgba-214-231-221-0-88: rgb(214 231 221 / 88%);
+  --popup-color-rgba-23-59-99-0-06: rgb(23 59 99 / 6%);
+  --popup-color-rgba-23-59-99-0-07: rgb(23 59 99 / 7%);
+  --popup-color-rgba-23-59-99-0-08: rgb(23 59 99 / 8%);
+  --popup-color-rgba-23-59-99-0-09: rgb(23 59 99 / 9%);
+  --popup-color-rgba-23-59-99-0-1: rgb(23 59 99 / 10%);
+  --popup-color-rgba-23-59-99-0-10: rgb(23 59 99 / 10%);
+  --popup-color-rgba-23-59-99-0-12: rgb(23 59 99 / 12%);
+  --popup-color-rgba-23-59-99-0-14: rgb(23 59 99 / 14%);
+  --popup-color-rgba-23-59-99-0-16: rgb(23 59 99 / 16%);
+  --popup-color-rgba-23-59-99-0-18: rgb(23 59 99 / 18%);
+  --popup-color-rgba-23-59-99-0-22: rgb(23 59 99 / 22%);
+  --popup-color-rgba-23-59-99-0-24: rgb(23 59 99 / 24%);
+  --popup-color-rgba-23-59-99-0-34: rgb(23 59 99 / 34%);
+  --popup-color-rgba-23-59-99-0-94: rgb(23 59 99 / 94%);
+  --popup-color-rgba-237-230-216-0-85: rgb(237 230 216 / 85%);
+  --popup-color-rgba-241-231-216-0-88: rgb(241 231 216 / 88%);
+  --popup-color-rgba-242-217-209-0-68: rgb(242 217 209 / 68%);
+  --popup-color-rgba-242-217-209-0-86: rgb(242 217 209 / 86%);
+  --popup-color-rgba-245-229-194-0-95: rgb(245 229 194 / 95%);
+  --popup-color-rgba-245-236-223-0-9: rgb(245 236 223 / 90%);
+  --popup-color-rgba-24-60-100-0-92: rgb(24 60 100 / 92%);
+  --popup-color-rgba-246-237-223-0-92: rgb(246 237 223 / 92%);
+  --popup-color-rgba-246-237-223-0-94: rgb(246 237 223 / 94%);
+  --popup-color-rgba-247-242-235-0-82: rgb(247 242 235 / 82%);
+  --popup-color-rgba-251-246-237-0-96: rgb(251 246 237 / 96%);
+  --popup-color-rgba-253-246-232-0-88: rgb(253 246 232 / 88%);
+  --popup-color-rgba-255-248-236-0-92: rgb(255 248 236 / 92%);
+  --popup-color-rgba-255-248-238-0-95: rgb(255 248 238 / 95%);
+  --popup-color-rgba-255-248-238-0-96: rgb(255 248 238 / 96%);
+  --popup-color-rgba-255-250-240-0-92: rgb(255 250 240 / 92%);
+  --popup-color-rgba-255-250-243-0-92: rgb(255 250 243 / 92%);
+  --popup-color-rgba-255-251-244-0-22: rgb(255 251 244 / 22%);
+  --popup-color-rgba-255-251-244-0-78: rgb(255 251 244 / 78%);
+  --popup-color-rgba-255-251-245-0-92: rgb(255 251 245 / 92%);
+  --popup-color-rgba-255-252-246-0-14: rgb(255 252 246 / 14%);
+  --popup-color-rgba-255-252-246-0-74: rgb(255 252 246 / 74%);
+  --popup-color-rgba-255-252-246-0-8: rgb(255 252 246 / 80%);
+  --popup-color-rgba-255-252-246-0-82: rgb(255 252 246 / 82%);
+  --popup-color-rgba-255-252-246-0-84: rgb(255 252 246 / 84%);
+  --popup-color-rgba-255-252-246-0-86: rgb(255 252 246 / 86%);
+  --popup-color-rgba-255-252-246-0-9: rgb(255 252 246 / 90%);
+  --popup-color-rgba-255-253-248-0-98: rgb(255 253 248 / 98%);
+  --popup-color-rgba-255-255-255-0: rgb(255 255 255 / 0%);
+  --popup-color-rgba-255-255-255-0-06: rgb(255 255 255 / 6%);
+  --popup-color-rgba-255-255-255-0-1: rgb(255 255 255 / 10%);
+  --popup-color-rgba-255-255-255-0-12: rgb(255 255 255 / 12%);
+  --popup-color-rgba-255-255-255-0-16: rgb(255 255 255 / 16%);
+  --popup-color-rgba-255-255-255-0-2: rgb(255 255 255 / 20%);
+  --popup-color-rgba-255-255-255-0-22: rgb(255 255 255 / 22%);
+  --popup-color-rgba-255-255-255-0-26: rgb(255 255 255 / 26%);
+  --popup-color-rgba-255-255-255-0-9: rgb(255 255 255 / 90%);
+  --popup-color-rgba-255-255-255-0-92: rgb(255 255 255 / 92%);
+  --popup-color-rgba-255-255-255-0-95: rgb(255 255 255 / 95%);
+  --popup-color-rgba-255-255-255-0-96: rgb(255 255 255 / 96%);
+  --popup-color-rgba-255-255-255-0-98: rgb(255 255 255 / 98%);
+  --popup-color-rgba-28-39-64-0-55: rgb(28 39 64 / 55%);
+  --popup-color-rgba-28-39-64-0-62: rgb(28 39 64 / 62%);
+  --popup-color-rgba-28-39-64-0-78: rgb(28 39 64 / 78%);
+  --popup-color-rgba-39-51-60-0-07: rgb(39 51 60 / 7%);
+  --popup-color-rgba-39-51-60-0-12: rgb(39 51 60 / 12%);
+  --popup-color-rgba-39-51-60-0-14: rgb(39 51 60 / 14%);
+  --popup-color-rgba-39-51-60-0-18: rgb(39 51 60 / 18%);
+  --popup-color-rgba-39-51-60-0-22: rgb(39 51 60 / 22%);
+  --popup-color-rgba-43-76-112-0-88: rgb(43 76 112 / 88%);
+  --popup-color-rgba-51-88-69-0-35: rgb(51 88 69 / 35%);
+  --popup-color-rgba-58-122-80-0-18: rgb(58 122 80 / 18%);
+  --popup-color-rgba-60-77-92-0-14: rgb(60 77 92 / 14%);
+  --popup-color-rgba-71-99-85-0-10: rgb(71 99 85 / 10%);
+  --popup-color-rgba-71-99-85-0-12: rgb(71 99 85 / 12%);
+  --popup-color-rgba-71-99-85-0-16: rgb(71 99 85 / 16%);
+  --popup-color-rgba-71-99-85-0-22: rgb(71 99 85 / 22%);
+  --popup-color-rgba-71-99-85-0-24: rgb(71 99 85 / 24%);
+  --popup-color-rgba-71-99-85-0-32: rgb(71 99 85 / 32%);
+  --popup-color-rgba-77-124-15-0-10: rgb(77 124 15 / 10%);
 
   /* Mobile-design tokens (Step 11) */
   --paper: var(--popup-color-ede6d8);
@@ -182,6 +182,11 @@
   --warning-text: var(--popup-color-86612a);
   --success-bg: var(--popup-color-dbe8df);
   --success-text: var(--popup-color-335845);
+  --score-danger: var(--popup-color-c5392f);
+  --score-high: var(--popup-color-d4722a);
+  --score-caution: var(--popup-color-b88946);
+  --score-moderate: var(--popup-color-5a9a6b);
+  --score-low: var(--popup-color-2d7a4f);
   --shadow: 0 18px 40px var(--popup-color-rgba-39-51-60-0-14);
 }
 
@@ -969,18 +974,18 @@ body {
 }
 
 /* 5-level risk colors */
-.score-danger { --score-color: var(--popup-color-c5392f); }
-.score-high { --score-color: var(--popup-color-d4722a); }
-.score-caution { --score-color: var(--popup-color-b88946); }
-.score-moderate { --score-color: var(--popup-color-5a9a6b); }
-.score-low { --score-color: var(--popup-color-2d7a4f); }
+.score-danger { --score-color: var(--score-danger); }
+.score-high { --score-color: var(--score-high); }
+.score-caution { --score-color: var(--score-caution); }
+.score-moderate { --score-color: var(--score-moderate); }
+.score-low { --score-color: var(--score-low); }
 
 /* Risk label colors */
-.risk-label.risk-danger { color: var(--popup-color-c5392f); }
-.risk-label.risk-high { color: var(--popup-color-d4722a); }
-.risk-label.risk-caution { color: var(--popup-color-b88946); }
-.risk-label.risk-moderate { color: var(--popup-color-5a9a6b); }
-.risk-label.risk-low { color: var(--popup-color-2d7a4f); }
+.risk-label.risk-danger { color: var(--score-danger); }
+.risk-label.risk-high { color: var(--score-high); }
+.risk-label.risk-caution { color: var(--score-caution); }
+.risk-label.risk-moderate { color: var(--score-moderate); }
+.risk-label.risk-low { color: var(--score-low); }
 
 .risk-label {
   display: none; /* risk label now shown inside the score donut */
@@ -1554,11 +1559,11 @@ body {
 }
 
 /* Subscore bars — same 5 colors */
-.subscore-bar.score-danger { background: var(--popup-color-c5392f); }
-.subscore-bar.score-high { background: var(--popup-color-d4722a); }
-.subscore-bar.score-caution { background: var(--popup-color-b88946); }
-.subscore-bar.score-moderate { background: var(--popup-color-5a9a6b); }
-.subscore-bar.score-low { background: var(--popup-color-2d7a4f); }
+.subscore-bar.score-danger { background: var(--score-danger); }
+.subscore-bar.score-high { background: var(--score-high); }
+.subscore-bar.score-caution { background: var(--score-caution); }
+.subscore-bar.score-moderate { background: var(--score-moderate); }
+.subscore-bar.score-low { background: var(--score-low); }
 
 .subscore-value {
   color: var(--muted);
