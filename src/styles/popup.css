@@ -1252,6 +1252,20 @@ body {
   text-align: center;
 }
 
+.disclaimer-links {
+  margin-top: 6px;
+}
+
+.disclaimer-link {
+  color: inherit;
+  font-size: 0.75em;
+  opacity: 0.6;
+}
+
+.header-spacer {
+  width: 20px;
+}
+
 /* V2 Popup Styles */
 
 .disclaimer-text {
