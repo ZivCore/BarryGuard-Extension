@@ -66,6 +66,12 @@ The background worker implements a three-level cache:
 - `GET /api/token/:address` — returns the most recent fresh cached score from the backend
 - Cache miss or stale cache returns 404 and does not trigger backend analysis
 
+The cache probe step classifies the response into one of four outcomes via the `resolveCacheProbeOutcome` helper:
+- **cache_hit:** server returned a fresh score (HTTP 200 + data) — return immediately.
+- **cache_miss:** server returned 404 (no cached entry or stale) — fall through to step 3 (cooldown/quota) and step 4 (fresh analysis).
+- **cache_probe_transient:** server returned 429, 503, or 504 (transient infrastructure error) — fall through to step 3/4, identical to a cache miss. The fresh-analysis path has its own rate-limit and quota enforcement.
+- **cache_probe_terminal:** server returned a hard error (401, 403, 500, 400, etc.) — surface the error to the caller via `mapApiFailure`, no fresh analysis.
+
 ### Level 3: Fresh Analysis
 
 - `POST /api/analyze` — triggers a full on-chain analysis

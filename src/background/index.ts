@@ -966,6 +966,25 @@ function isTemporaryTokenLookupFailure<T>(response: ApiResponse<T>): boolean {
     && (response.statusCode === 429 || response.statusCode === 503 || response.statusCode === 504);
 }
 
+function resolveCacheProbeOutcome<T>(
+  existing: ApiResponse<T>,
+): 'cache_hit' | 'cache_miss' | 'cache_probe_transient' | 'cache_probe_terminal' {
+  if (existing.success && existing.data) {
+    return 'cache_hit';
+  }
+  if (!existing.success) {
+    if (existing.statusCode === 404) {
+      return 'cache_miss';
+    }
+    if (isTemporaryTokenLookupFailure(existing)) {
+      return 'cache_probe_transient';
+    }
+    return 'cache_probe_terminal';
+  }
+  // success === true but no data — treat as cache_miss so fresh analysis can run
+  return 'cache_miss';
+}
+
 async function maybeEnforceSingleCooldown(profile: UserProfile | null): Promise<ApiResponse<never> | null> {
   const cooldownSeconds = getCooldownSeconds(profile);
   if (cooldownSeconds <= 0) {
@@ -1074,8 +1093,9 @@ async function getTokenScore(address: string, chain: string = 'solana') {
     // 2. Server cache: GET /api/token/[address]
     const telemetrySessionId = takeTelemetrySession(address, chain);
     const existing = await api.getTokenScore(address, chain, telemetrySessionId);
-    if (existing.success && existing.data) {
-      const normalizedExisting = sanitizeTokenScore(existing.data, { expectedAddress: address });
+    const cacheProbeOutcome = resolveCacheProbeOutcome(existing);
+    if (cacheProbeOutcome === 'cache_hit') {
+      const normalizedExisting = sanitizeTokenScore(existing.data!, { expectedAddress: address });
       if (normalizedExisting) {
         // Don't cache or return results with locked checks for paid users —
         // this means the request went out without proper auth and the backend
@@ -1091,9 +1111,14 @@ async function getTokenScore(address: string, chain: string = 'solana') {
           return { success: true, data: { ...normalizedExisting, cached: true } };
         }
       }
-    } else if (isTemporaryTokenLookupFailure(existing)) {
+    } else if (cacheProbeOutcome === 'cache_probe_terminal') {
+      // Hard failure (e.g. 401, 403, 500) — do not fall through to fresh analysis
       return mapApiFailure(existing);
     }
+    // cache_miss and cache_probe_transient both fall through to fresh analysis.
+    // Transient cache-probe errors (429/503/504) are treated as cache misses here
+    // because the fresh-analysis path (POST /api/analyze) has its own rate-limit
+    // and quota enforcement in steps 3–4 below.
 
     // 3. Cooldown/Limit checks
     await correctLocalUsageFromBackend(normalizedProfile);
@@ -1367,6 +1392,7 @@ export {
   resolveDexPairs as _resolveDexPairsForTest,
   getTokenScore as _getTokenScoreForTest,
   takeTelemetrySession as _takeTelemetrySessionForTest,
+  resolveCacheProbeOutcome as _resolveCacheProbeOutcomeForTest,
 };
 
 // Exported for unit testing only — do not import these in production code

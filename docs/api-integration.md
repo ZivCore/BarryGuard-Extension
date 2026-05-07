@@ -42,7 +42,7 @@ Query:    ?chain=solana
 Response: TokenScore object, or 404 cache-miss JSON when no fresh cache entry exists
 ```
 
-The background worker treats a 404 cache miss as expected and then calls `POST /api/analyze`. Temporary backend pressure responses (`429`, `503`, `504`) are returned to the UI without content-script retry loops.
+The background worker treats a 404 cache miss as expected and then calls `POST /api/analyze`. Transient errors on the cache probe (HTTP 429, 503, 504) are treated as cache misses and fall through to the fresh-analysis path, exactly like a 404. Hard errors (401, 403, 500, 400) remain terminal and are surfaced to the caller.
 
 #### POST /api/analyze-list
 
