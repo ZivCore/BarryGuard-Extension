@@ -642,6 +642,69 @@ describe('extractTokenScores EVM allowedAddresses case-insensitive + expectedCha
   });
 });
 
+describe('sanitizeTokenScore — displayMetrics (ADR-007 / ADR-018)', () => {
+  const BASE = {
+    address: '7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU',
+    chain: 'solana',
+    score: 75,
+    risk: 'low' as const,
+    checks: {},
+  };
+
+  it('passes through a valid displayMetrics object with all three number fields', () => {
+    const result = sanitizeTokenScore({
+      ...BASE,
+      displayMetrics: { marketCapUsd: 500000, liquidityUsd: 50000, totalHolders: 3000 },
+    });
+    expect(result?.displayMetrics).toEqual({ marketCapUsd: 500000, liquidityUsd: 50000, totalHolders: 3000 });
+  });
+
+  it('passes through displayMetrics when one field is null', () => {
+    const result = sanitizeTokenScore({
+      ...BASE,
+      displayMetrics: { marketCapUsd: null, liquidityUsd: 50000, totalHolders: 3000 },
+    });
+    expect(result?.displayMetrics).toEqual({ marketCapUsd: null, liquidityUsd: 50000, totalHolders: 3000 });
+  });
+
+  it('sanitizes string value to null (ADR-018)', () => {
+    const result = sanitizeTokenScore({
+      ...BASE,
+      displayMetrics: { marketCapUsd: '$100K' as unknown as number, liquidityUsd: 50000, totalHolders: 3000 },
+    });
+    expect(result?.displayMetrics?.marketCapUsd).toBeNull();
+  });
+
+  it('sanitizes NaN to null (ADR-018)', () => {
+    const result = sanitizeTokenScore({
+      ...BASE,
+      displayMetrics: { marketCapUsd: Number.NaN, liquidityUsd: 50000, totalHolders: 3000 },
+    });
+    expect(result?.displayMetrics?.marketCapUsd).toBeNull();
+  });
+
+  it('sanitizes negative value to null (ADR-018)', () => {
+    const result = sanitizeTokenScore({
+      ...BASE,
+      displayMetrics: { marketCapUsd: -1, liquidityUsd: 50000, totalHolders: 3000 },
+    });
+    expect(result?.displayMetrics?.marketCapUsd).toBeNull();
+  });
+
+  it('0 is valid — passed through as-is (ADR-018)', () => {
+    const result = sanitizeTokenScore({
+      ...BASE,
+      displayMetrics: { marketCapUsd: 0, liquidityUsd: 0, totalHolders: 0 },
+    });
+    expect(result?.displayMetrics).toEqual({ marketCapUsd: 0, liquidityUsd: 0, totalHolders: 0 });
+  });
+
+  it('omits displayMetrics from output when input has no displayMetrics field', () => {
+    const result = sanitizeTokenScore({ ...BASE });
+    expect(result?.displayMetrics).toBeUndefined();
+  });
+});
+
 describe('sanitizeTokenScore Phase C check aliases', () => {
   const BASE = {
     address: '7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU',

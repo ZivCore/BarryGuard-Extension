@@ -1,44 +1,22 @@
 // src/popup/check-categories.ts
-// Plan platform-overhaul 2026-05-06, Step 11: Tab-Reihe gespiegelt von der
-// Mobile-Web-Token-Check-Variante (Contract / Market Structure / Behavior).
-// This map mirrors `BarryGuard/src/lib/scoring/CheckFormatter.ts` category
-// assignments so the popup tabs group checks the same way the website does.
+// Plan token-check-display-bugs-bluechip-and-scam, Step 12: Category-Map
+// eliminated. Extension reads category directly from the Backend response
+// (ADR-007: Extension is not the source of truth for categorisation).
 
 export type CheckCategory = 'contract' | 'marketStructure' | 'behavior';
 
-export const CHECK_CATEGORY_MAP: Record<string, CheckCategory> = {
-  // Contract — token program authorities, metadata, on-chain code
-  mintAuthority: 'contract',
-  freezeAuthority: 'contract',
-  updateAuthority: 'contract',
-  metadataLegitimacy: 'contract',
-  bondingCurveStatus: 'contract',
-
-  // Market Structure — liquidity, holders, price impact
-  liquidityLocked: 'marketStructure',
-  lpCreatorMatch: 'marketStructure',
-  topHolderConcentration: 'marketStructure',
-  holderCount: 'marketStructure',
-  liquidityDepth: 'marketStructure',
-  liquidityRatio: 'marketStructure',
-  priceImpact: 'marketStructure',
-
-  // Behavior — actor history and runtime patterns
-  tokenAge: 'behavior',
-  developerHistory: 'behavior',
-  honeypotSimulation: 'behavior',
-  insiderNetwork: 'behavior',
-  bundleDetection: 'behavior',
-  earlyDump: 'behavior',
-  sniperDominance: 'behavior',
-  clusterControl: 'behavior',
-  creatorWalletAge: 'behavior',
-  creatorRetention: 'behavior',
-  sellability: 'behavior',
-};
-
-export function getCheckCategory(checkKey: string): CheckCategory {
-  return CHECK_CATEGORY_MAP[checkKey] ?? 'behavior';
+/**
+ * Extract the category from a raw check object supplied by the Backend.
+ * Returns the category when valid; logs a warning and returns null when the
+ * field is absent or unrecognised (graceful degrade for version mismatches).
+ */
+export function getCategoryFromRawCheck(rawCheck: { category?: unknown }): CheckCategory | null {
+  const cat = rawCheck.category;
+  if (cat === 'contract' || cat === 'marketStructure' || cat === 'behavior') {
+    return cat;
+  }
+  console.warn(`[BarryGuard] getCategoryFromRawCheck: unknown category "${String(cat)}" — check will be skipped for tab counting`);
+  return null;
 }
 
 export const CATEGORY_LABEL: Record<CheckCategory, string> = {

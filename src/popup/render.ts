@@ -4,7 +4,7 @@
 
 import type { CheckResult, ConfidenceLevel, RiskLevel, Subscores, TokenScore } from '../shared/types';
 import { buildCheckUrl } from '../shared/check-url';
-import { type CheckCategory, getCheckCategory, CATEGORY_ORDER } from './check-categories';
+import { type CheckCategory, CATEGORY_ORDER } from './check-categories';
 
 // ─── Constants ────────────────────────────────────────────────────────────────
 
@@ -317,18 +317,45 @@ export function renderChecks(
   const counts: Record<CheckCategory, number> = { contract: 0, marketStructure: 0, behavior: 0 };
   for (const key of allCheckKeys) {
     const c = score.checks[key] as CheckResult | undefined;
-    if (!c && !CHECK_ORDER_SET.has(key)) continue;
-    counts[getCheckCategory(key)] += 1;
+    if (!c) continue;
+    counts[c.category] += 1;
   }
   for (const category of CATEGORY_ORDER) {
     const badge = document.getElementById(`tab-${category}-count`);
     if (badge) badge.textContent = String(counts[category]);
+    const tab = document.getElementById(`tab-${category}`);
+    if (tab) {
+      if (counts[category] === 0) {
+        tab.classList.add('rd-tab-disabled');
+        tab.setAttribute('aria-disabled', 'true');
+        tab.setAttribute('tabindex', '-1');
+      } else {
+        tab.classList.remove('rd-tab-disabled');
+        tab.removeAttribute('aria-disabled');
+        tab.setAttribute('tabindex', '0');
+      }
+    }
+  }
+
+  // Step 9: All-zero empty-state — hide tabs+container, show empty message
+  const totalChecks = counts.contract + counts.marketStructure + counts.behavior;
+  const tabsEl = document.getElementById('check-category-tabs');
+  const containerEl = document.getElementById('checks-container');
+  const emptyEl = document.getElementById('checks-empty-state');
+  if (totalChecks === 0) {
+    tabsEl?.classList.add('hidden');
+    containerEl?.classList.add('hidden');
+    emptyEl?.classList.remove('hidden');
+  } else {
+    tabsEl?.classList.remove('hidden');
+    containerEl?.classList.remove('hidden');
+    emptyEl?.classList.add('hidden');
   }
 
   for (const checkKey of allCheckKeys) {
     const check = score.checks[checkKey] as CheckResult | undefined;
     if (!check && !CHECK_ORDER_SET.has(checkKey)) continue; // skip missing optional checks
-    if (activeCategory && getCheckCategory(checkKey) !== activeCategory) continue;
+    if (activeCategory && check?.category !== activeCategory) continue;
 
     // Gating is handled server-side via API response (locked flag)
     const isLockedCheck = check?.locked === true;
@@ -404,7 +431,7 @@ export function renderChecks(
       lockSvg.append(rect, path);
 
       const text = document.createElement('span');
-      text.textContent = 'Upgrade for full report';
+      text.textContent = check?.description ?? 'Upgrade for full report';
 
       const overlayLink = document.createElement('a');
       overlayLink.href = 'https://barryguard.com/pricing';
@@ -422,33 +449,15 @@ export function renderChecks(
 
     listEl.appendChild(item);
   }
-
-  // For free/anonymous: add "View full analysis" CTA directly after the locked check
-  if (!isPaid) {
-    const ctaHref = buildCheckUrl(score.chain, score.address);
-    if (ctaHref) {
-      const ctaWrapper = document.createElement('div');
-      ctaWrapper.style.cssText = 'padding: 8px 0 0;';
-
-      const ctaLink = document.createElement('a');
-      ctaLink.href = ctaHref;
-      ctaLink.target = '_blank';
-      ctaLink.rel = 'noopener noreferrer';
-      ctaLink.className = 'view-full-analysis-btn';
-      ctaLink.textContent = 'View full analysis on barryguard.com ↗';
-
-      ctaWrapper.appendChild(ctaLink);
-      listEl.appendChild(ctaWrapper);
-    }
-    // Wenn ctaHref === null: CTA-Wrapper gar nicht anlegen/anhaengen.
-  }
 }
 
 /**
  * Renders top concerns from score.reasons (not topConcerns — that field doesn't exist).
  * Shows top 3 reasons per spec. Hides container if reasons is empty.
+ * Resilient: no-ops when containerEl or listEl is null/undefined or not in the DOM.
  */
-export function renderReasons(score: TokenScore, containerEl: HTMLElement, listEl: HTMLElement): void {
+export function renderReasons(score: TokenScore, containerEl: HTMLElement | null | undefined, listEl: HTMLElement | null | undefined): void {
+  if (!containerEl || !listEl) return;
   const reasons = score.reasons ?? [];
 
   if (reasons.length === 0) {
@@ -803,51 +812,16 @@ function rdFormatAge(check: CheckResult | undefined): string {
 
 /**
  * Render the bottom data strip (HLD / LIQ / MCAP / AGE).
- * Pulls values from score.checks where available — falls back to '—'.
+ * Reads structured displayMetrics from the score — falls back to '—' when absent or null.
+ * AGE remains sourced from the tokenAge check description (no displayMetrics field for age).
  */
 export function renderDataStrip(score: TokenScore): void {
   const checks = score.checks ?? {};
+  const dm = score.displayMetrics;
 
-  const holderCheck = checks.holderCount;
-  let holders: number | null = null;
-  if (holderCheck) {
-    if (typeof holderCheck.value === 'number') holders = holderCheck.value;
-    else {
-      const m = String(holderCheck.description ?? '').match(/(\d[\d,]*)\s*(?:Wallets|holders|wallets)/i);
-      if (m) holders = parseInt(m[1].replace(/,/g, ''), 10);
-    }
-  }
-
-  const liqCheck = checks.liquidityDepth;
-  let liquidity: number | null = null;
-  if (liqCheck) {
-    if (typeof liqCheck.value === 'number') liquidity = liqCheck.value;
-    else {
-      const m = String(liqCheck.description ?? '').match(/\$?([\d.,]+)\s*([KMB])?/i);
-      if (m) {
-        let v = parseFloat(m[1].replace(/,/g, ''));
-        const mult = m[2]?.toUpperCase();
-        if (mult === 'K') v *= 1_000;
-        else if (mult === 'M') v *= 1_000_000;
-        else if (mult === 'B') v *= 1_000_000_000;
-        liquidity = Number.isFinite(v) ? v : null;
-      }
-    }
-  }
-
-  const mcapCheck = checks.priceImpact;
-  let marketCap: number | null = null;
-  if (mcapCheck) {
-    const m = String(mcapCheck.description ?? '').match(/\$?([\d.,]+)\s*([KMB])?\s*(?:market cap|mcap|MC)/i);
-    if (m) {
-      let v = parseFloat(m[1].replace(/,/g, ''));
-      const mult = m[2]?.toUpperCase();
-      if (mult === 'K') v *= 1_000;
-      else if (mult === 'M') v *= 1_000_000;
-      else if (mult === 'B') v *= 1_000_000_000;
-      marketCap = Number.isFinite(v) ? v : null;
-    }
-  }
+  const holders: number | null = dm !== undefined ? dm.totalHolders : null;
+  const liquidity: number | null = dm !== undefined ? dm.liquidityUsd : null;
+  const marketCap: number | null = dm !== undefined ? dm.marketCapUsd : null;
 
   const setText = (id: string, value: string) => {
     const el = document.getElementById(id);

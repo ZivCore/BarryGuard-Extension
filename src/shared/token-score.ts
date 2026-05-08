@@ -2,6 +2,7 @@ import type {
   CheckResult,
   ConfidenceLevel,
   CoverageRisk,
+  DisplayMetrics,
   RiskLevel,
   Subscores,
   TierLevel,
@@ -286,6 +287,24 @@ function sanitizeTokenMetadata(value: unknown): TokenMetadata | undefined {
     ...(name ? { name } : {}),
     ...(symbol ? { symbol } : {}),
     ...(imageUrl ? { imageUrl } : {}),
+  };
+}
+
+function sanitizeDisplayMetricsNumber(value: unknown): number | null {
+  if (typeof value !== 'number' || !Number.isFinite(value) || value < 0) return null;
+  return value;
+}
+
+function sanitizeDisplayMetrics(value: unknown): DisplayMetrics | undefined {
+  const record = asRecord(value);
+  if (!record) {
+    return undefined;
+  }
+
+  return {
+    marketCapUsd: sanitizeDisplayMetricsNumber(record.marketCapUsd),
+    liquidityUsd: sanitizeDisplayMetricsNumber(record.liquidityUsd),
+    totalHolders: sanitizeDisplayMetricsNumber(record.totalHolders),
   };
 }
 
@@ -579,6 +598,7 @@ export function sanitizeTokenScore(value: unknown, options: TokenScoreSanitizati
   const tokenName = sanitizeString(record.tokenName);
   const tokenSymbol = sanitizeString(record.tokenSymbol);
   const tokenLogoUrl = sanitizeString(record.tokenLogoUrl);
+  const displayMetrics = sanitizeDisplayMetrics(record.displayMetrics);
 
   return {
     address,
@@ -596,6 +616,7 @@ export function sanitizeTokenScore(value: unknown, options: TokenScoreSanitizati
     ...(tokenSymbol ? { tokenSymbol } : {}),
     ...(tokenLogoUrl ? { tokenLogoUrl } : {}),
     ...(token ? { token } : {}),
+    ...(displayMetrics !== undefined ? { displayMetrics } : {}),
   };
 }
 

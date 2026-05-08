@@ -2480,14 +2480,6 @@ body {
 .rd-verdict-band.risk-moderate .rd-verdict-headline { color: var(--rd-risk-moderate); }
 .rd-verdict-band.risk-low .rd-verdict-headline { color: var(--rd-risk-low); }
 
-.rd-verdict-call {
-  color: var(--rd-ink-mute);
-  font-family: var(--rd-mono);
-  font-size: 10px;
-  letter-spacing: 0.04em;
-  user-select: none;
-}
-
 .rd-verdict-reasons {
   display: flex;
   flex-direction: column;
@@ -2607,6 +2599,27 @@ body {
 .rd-tab.is-active .rd-tab-count {
   background: var(--rd-accent);
   color: var(--popup-color-ffffff);
+}
+
+.rd-tab.rd-tab-disabled {
+  color: var(--rd-line-strong);
+  cursor: not-allowed;
+  opacity: 0.45;
+  pointer-events: none;
+}
+
+.rd-tab.rd-tab-disabled:hover {
+  background: transparent;
+  color: var(--rd-line-strong);
+}
+
+.rd-checks-empty {
+  background: var(--rd-paper);
+  border-top: 1px solid var(--rd-line);
+  color: var(--rd-muted);
+  font-size: 12px;
+  padding: 16px;
+  text-align: center;
 }
 
 /* ─── Checks container ──────────────────────────────────────────────────── */

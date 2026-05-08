@@ -35,6 +35,12 @@ export type ConfidenceLevel = 'high' | 'medium' | 'low';
 export type CoverageRisk = 'low' | 'moderate' | 'high' | 'severe';
 export type AnalysisMode = 'full' | 'essential';
 
+export interface DisplayMetrics {
+  marketCapUsd: number | null;
+  liquidityUsd: number | null;
+  totalHolders: number | null;
+}
+
 export interface TokenScore {
   address: string;
   chain: string;
@@ -53,6 +59,7 @@ export interface TokenScore {
   tokenSymbol?: string;
   tokenLogoUrl?: string;
   token?: TokenMetadata;
+  displayMetrics?: DisplayMetrics;
 }
 
 export interface AuthToken {

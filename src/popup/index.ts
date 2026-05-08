@@ -26,8 +26,6 @@ import { buildCheckUrl } from '../shared/check-url';
 import {
   getRiskLevel,
   renderChecks,
-  renderReasons,
-  renderSubscores,
   renderAnalysisFooter,
   renderRescueDial,
   getExplorerUrl,
@@ -118,26 +116,27 @@ const elements = {
     tokenSymbol: document.getElementById('token-symbol'),
     tokenAddress: document.getElementById('token-address') as HTMLButtonElement | null,
     copyToast: document.getElementById('copy-toast'),
-    scoreDonut: document.getElementById('score-donut'),
-    scoreDonutRing: document.getElementById('score-donut-ring'),
-    scoreValue: document.getElementById('score-value'),
-    riskLabel: document.getElementById('risk-label'),
+    // Legacy refs removed from DOM — kept as null so existing null-guarded code paths are safe
+    scoreDonut: null as HTMLElement | null,
+    scoreDonutRing: null as HTMLElement | null,
+    scoreValue: null as HTMLElement | null,
+    riskLabel: null as HTMLElement | null,
     checksList: document.getElementById('checks-list'),
     manualEntryBtn: document.getElementById('manual-entry-btn'),
     accountBtn: document.getElementById('account-btn'),
     viewExplorer: document.getElementById('view-explorer'),
-    // V2 elements
-    subscoresContainer: document.getElementById('subscores-container'),
-    reasonsContainer: document.getElementById('reasons-container'),
-    reasonsList: document.getElementById('reasons-list'),
-    analyzedAt: document.getElementById('analyzed-at'),
-    confidenceBadge: document.getElementById('confidence-badge'),
+    // V2 legacy elements removed from DOM — kept as null
+    subscoresContainer: null as HTMLElement | null,
+    reasonsContainer: null as HTMLElement | null,
+    reasonsList: null as HTMLElement | null,
+    analyzedAt: null as HTMLElement | null,
+    confidenceBadge: null as HTMLElement | null,
     refreshBtn: document.getElementById('refresh-btn'),
     viewFullAnalysis: document.getElementById('view-full-analysis'),
     quickScanBadge: document.getElementById('quick-scan-badge') as HTMLButtonElement | null,
     watchlistToggleBtn: document.getElementById('watchlist-toggle-btn') as HTMLButtonElement | null,
     watchlistBadge: document.getElementById('watchlist-badge'),
-    watchlistError: document.getElementById('watchlist-error'),
+    watchlistError: null as HTMLElement | null,
     watchlistAlertsSection: document.getElementById('watchlist-alerts-section'),
     watchlistAlertsList: document.getElementById('watchlist-alerts-list'),
   },
@@ -1425,14 +1424,22 @@ function renderTokenDetail(score: TokenScore): void {
     }
   }
 
-  // V2 rendering (legacy hidden refs — kept for back-compat)
-  renderSubscores(score);
-  if (elements.tokenDetail.reasonsContainer && elements.tokenDetail.reasonsList) {
-    renderReasons(score, elements.tokenDetail.reasonsContainer, elements.tokenDetail.reasonsList);
-  }
-  renderAnalysisFooter(score, elements.tokenDetail.analyzedAt, elements.tokenDetail.confidenceBadge);
+  // coverage-risk pill is driven by renderAnalysisFooter (null elements = no-op for badge/timestamp)
+  renderAnalysisFooter(score, null, null);
   if (elements.tokenDetail.checksList) {
     renderChecks(score, elements.tokenDetail.checksList, getEffectiveViewerTier(), state.activeCheckCategory);
+  }
+
+  // Step 9: If the active tab became disabled (zero checks), jump to the first enabled tab.
+  const activeTab = document.getElementById(`tab-${state.activeCheckCategory}`);
+  if (activeTab?.getAttribute('aria-disabled') === 'true') {
+    const firstEnabled = CATEGORY_ORDER.find((cat) => {
+      const t = document.getElementById(`tab-${cat}`);
+      return t && t.getAttribute('aria-disabled') !== 'true';
+    });
+    if (firstEnabled) {
+      applyActiveCheckTab(firstEnabled);
+    }
   }
 
   // Step 11: Mobile-Design Mirror — composite Rescue-Dial layout
@@ -2030,13 +2037,28 @@ function applyActiveCheckTab(category: CheckCategory): void {
 function setupCheckCategoryTabs(): void {
   const tabContainer = document.getElementById('check-category-tabs');
   if (!tabContainer) return;
-  tabContainer.addEventListener('click', (event) => {
-    const target = (event.target as HTMLElement | null)?.closest<HTMLElement>('.rd-tab');
-    if (!target) return;
+
+  const handleTabSelect = (target: HTMLElement) => {
+    if (target.getAttribute('aria-disabled') === 'true') return;
     const category = target.dataset.category as CheckCategory | undefined;
     if (!category || !CATEGORY_ORDER.includes(category)) return;
     if (state.activeCheckCategory === category) return;
     applyActiveCheckTab(category);
+  };
+
+  tabContainer.addEventListener('click', (event) => {
+    const target = (event.target as HTMLElement | null)?.closest<HTMLElement>('.rd-tab');
+    if (!target) return;
+    handleTabSelect(target);
+  });
+
+  tabContainer.addEventListener('keydown', (event) => {
+    const target = (event.target as HTMLElement | null)?.closest<HTMLElement>('.rd-tab');
+    if (!target) return;
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      handleTabSelect(target);
+    }
   });
 }
 

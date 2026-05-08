@@ -57,18 +57,9 @@ function renderPopupShell() {
       <div id="token-name"></div>
       <div id="token-symbol"></div>
       <div id="copy-toast"></div>
-      <div id="score-donut"></div>
       <div id="score-donut-ring"></div>
-      <div id="score-value"></div>
-      <div id="risk-label"></div>
       <div id="checks-list"></div>
-      <div id="subscores-container"></div>
-      <div id="reasons-container"></div>
-      <ul id="reasons-list"></ul>
-      <div id="analyzed-at"></div>
-      <div id="confidence-badge"></div>
       <div id="watchlist-badge"></div>
-      <div id="watchlist-error"></div>
       <div id="watchlist-alerts-section"></div>
       <div id="watchlist-alerts-list"></div>
     </div>

@@ -141,7 +141,6 @@
       <div class="rd-verdict-band" id="rd-verdict-band">
         <div class="rd-verdict-head">
           <span class="rd-verdict-headline" id="rd-verdict-headline">--</span>
-          <span class="rd-verdict-call">BARRY 1 · CH-VS</span>
         </div>
         <ul class="rd-verdict-reasons" id="rd-verdict-reasons"></ul>
         <div id="coverage-risk" class="rd-coverage-risk"></div>
@@ -173,6 +172,8 @@
         <div id="checks-list"></div>
       </div>
 
+      <div id="checks-empty-state" class="rd-checks-empty hidden">No detailed checks available for this token</div>
+
       <!-- View full analysis link + quick-scan badge (utility) -->
       <div class="rd-utility-row">
         <a id="view-full-analysis" class="rd-view-full-analysis" href="#" target="_blank" rel="noopener noreferrer">
@@ -203,19 +204,6 @@
         </div>
       </div>
 
-      <!-- Hidden legacy refs (kept for index.ts compatibility, not visible) -->
-      <span id="score-value" class="hidden">--</span>
-      <span id="risk-label" class="hidden"></span>
-      <span id="confidence-badge" class="hidden"></span>
-      <span id="analyzed-at" class="hidden"></span>
-      <div id="score-donut" class="hidden"><div id="score-donut-ring"></div></div>
-      <div id="subscores-container" class="hidden">
-        <div class="subscore-row" id="subscore-contract"><span class="subscore-label">Contract</span><div class="subscore-bar-wrapper"><div class="subscore-bar" id="subscore-contract-bar"></div></div><span id="subscore-contract-value">--/100</span></div>
-        <div class="subscore-row" id="subscore-marketStructure"><span class="subscore-label">Market</span><div class="subscore-bar-wrapper"><div class="subscore-bar" id="subscore-marketStructure-bar"></div></div><span id="subscore-marketStructure-value">--/100</span></div>
-        <div class="subscore-row" id="subscore-behavior"><span class="subscore-label">Behavior</span><div class="subscore-bar-wrapper"><div class="subscore-bar" id="subscore-behavior-bar"></div></div><span id="subscore-behavior-value">--/100</span></div>
-      </div>
-      <div id="reasons-container" class="hidden"><h2>Top Concerns</h2><ul id="reasons-list"></ul></div>
-      <div id="watchlist-error" class="hidden"></div>
     </div>
 
     <div id="account-screen" class="screen hidden">

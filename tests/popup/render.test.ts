@@ -20,14 +20,14 @@ function makeScore(overrides: Partial<TokenScore> = {}): TokenScore {
     risk: 'high',
     subscores: { contract: 35, marketStructure: 55, behavior: 28 },
     checks: {
-      mintAuthority: { status: 'danger', value: true, label: 'Mint authority active', description: 'Creator can mint new tokens.', tier: 'free' },
-      freezeAuthority: { status: 'success', value: false, label: 'Freeze authority disabled', description: 'No freeze authority.', tier: 'free' },
-      liquidityLocked: { status: 'danger', value: 'unlocked', label: 'Liquidity not locked', description: 'Can be removed at any time.', tier: 'free' },
-      topHolderConcentration: { status: 'warning', value: 14.2, label: 'Top holder 14.2%', description: 'Single wallet holds 14.2%.', tier: 'free' },
-      tokenAge: { status: 'warning', value: 90, label: 'Token age 1h', description: 'Live for 1h.', tier: 'free' },
-      holderCount: { status: 'warning', value: '87', label: '87 holders', description: 'Held by 87 wallets.', tier: 'free' },
-      developerHistory: { status: 'danger', value: 'bad', label: 'Developer reputation: bad', description: 'Creator has 8 rugs.', tier: 'free' },
-      insiderNetwork: { status: 'danger', value: 3, label: 'Insider network detected', description: '3 holders share funding source.', tier: 'free' },
+      mintAuthority: { status: 'danger', value: true, label: 'Mint authority active', description: 'Creator can mint new tokens.', tier: 'free', category: 'contract' },
+      freezeAuthority: { status: 'success', value: false, label: 'Freeze authority disabled', description: 'No freeze authority.', tier: 'free', category: 'contract' },
+      liquidityLocked: { status: 'danger', value: 'unlocked', label: 'Liquidity not locked', description: 'Can be removed at any time.', tier: 'free', category: 'marketStructure' },
+      topHolderConcentration: { status: 'warning', value: 14.2, label: 'Top holder 14.2%', description: 'Single wallet holds 14.2%.', tier: 'free', category: 'marketStructure' },
+      tokenAge: { status: 'warning', value: 90, label: 'Token age 1h', description: 'Live for 1h.', tier: 'free', category: 'behavior' },
+      holderCount: { status: 'warning', value: '87', label: '87 holders', description: 'Held by 87 wallets.', tier: 'free', category: 'marketStructure' },
+      developerHistory: { status: 'danger', value: 'bad', label: 'Developer reputation: bad', description: 'Creator has 8 rugs.', tier: 'free', category: 'behavior' },
+      insiderNetwork: { status: 'danger', value: 3, label: 'Insider network detected', description: '3 holders share funding source.', tier: 'free', category: 'behavior' },
     },
     reasons: [
       'Mint authority is still active',
@@ -95,7 +95,7 @@ describe('renderChecks', () => {
     const score = makeScore({
       checks: {
         ...makeScore().checks,
-        earlyDump: { status: 'danger', value: true, label: 'Early dump detected', description: 'Dev wallet sold within 5 min.', tier: 'free' },
+        earlyDump: { status: 'danger', value: true, label: 'Early dump detected', description: 'Dev wallet sold within 5 min.', tier: 'free', category: 'behavior' },
       },
     });
     renderChecks(score, listEl);
@@ -108,7 +108,7 @@ describe('renderChecks', () => {
     const score = makeScore({
       checks: {
         ...makeScore().checks,
-        sniperDominance: { status: 'warning', value: 22, label: 'Sniper dominance 22%', description: '22% of early buys from snipers.', tier: 'free' },
+        sniperDominance: { status: 'warning', value: 22, label: 'Sniper dominance 22%', description: '22% of early buys from snipers.', tier: 'free', category: 'behavior' },
       },
     });
     renderChecks(score, listEl);
@@ -121,7 +121,7 @@ describe('renderChecks', () => {
     const score = makeScore({
       checks: {
         ...makeScore().checks,
-        sellability: { status: 'success', value: true, label: 'Token sellable', description: 'No sell restrictions detected.', tier: 'free' },
+        sellability: { status: 'success', value: true, label: 'Token sellable', description: 'No sell restrictions detected.', tier: 'free', category: 'behavior' },
       },
     });
     renderChecks(score, listEl);
@@ -148,6 +148,7 @@ describe('renderChecks', () => {
           description: 'Locked for free tier.',
           tier: 'rescue_pass',
           locked: true,
+          category: 'marketStructure',
         },
       },
     });
@@ -155,7 +156,8 @@ describe('renderChecks', () => {
     renderChecks(score, listEl, 'free');
 
     expect(listEl.querySelectorAll('.check-upgrade-overlay').length).toBeGreaterThan(0);
-    expect(listEl.textContent).toContain('Upgrade for full report');
+    // ADR-020: locked overlay text comes from check.description, not hardcoded
+    expect(listEl.textContent).toContain('Locked for free tier.');
   });
 
   it('does not show upgrade overlay for locked checks on pro tier', () => {
@@ -170,6 +172,7 @@ describe('renderChecks', () => {
           description: 'Locked for free tier.',
           tier: 'rescue_pass',
           locked: true,
+          category: 'marketStructure',
         },
       },
     });
