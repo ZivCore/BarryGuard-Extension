@@ -21,6 +21,7 @@ export interface CheckResult {
   label: string;
   description: string;
   tier: TierLevel;
+  category: 'contract' | 'marketStructure' | 'behavior';
   locked?: boolean;
 }
 
@@ -108,6 +109,7 @@ export interface CacheEntry {
 
 export interface SelectedToken {
   address: string;
+  chain?: string;
   score?: TokenScore;
   metadata?: TokenMetadata;
 }

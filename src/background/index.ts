@@ -1,6 +1,7 @@
 import { BarryGuardApiClient } from '../shared/api-client';
 import { TokenCache, updateCacheTTL } from '../shared/cache';
 import { logger } from '../shared/logger';
+import { isSupportedExtensionHost } from '../manifest/platform-hosts';
 import { updatePopupTimeouts } from '../shared/popup-timeouts';
 import { getApiBaseUrl, getExtensionHealthTelemetryEnabled, sanitizeCustomerPortalUrl } from '../shared/runtime-config';
 import { extractTokenScores, sanitizeTokenScore } from '../shared/token-score';
@@ -985,6 +986,33 @@ function resolveCacheProbeOutcome<T>(
   return 'cache_miss';
 }
 
+// Step 6: Score-handoff debug logging (Default-Variante — console.warn only,
+// no POST /api/extension-health, no PII, no token addresses as plaintext).
+type ScoreHandoffEvent =
+  | 'sanitize_failed'
+  | 'http_4xx'
+  | 'http_5xx'
+  | 'network_error'
+  | 'cache_probe_terminal';
+
+function logScoreHandoff(
+  event: ScoreHandoffEvent,
+  chain: string,
+  address: string,
+  extra?: { statusCode?: number; errorType?: string },
+): void {
+  const addressKind = chain === 'solana' ? 'solana' : 'evm';
+  const version = chrome.runtime.getManifest().version;
+  console.warn('[BarryGuard][score-handoff]', {
+    event,
+    chain,
+    addressKind,
+    extensionVersion: version,
+    ...(extra?.statusCode ? { statusCode: extra.statusCode } : {}),
+    ...(extra?.errorType ? { errorType: extra.errorType } : {}),
+  });
+}
+
 async function maybeEnforceSingleCooldown(profile: UserProfile | null): Promise<ApiResponse<never> | null> {
   const cooldownSeconds = getCooldownSeconds(profile);
   if (cooldownSeconds <= 0) {
@@ -1066,20 +1094,25 @@ function isValidTokenAddress(address: unknown, chain: string): address is string
 
 const _inFlightAddresses = new Set<string>();
 
+function normalizeAddressForKey(chain: string, address: string): string {
+  return chain === 'solana' ? address : address.toLowerCase();
+}
+
 async function getTokenScore(address: string, chain: string = 'solana') {
-  if (_inFlightAddresses.has(address)) {
+  const inFlightKey = `${chain}:${normalizeAddressForKey(chain, address)}`;
+  if (_inFlightAddresses.has(inFlightKey)) {
     return { success: false, error: 'Analysis already in progress for this token.', errorType: 'busy' as const };
   }
   if (!isValidTokenAddress(address, chain)) {
     return { success: false, error: 'Invalid token address format.', errorType: 'validation' as const };
   }
-  _inFlightAddresses.add(address);
+  _inFlightAddresses.add(inFlightKey);
   try {
     const normalizedProfile = await refreshProfileStateIfNeeded();
     const tier: TierLevel = normalizedProfile?.tier ?? 'free';
 
     // 1. Local cache (skip if it has locked checks for a paid user — stale free-tier gated result)
-    const cached = await cache.get(address, tier);
+    const cached = await cache.get(address, tier, chain);
     if (cached) {
       const cachedHasLocked = cached.checks
         && Object.values(cached.checks).some(
@@ -1095,7 +1128,10 @@ async function getTokenScore(address: string, chain: string = 'solana') {
     const existing = await api.getTokenScore(address, chain, telemetrySessionId);
     const cacheProbeOutcome = resolveCacheProbeOutcome(existing);
     if (cacheProbeOutcome === 'cache_hit') {
-      const normalizedExisting = sanitizeTokenScore(existing.data!, { expectedAddress: address });
+      const normalizedExisting = sanitizeTokenScore(existing.data!, { expectedAddress: address, expectedChain: chain });
+      if (!normalizedExisting) {
+        logScoreHandoff('sanitize_failed', chain, address);
+      }
       if (normalizedExisting) {
         // Don't cache or return results with locked checks for paid users —
         // this means the request went out without proper auth and the backend
@@ -1113,6 +1149,10 @@ async function getTokenScore(address: string, chain: string = 'solana') {
       }
     } else if (cacheProbeOutcome === 'cache_probe_terminal') {
       // Hard failure (e.g. 401, 403, 500) — do not fall through to fresh analysis
+      logScoreHandoff('cache_probe_terminal', chain, address, {
+        statusCode: existing.statusCode,
+        errorType: existing.errorType,
+      });
       return mapApiFailure(existing);
     }
     // cache_miss and cache_probe_transient both fall through to fresh analysis.
@@ -1136,8 +1176,9 @@ async function getTokenScore(address: string, chain: string = 'solana') {
     // 4. Fresh analysis: POST /api/analyze
     const fresh = await api.analyzeToken(address, chain, telemetrySessionId);
     if (fresh.success && fresh.data) {
-      const normalizedFresh = sanitizeTokenScore(fresh.data, { expectedAddress: address });
+      const normalizedFresh = sanitizeTokenScore(fresh.data, { expectedAddress: address, expectedChain: chain });
       if (!normalizedFresh) {
+        logScoreHandoff('sanitize_failed', chain, address);
         return {
           success: false,
           error: 'BarryGuard API returned malformed token score data.',
@@ -1158,9 +1199,21 @@ async function getTokenScore(address: string, chain: string = 'solana') {
       await syncUsageFromQuotaError(normalizedProfile, fresh);
     }
 
+    // Log HTTP failures from fresh analysis
+    if (!fresh.success) {
+      const sc = fresh.statusCode;
+      if (sc && sc >= 500) {
+        logScoreHandoff('http_5xx', chain, address, { statusCode: sc, errorType: fresh.errorType });
+      } else if (sc && sc >= 400) {
+        logScoreHandoff('http_4xx', chain, address, { statusCode: sc, errorType: fresh.errorType });
+      } else if (fresh.errorType === 'network') {
+        logScoreHandoff('network_error', chain, address);
+      }
+    }
+
     return mapApiFailure(fresh);
   } finally {
-    _inFlightAddresses.delete(address);
+    _inFlightAddresses.delete(inFlightKey);
   }
 }
 
@@ -1275,21 +1328,20 @@ function getListAnalysisBlockReason(profile: UserProfile | null): Pick<ApiRespon
   };
 }
 
-async function getWatchlistStatusForToken(address: string): Promise<ApiResponse<WatchlistStatus>> {
-  if (!isValidSolanaAddress(address)) {
-    return { success: false, error: 'Invalid token address format.', errorType: 'validation' };
+function parseWatchlistPayload(payload: unknown): { address: string; chain: string } {
+  if (typeof payload === 'string') {
+    return { address: payload, chain: 'solana' };
   }
-
-  const profile = await refreshProfileStateIfNeeded();
-  if (!profile) {
-    return { success: false, error: 'No active session.', statusCode: 401 };
-  }
-
-  return mapApiFailure(await api.getWatchlistStatus(address)) as ApiResponse<WatchlistStatus>;
+  const p = payload as Record<string, unknown> | undefined;
+  return {
+    address: typeof p?.address === 'string' ? p.address : '',
+    chain: typeof p?.chain === 'string' ? p.chain : 'solana',
+  };
 }
 
-async function addCurrentTokenToWatchlist(address: string): Promise<ApiResponse<WatchlistStatus>> {
-  if (!isValidSolanaAddress(address)) {
+async function getWatchlistStatusForToken(payload: unknown): Promise<ApiResponse<WatchlistStatus>> {
+  const { address, chain } = parseWatchlistPayload(payload);
+  if (!isValidTokenAddress(address, chain)) {
     return { success: false, error: 'Invalid token address format.', errorType: 'validation' };
   }
 
@@ -1298,7 +1350,21 @@ async function addCurrentTokenToWatchlist(address: string): Promise<ApiResponse<
     return { success: false, error: 'No active session.', statusCode: 401 };
   }
 
-  const response = await api.addToWatchlist(address);
+  return mapApiFailure(await api.getWatchlistStatus(address, chain)) as ApiResponse<WatchlistStatus>;
+}
+
+async function addCurrentTokenToWatchlist(payload: unknown): Promise<ApiResponse<WatchlistStatus>> {
+  const { address, chain } = parseWatchlistPayload(payload);
+  if (!isValidTokenAddress(address, chain)) {
+    return { success: false, error: 'Invalid token address format.', errorType: 'validation' };
+  }
+
+  const profile = await refreshProfileStateIfNeeded();
+  if (!profile) {
+    return { success: false, error: 'No active session.', statusCode: 401 };
+  }
+
+  const response = await api.addToWatchlist(address, chain);
   if (!response.success) {
     const failure = mapApiFailure(response);
     return {
@@ -1311,11 +1377,12 @@ async function addCurrentTokenToWatchlist(address: string): Promise<ApiResponse<
     };
   }
 
-  return getWatchlistStatusForToken(address);
+  return getWatchlistStatusForToken(payload);
 }
 
-async function removeCurrentTokenFromWatchlist(address: string): Promise<ApiResponse<{ success: boolean }>> {
-  if (!isValidSolanaAddress(address)) {
+async function removeCurrentTokenFromWatchlist(payload: unknown): Promise<ApiResponse<{ success: boolean }>> {
+  const { address, chain } = parseWatchlistPayload(payload);
+  if (!isValidTokenAddress(address, chain)) {
     return { success: false, error: 'Invalid token address format.', errorType: 'validation' };
   }
 
@@ -1324,7 +1391,7 @@ async function removeCurrentTokenFromWatchlist(address: string): Promise<ApiResp
     return { success: false, error: 'No active session.', statusCode: 401 };
   }
 
-  return mapApiFailure(await api.removeFromWatchlist(address));
+  return mapApiFailure(await api.removeFromWatchlist(address, chain));
 }
 
 async function getWatchlistAlertsFeed(): Promise<ApiResponse<{ alerts: WatchlistAlert[]; unreadAlerts: number; hasAccess: boolean }>> {
@@ -1395,30 +1462,10 @@ export {
   resolveCacheProbeOutcome as _resolveCacheProbeOutcomeForTest,
 };
 
-// Exported for unit testing only — do not import these in production code
-export const SUPPORTED_PLATFORM_HOST_PATTERNS = [
-  /^(www\.)?pump\.fun$/,
-  /^amm\.pump\.fun$/,
-  /^swap\.pump\.fun$/,
-  /^(www\.)?raydium\.io$/,
-  /^(www\.)?letsbonk\.fun$/,
-  /^(www\.)?bonk\.fun$/,
-  /^(www\.)?moonshot\.money$/,
-  /^(www\.)?dexscreener\.com$/,
-  /^(www\.)?dextools\.io$/,
-  /^(www\.)?birdeye\.so$/,
-  /^(www\.)?bags\.fm$/,
-  /^(.+\.)?solscan\.io$/,
-  /^dex\.coinmarketcap\.com$/,
-  /^www\.coingecko\.com$/,
-];
-
 export function initializeBackground(): void {
   // Re-inject content script after Next.js soft navigations that kill the content script context.
   // Try sending a message first; if the content script is alive it responds. If dead, re-inject.
-  // NOTE: Keep this list in sync with platform adapters + manifest `matches` / `host_permissions`.
-  // Exported for unit tests to avoid drift.
-  const SUPPORTED_HOST_PATTERNS = SUPPORTED_PLATFORM_HOST_PATTERNS;
+  // NOTE: isSupportedExtensionHost covers all 37 platforms from PLATFORM_HOST_PATTERNS.
 
   const TELEMETRY_DEBOUNCE_MS = 5 * 60 * 1000;
   const _telemetryDebounce = new Map<string, number>();
@@ -1494,10 +1541,22 @@ export function initializeBackground(): void {
     }
   }
 
-  async function getActiveTabTokenDetectionState(): Promise<ApiResponse<{ hasToken: boolean; address: string | null }>> {
+  type TabTokenDetectionStatus = 'has_token' | 'no_token' | 'unsupported' | 'unavailable';
+  interface TabTokenDetectionData {
+    status: TabTokenDetectionStatus;
+    address?: string;
+    chain?: string;
+  }
+
+  async function getActiveTabTokenDetectionState(): Promise<ApiResponse<TabTokenDetectionData>> {
     const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
     if (!activeTab?.id) {
-      return { success: false, error: 'No active tab.' };
+      return { success: true, data: { status: 'unavailable' } };
+    }
+
+    const tabUrl = activeTab.url ?? '';
+    if (!tabUrl || !isSupportedExtensionHost(tabUrl)) {
+      return { success: true, data: { status: 'unsupported' } };
     }
 
     return new Promise((resolve) => {
@@ -1505,41 +1564,53 @@ export function initializeBackground(): void {
         chrome.tabs.sendMessage(
           activeTab.id!,
           { type: 'GET_TAB_TOKEN_DETECTION_STATE' },
-          (response: ApiResponse<{ hasToken: boolean; address?: string | null }> | undefined) => {
+          (response: ApiResponse<{ hasToken: boolean; address?: string | null; chain?: string }> | undefined) => {
             const runtimeError = chrome.runtime.lastError?.message;
             if (runtimeError) {
-              resolve({ success: false, error: runtimeError });
+              // Content script not responding on a supported host = unavailable (loading/transitioning)
+              // Fire-and-forget re-inject so the popup doesn't stay stuck in loading state
+              reinjectContentScriptInTab(activeTab.id!);
+              resolve({ success: true, data: { status: 'unavailable' } });
               return;
             }
 
             if (!response?.success || !response.data) {
-              resolve({ success: false, error: response?.error ?? 'No token detection response.' });
+              reinjectContentScriptInTab(activeTab.id!);
+              resolve({ success: true, data: { status: 'unavailable' } });
               return;
             }
 
-            resolve({
-              success: true,
-              data: {
-                hasToken: response.data.hasToken === true,
-                address: typeof response.data.address === 'string' ? response.data.address : null,
-              },
-            });
+            if (response.data.hasToken === true && typeof response.data.address === 'string') {
+              resolve({
+                success: true,
+                data: {
+                  status: 'has_token',
+                  address: response.data.address,
+                  chain: typeof response.data.chain === 'string' ? response.data.chain : undefined,
+                },
+              });
+            } else {
+              resolve({ success: true, data: { status: 'no_token' } });
+            }
           },
         );
       } catch (error) {
-        resolve({
-          success: false,
-          error: error instanceof Error ? error.message : 'Token detection request failed.',
-        });
+        resolve({ success: true, data: { status: 'unavailable' } });
       }
     });
+  }
+
+  function reinjectContentScriptInTab(tabId: number): void {
+    chrome.scripting.executeScript({
+      target: { tabId },
+      files: ['content-scripts/pumpfun.js'],
+    }).catch(() => { /* tab closed or no permission */ });
   }
 
   chrome.tabs.onUpdated.addListener((tabId, changeInfo) => {
     if (!changeInfo.url) return;
     try {
-      const url = new URL(changeInfo.url);
-      if (!SUPPORTED_HOST_PATTERNS.some((p) => p.test(url.hostname))) return;
+      if (!isSupportedExtensionHost(changeInfo.url)) return;
 
       chrome.tabs.sendMessage(tabId, { type: 'PING' }).then((response) => {
         if (response?.pong) {
@@ -1548,10 +1619,7 @@ export function initializeBackground(): void {
         }
       }).catch(() => {
         // Content script dead — re-inject it
-        chrome.scripting.executeScript({
-          target: { tabId },
-          files: ['content-scripts/pumpfun.js'],
-        }).catch(() => { /* tab closed or no permission */ });
+        reinjectContentScriptInTab(tabId);
       });
     } catch { /* invalid URL */ }
   });
@@ -1616,14 +1684,22 @@ export function initializeBackground(): void {
             respond(await analyzeTokenList((message.payload?.addresses as string[] | undefined) ?? []));
             break;
           case 'GET_CACHED_SCORE': {
-            const cachedAddress = typeof message.payload === 'string' ? message.payload : '';
-            if (!isValidSolanaAddress(cachedAddress)) {
+            const cachedPayload = message.payload as string | { address?: unknown; chain?: unknown } | undefined;
+            const cachedAddress = typeof cachedPayload === 'string'
+              ? cachedPayload
+              : (typeof (cachedPayload as Record<string, unknown>)?.address === 'string'
+                ? (cachedPayload as Record<string, unknown>).address as string
+                : '');
+            const cachedChain = typeof cachedPayload === 'object' && cachedPayload !== null && typeof (cachedPayload as Record<string, unknown>).chain === 'string'
+              ? (cachedPayload as Record<string, unknown>).chain as string
+              : 'solana';
+            if (!isValidTokenAddress(cachedAddress, cachedChain)) {
               respond({ success: false, error: 'Invalid address' });
               break;
             }
             const cachedProfile = await refreshProfileStateIfNeeded();
             const cachedTier: TierLevel = cachedProfile?.tier ?? 'free';
-            const cachedScore = await cache.get(cachedAddress, cachedTier);
+            const cachedScore = await cache.get(cachedAddress, cachedTier, cachedChain);
             respond(cachedScore
               ? { success: true, data: { ...cachedScore, cached: true } }
               : { success: false, error: 'Not in cache' }
@@ -1649,7 +1725,8 @@ export function initializeBackground(): void {
           }
           case 'OPEN_POPUP_FOR_TOKEN': {
             const token = message.payload as SelectedToken;
-            if (!isValidSolanaAddress(token?.address)) {
+            const openChain = typeof token?.chain === 'string' ? token.chain : 'solana';
+            if (!isValidTokenAddress(token?.address, openChain)) {
               respond({ success: false, error: 'Invalid token address format.' });
               break;
             }
@@ -1663,20 +1740,22 @@ export function initializeBackground(): void {
             break;
           }
           case 'REFRESH_TOKEN_SCORE': {
-            if (!isValidSolanaAddress(message.payload?.address)) {
+            const refreshChain = typeof message.payload?.chain === 'string' ? message.payload.chain : 'solana';
+            if (!isValidTokenAddress(message.payload?.address, refreshChain)) {
               respond({ success: false, error: 'Invalid token address format.', errorType: 'validation' as const });
               break;
             }
-            const chain = message.payload?.chain ?? 'solana';
+            const chain = refreshChain;
             const refreshResult = await api.refreshTokenScore(message.payload.address, chain);
             if (refreshResult.success && refreshResult.data) {
-              const normalized = sanitizeTokenScore(refreshResult.data, { expectedAddress: message.payload.address });
+              const normalized = sanitizeTokenScore(refreshResult.data, { expectedAddress: message.payload.address, expectedChain: chain });
               if (normalized) {
                 const normalizedProfile = await refreshProfileStateIfNeeded();
                 const tier: TierLevel = normalizedProfile?.tier ?? 'free';
                 await cache.set(message.payload.address, normalized, tier);
                 respond({ success: true, data: { ...normalized, cached: false } });
               } else {
+                logScoreHandoff('sanitize_failed', chain, message.payload.address);
                 respond({ success: false, error: 'Malformed token score data.', errorType: 'server' as const });
               }
             } else if (refreshResult.statusCode === 403) {

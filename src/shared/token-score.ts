@@ -12,10 +12,28 @@ import type {
 type JsonRecord = Record<string, unknown>;
 type TokenScoreSanitizationOptions = {
   expectedAddress?: string;
+  expectedChain?: string;
 };
 type TokenScoreExtractionOptions = {
   allowedAddresses?: Iterable<string>;
+  expectedChain?: string;
 };
+
+// EVM chains use checksummed addresses — compare case-insensitively.
+// Solana Base58 addresses are case-sensitive — compare exactly.
+function isEvmChain(chain: string): boolean {
+  const c = chain.toLowerCase();
+  return c === 'ethereum' || c === 'bsc' || c === 'base'
+    || c === 'polygon' || c === 'avalanche' || c === 'arbitrum';
+}
+
+function addressMatchesExpected(address: string, expectedAddress: string, chain: string): boolean {
+  if (isEvmChain(chain)) {
+    return address.toLowerCase() === expectedAddress.toLowerCase();
+  }
+  // Solana: exact comparison (Base58 is case-sensitive)
+  return address === expectedAddress;
+}
 
 const VALID_RISKS = new Set<RiskLevel>(['danger', 'high', 'caution', 'moderate', 'low']);
 const RISK_ALIASES: Record<string, RiskLevel> = {
@@ -24,6 +42,7 @@ const RISK_ALIASES: Record<string, RiskLevel> = {
   safe: 'low',
 };
 const VALID_CHECK_STATUSES = new Set<CheckResult['status']>(['success', 'warning', 'danger']);
+const VALID_CHECK_CATEGORIES = new Set<CheckResult['category']>(['contract', 'marketStructure', 'behavior']);
 const CHECK_STATUS_ALIASES: Record<string, CheckResult['status']> = {
   safe: 'success',
   ok: 'success',
@@ -399,11 +418,16 @@ function sanitizeCheckResult(key: string, value: unknown): CheckResult | null {
     : CHECK_STATUS_ALIASES[rawStatus] ?? null;
   const status = normalizedStatus ?? inferFallbackCheckStatus(key, record.value, label, description);
   const tier = VALID_TIERS.has(record.tier as TierLevel) ? record.tier as TierLevel : fallbackTier;
+  const rawCategory = typeof record.category === 'string' ? record.category.trim() : '';
+  const category = VALID_CHECK_CATEGORIES.has(rawCategory as CheckResult['category'])
+    ? rawCategory as CheckResult['category']
+    : null;
 
-  if (
-    !status
-    || !tier
-  ) {
+  if (!status || !tier || !category) {
+    if (!category && (status || tier)) {
+      // Backend did not send category — graceful degrade: skip this check and warn.
+      console.warn(`[BarryGuard] check "${key}" missing or invalid category "${rawCategory}" — skipping`);
+    }
     return null;
   }
 
@@ -413,6 +437,7 @@ function sanitizeCheckResult(key: string, value: unknown): CheckResult | null {
     label: label ?? '',
     description: description ?? '',
     tier: tier as TierLevel,
+    category,
     ...(record.locked === true ? { locked: true } : {}),
   };
 }
@@ -532,7 +557,8 @@ export function sanitizeTokenScore(value: unknown, options: TokenScoreSanitizati
     || score === null
     || !resolvedRisk
     || !SUPPORTED_CHAINS.has(normalizedChain)
-    || (options.expectedAddress && address !== options.expectedAddress)
+    || (options.expectedAddress && !addressMatchesExpected(address, options.expectedAddress, normalizedChain))
+    || (options.expectedChain && normalizedChain !== options.expectedChain.toLowerCase())
   ) {
     return null;
   }
@@ -578,15 +604,33 @@ export function extractTokenScores(
   options: TokenScoreExtractionOptions = {},
 ): TokenScore[] {
   const allowedAddresses = options.allowedAddresses ? new Set(options.allowedAddresses) : null;
-  const singleScore = sanitizeTokenScore(payload);
+  const sanitizeOpts: TokenScoreSanitizationOptions = options.expectedChain
+    ? { expectedChain: options.expectedChain }
+    : {};
+
+  // Check whether a candidate score's address is in the allowed set.
+  // EVM addresses are compared case-insensitively; Solana exactly.
+  function isAddressAllowed(score: TokenScore): boolean {
+    if (!allowedAddresses) return true;
+    if (isEvmChain(score.chain)) {
+      const lc = score.address.toLowerCase();
+      for (const a of allowedAddresses) {
+        if (a.toLowerCase() === lc) return true;
+      }
+      return false;
+    }
+    return allowedAddresses.has(score.address);
+  }
+
+  const singleScore = sanitizeTokenScore(payload, sanitizeOpts);
   if (singleScore) {
-    return !allowedAddresses || allowedAddresses.has(singleScore.address) ? [singleScore] : [];
+    return isAddressAllowed(singleScore) ? [singleScore] : [];
   }
 
   if (Array.isArray(payload)) {
     return payload.flatMap((candidate) => {
-      const score = sanitizeTokenScore(candidate);
-      return score && (!allowedAddresses || allowedAddresses.has(score.address)) ? [score] : [];
+      const score = sanitizeTokenScore(candidate, sanitizeOpts);
+      return score && isAddressAllowed(score) ? [score] : [];
     });
   }
 
@@ -604,7 +648,7 @@ export function extractTokenScores(
   }
 
   return Object.values(record).flatMap((candidate) => {
-    const score = sanitizeTokenScore(candidate);
-    return score && (!allowedAddresses || allowedAddresses.has(score.address)) ? [score] : [];
+    const score = sanitizeTokenScore(candidate, sanitizeOpts);
+    return score && isAddressAllowed(score) ? [score] : [];
   });
 }

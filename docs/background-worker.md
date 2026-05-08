@@ -22,12 +22,28 @@ Content scripts and the popup communicate with the background worker via `chrome
 
 | Message Type | Payload | Response | Description |
 |-------------|---------|----------|-------------|
-| `GET_TOKEN_SCORE` | `{ address }` | `{ success, data: TokenScore }` | Fetch score (cache → server → fresh) |
+| `GET_TOKEN_SCORE` | `{ address, chain }` | `{ success, data: TokenScore }` | Fetch score (cache → server → fresh); chain-aware since 1.7.10 |
 | `ANALYZE_TOKEN_LIST` | `{ addresses }` | `{ success, data: { scores } }` | Batch analysis for signed-in users; anonymous users receive `401 Mass scan requires sign-in` |
-| `REFRESH_TOKEN_SCORE` | `{ address, chain }` | `TokenScore` | Force re-analysis (auth required) |
+| `REFRESH_TOKEN_SCORE` | `{ address, chain }` | `TokenScore` | Force re-analysis (auth required); validates chain-aware |
+| `GET_CACHED_SCORE` | `{ address, chain }` | `TokenScore \| null` | Local cache probe; chain-aware since 1.7.10 |
 | `GET_TOKEN_METADATA` | `{ address }` | `{ name, symbol, imageUrl }` | Scrape metadata from page |
-| `OPEN_POPUP_FOR_TOKEN` | `SelectedToken` | — | Open popup with token |
-| `GET_TAB_TOKEN_DETECTION_STATE` | — | `{ hasToken, address }` | Asks the active tab content script whether a token is currently detected |
+| `OPEN_POPUP_FOR_TOKEN` | `SelectedToken` | — | Open popup with token; uses `selectedToken.chain` for metadata fallbacks |
+| `GET_TAB_TOKEN_DETECTION_STATE` | — | `{ status, address?, chain? }` | Asks the active tab content script whether a token is currently detected; returns one of four status values (see below) |
+
+#### Tab Detection Status Values
+
+`GET_TAB_TOKEN_DETECTION_STATE` classifies the active tab into one of four states. The background checks the tab URL against the canonical 37-platform host list (`PLATFORM_HOST_PATTERNS` from `src/manifest/platform-hosts.ts`) before sending `chrome.tabs.sendMessage`:
+
+| Status | Condition | Popup Action |
+|--------|-----------|--------------|
+| `has_token` | Supported host, content script responded, token present | Use `address` + `chain` from response |
+| `no_token` | Supported host, content script responded, no token on page | Clear `selectedToken` |
+| `unsupported` | Active tab URL does not match any supported host pattern | Clear `selectedToken` |
+| `unavailable` | Supported host but `chrome.runtime.lastError`, timeout, or no active tab ID | Keep `selectedToken`; trigger re-inject on the active tab |
+
+When the tab is `unavailable`, the background fires the same re-inject path used by `chrome.tabs.onUpdated` (content script dead — re-inject it). This prevents the popup from staying indefinitely in a loading state because the content script never responds again.
+
+**Note:** The legacy constant `SUPPORTED_PLATFORM_HOST_PATTERNS` (Solana-only, 14 hosts) is not used for tab-detection classification. Classification always uses the full `PLATFORM_HOST_PATTERNS` (37 platforms) to avoid marking EVM tabs as `unsupported`.
 
 ### Authentication Messages
 
@@ -126,8 +142,18 @@ The background worker tracks hourly analysis usage locally:
 - Free tier has a 10-second cooldown between analyses
 - Usage counters are periodically synced with the backend
 
+## Chain-Aware In-Flight Lock
+
+The `_inFlightAddresses` set prevents concurrent duplicate score fetches. Since 1.7.10 the lock key is `chain + ':' + normalizedAddress` instead of the bare address:
+
+- Solana: exact Base58 address (`chain:address` — case-sensitive).
+- EVM: lowercase-normalised address (`ethereum:0xabc...`). The same EVM contract address on two different chains (e.g. `ethereum` and `base`) does **not** block each other.
+
+The local cache read in `getTokenScore` also passes the chain so EVM and Solana entries stay in separate cache slots.
+
 ## Tab Management
 
 - On tab URL change, the background worker pings the content script
 - If the content script doesn't respond (dead context from SPA navigation), it re-injects via `chrome.scripting.executeScript()`
 - This handles the MV3 limitation where service workers can terminate and content script contexts can be invalidated
+- The same re-inject path is triggered when `GET_TAB_TOKEN_DETECTION_STATE` returns `unavailable` on a supported host, so the popup is not stuck in a permanent loading state

@@ -20,6 +20,7 @@ describe('sanitizeTokenScore', () => {
           label: 'Mint Authority',
           description: 'No one can mint additional tokens.',
           tier: 'free',
+          category: 'contract',
         },
       },
     })).toEqual({
@@ -42,6 +43,7 @@ describe('sanitizeTokenScore', () => {
           label: 'Mint Authority',
           description: 'No one can mint additional tokens.',
           tier: 'free',
+          category: 'contract',
         },
       },
     });
@@ -90,11 +92,13 @@ describe('sanitizeTokenScore', () => {
           status: 'danger',
           value: true,
           tier: 'free',
+          category: 'contract',
         },
         freezeAuthority: {
           status: 'success',
           value: false,
           tier: 'free',
+          category: 'contract',
         },
       },
     })).toEqual({
@@ -113,6 +117,7 @@ describe('sanitizeTokenScore', () => {
           label: '',
           description: '',
           tier: 'free',
+          category: 'contract',
         },
         freezeAuthority: {
           status: 'success',
@@ -120,6 +125,7 @@ describe('sanitizeTokenScore', () => {
           label: '',
           description: '',
           tier: 'free',
+          category: 'contract',
         },
       },
     });
@@ -208,16 +214,19 @@ describe('extractTokenScores', () => {
           status: 'danger',
           value: true,
           tier: 'free',
+          category: 'contract',
         },
         freeze_authority: {
           status: 'success',
           value: false,
           tier: 'free',
+          category: 'contract',
         },
         liquidity_lock: {
           status: 'warning',
           value: false,
           tier: 'free',
+          category: 'marketStructure',
         },
       },
     })?.checks).toEqual({
@@ -227,6 +236,7 @@ describe('extractTokenScores', () => {
         label: '',
         description: '',
         tier: 'free',
+        category: 'contract',
       },
       freezeAuthority: {
         status: 'success',
@@ -234,6 +244,7 @@ describe('extractTokenScores', () => {
         label: '',
         description: '',
         tier: 'free',
+        category: 'contract',
       },
       liquidityLocked: {
         status: 'warning',
@@ -241,6 +252,7 @@ describe('extractTokenScores', () => {
         label: '',
         description: '',
         tier: 'free',
+        category: 'marketStructure',
       },
     });
   });
@@ -255,10 +267,12 @@ describe('extractTokenScores', () => {
         mintAuthority: {
           status: 'danger',
           value: true,
+          category: 'contract',
         },
         freezeAuthority: {
           status: 'success',
           value: false,
+          category: 'contract',
         },
       },
     })?.checks).toEqual({
@@ -268,6 +282,7 @@ describe('extractTokenScores', () => {
         label: '',
         description: '',
         tier: 'free',
+        category: 'contract',
       },
       freezeAuthority: {
         status: 'success',
@@ -275,6 +290,7 @@ describe('extractTokenScores', () => {
         label: '',
         description: '',
         tier: 'free',
+        category: 'contract',
       },
     });
   });
@@ -288,9 +304,11 @@ describe('extractTokenScores', () => {
       checks: {
         mintAuthority: {
           value: true,
+          category: 'contract',
         },
         freezeAuthority: {
           value: false,
+          category: 'contract',
         },
       },
     })?.checks).toEqual({
@@ -300,6 +318,7 @@ describe('extractTokenScores', () => {
         label: '',
         description: '',
         tier: 'free',
+        category: 'contract',
       },
       freezeAuthority: {
         status: 'success',
@@ -307,6 +326,7 @@ describe('extractTokenScores', () => {
         label: '',
         description: '',
         tier: 'free',
+        category: 'contract',
       },
     });
   });
@@ -322,14 +342,14 @@ describe('extractTokenScores', () => {
     expect(sanitizeTokenScore({
       ...base,
       checks: {
-        holderCount: { status: 'safe', value: '1,000+', description: 'The token is currently held by 1,000+ wallets.', tier: 'rescue_pass' },
+        holderCount: { status: 'safe', value: '1,000+', description: 'The token is currently held by 1,000+ wallets.', tier: 'rescue_pass', category: 'marketStructure' },
       },
     })?.checks.holderCount?.status).toBe('success');
 
     expect(sanitizeTokenScore({
       ...base,
       checks: {
-        tokenAge: { status: 'safe', value: '62 d', description: 'The token has been live for 62 d. Older tokens usually carry less launch risk.', tier: 'rescue_pass' },
+        tokenAge: { status: 'safe', value: '62 d', description: 'The token has been live for 62 d. Older tokens usually carry less launch risk.', tier: 'rescue_pass', category: 'behavior' },
       },
     })?.checks.tokenAge?.status).toBe('success');
   });
@@ -344,22 +364,22 @@ describe('extractTokenScores', () => {
 
     expect(sanitizeTokenScore({
       ...base,
-      checks: { holderCount: { value: 51, description: 'Es gibt bislang nur wenige Holder.', tier: 'rescue_pass' } },
+      checks: { holderCount: { value: 51, description: 'Es gibt bislang nur wenige Holder.', tier: 'rescue_pass', category: 'marketStructure' } },
     })?.checks.holderCount?.status).toBe('warning');
 
     expect(sanitizeTokenScore({
       ...base,
-      checks: { holderCount: { value: 5000, description: 'Es gibt bereits viele Holder.', tier: 'rescue_pass' } },
+      checks: { holderCount: { value: 5000, description: 'Es gibt bereits viele Holder.', tier: 'rescue_pass', category: 'marketStructure' } },
     })?.checks.holderCount?.status).toBe('success');
 
     expect(sanitizeTokenScore({
       ...base,
-      checks: { holderCount: { value: 51, tier: 'rescue_pass' } },
+      checks: { holderCount: { value: 51, tier: 'rescue_pass', category: 'marketStructure' } },
     })?.checks.holderCount?.status).toBe('warning');
 
     expect(sanitizeTokenScore({
       ...base,
-      checks: { holderCount: { value: 1000, tier: 'rescue_pass' } },
+      checks: { holderCount: { value: 1000, tier: 'rescue_pass', category: 'marketStructure' } },
     })?.checks.holderCount?.status).toBe('success');
   });
 
@@ -374,25 +394,25 @@ describe('extractTokenScores', () => {
     // German "very new" description → warning
     expect(sanitizeTokenScore({
       ...base,
-      checks: { tokenAge: { value: 2, description: 'Token ist sehr neu.', tier: 'rescue_pass' } },
+      checks: { tokenAge: { value: 2, description: 'Token ist sehr neu.', tier: 'rescue_pass', category: 'behavior' } },
     })?.checks.tokenAge?.status).toBe('warning');
 
     // German "some history" description → warning
     expect(sanitizeTokenScore({
       ...base,
-      checks: { tokenAge: { value: 14, description: 'Token hat bereits etwas Historie.', tier: 'rescue_pass' } },
+      checks: { tokenAge: { value: 14, description: 'Token hat bereits etwas Historie.', tier: 'rescue_pass', category: 'behavior' } },
     })?.checks.tokenAge?.status).toBe('warning');
 
     // German "older tokens less risky" description → success
     expect(sanitizeTokenScore({
       ...base,
-      checks: { tokenAge: { value: 90, description: 'Ältere Tokens sind in der Regel weniger riskant.', tier: 'rescue_pass' } },
+      checks: { tokenAge: { value: 90, description: 'Ältere Tokens sind in der Regel weniger riskant.', tier: 'rescue_pass', category: 'behavior' } },
     })?.checks.tokenAge?.status).toBe('success');
 
     // Numeric value only, no description → warning fallback
     expect(sanitizeTokenScore({
       ...base,
-      checks: { tokenAge: { value: 5, tier: 'rescue_pass' } },
+      checks: { tokenAge: { value: 5, tier: 'rescue_pass', category: 'behavior' } },
     })?.checks.tokenAge?.status).toBe('warning');
   });
 
@@ -413,29 +433,18 @@ describe('extractTokenScores', () => {
           status: 'warning',
           value: false,
           tier: 'free',
+          category: 'marketStructure',
         },
       },
     })?.checks).toEqual({
-      mintAuthority: {
-        status: 'danger',
-        value: true,
-        label: '',
-        description: '',
-        tier: 'free',
-      },
-      freezeAuthority: {
-        status: 'success',
-        value: false,
-        label: '',
-        description: '',
-        tier: 'free',
-      },
+      // top-level primitive fields lack category — sanitizer drops them gracefully
       liquidityLocked: {
         status: 'warning',
         value: false,
         label: '',
         description: '',
         tier: 'free',
+        category: 'marketStructure',
       },
     });
   });
@@ -451,27 +460,7 @@ describe('extractTokenScores', () => {
       liquidityLocked: false,
       checks: {},
     })?.checks).toEqual({
-      mintAuthority: {
-        status: 'danger',
-        value: true,
-        label: '',
-        description: '',
-        tier: 'free',
-      },
-      freezeAuthority: {
-        status: 'success',
-        value: false,
-        label: '',
-        description: '',
-        tier: 'free',
-      },
-      liquidityLocked: {
-        status: 'danger',
-        value: false,
-        label: '',
-        description: '',
-        tier: 'free',
-      },
+      // primitive top-level fields lack category — sanitizer drops them gracefully
     });
   });
 
@@ -487,20 +476,7 @@ describe('extractTokenScores', () => {
         freeze_authority: false,
       },
     })?.checks).toEqual({
-      mintAuthority: {
-        status: 'danger',
-        value: true,
-        label: '',
-        description: '',
-        tier: 'free',
-      },
-      freezeAuthority: {
-        status: 'success',
-        value: false,
-        label: '',
-        description: '',
-        tier: 'free',
-      },
+      // riskFactors entries lack category — sanitizer drops them gracefully
     });
   });
 
@@ -518,6 +494,7 @@ describe('extractTokenScores', () => {
           label: '',
           description: '',
           tier: 'free',
+          category: 'contract',
         },
       },
     }, 'free')).toBe(true);
@@ -531,12 +508,12 @@ describe('extractTokenScores', () => {
       risk: 'low',
       cached: false,
       checks: {
-        mintAuthority: { status: 'success', value: false, label: '', description: '', tier: 'free' },
-        freezeAuthority: { status: 'success', value: false, label: '', description: '', tier: 'free' },
-        liquidityLocked: { status: 'success', value: true, label: '', description: '', tier: 'free' },
-        topHolderConcentration: { status: 'warning', value: 0, label: '', description: '', tier: 'rescue_pass' },
-        tokenAge: { status: 'warning', value: 0, label: '', description: '', tier: 'rescue_pass' },
-        holderCount: { status: 'warning', value: 0, label: '', description: '', tier: 'rescue_pass' },
+        mintAuthority: { status: 'success', value: false, label: '', description: '', tier: 'free', category: 'contract' },
+        freezeAuthority: { status: 'success', value: false, label: '', description: '', tier: 'free', category: 'contract' },
+        liquidityLocked: { status: 'success', value: true, label: '', description: '', tier: 'free', category: 'marketStructure' },
+        topHolderConcentration: { status: 'warning', value: 0, label: '', description: '', tier: 'rescue_pass', category: 'marketStructure' },
+        tokenAge: { status: 'warning', value: 0, label: '', description: '', tier: 'rescue_pass', category: 'behavior' },
+        holderCount: { status: 'warning', value: 0, label: '', description: '', tier: 'rescue_pass', category: 'marketStructure' },
       },
     }, 'rescue_pass')).toBe(true);
   });
@@ -550,16 +527,118 @@ describe('extractTokenScores', () => {
       cached: true,
       confidence: 'high',
       checks: {
-        mintAuthority: { status: 'success', value: false, label: '', description: '', tier: 'free' },
-        freezeAuthority: { status: 'success', value: false, label: '', description: '', tier: 'free' },
-        liquidityLocked: { status: 'success', value: true, label: '', description: '', tier: 'free' },
-        topHolderConcentration: { status: 'warning', value: 14.2, label: '', description: '', tier: 'free' },
-        tokenAge: { status: 'warning', value: 90, label: '', description: '', tier: 'free' },
-        holderCount: { status: 'warning', value: 87, label: '', description: '', tier: 'free' },
-        developerHistory: { status: 'danger', value: 'bad', label: '', description: '', tier: 'free' },
-        clusterControl: { status: 'danger', value: 38.4, label: '', description: '', tier: 'free' },
+        mintAuthority: { status: 'success', value: false, label: '', description: '', tier: 'free', category: 'contract' },
+        freezeAuthority: { status: 'success', value: false, label: '', description: '', tier: 'free', category: 'contract' },
+        liquidityLocked: { status: 'success', value: true, label: '', description: '', tier: 'free', category: 'marketStructure' },
+        topHolderConcentration: { status: 'warning', value: 14.2, label: '', description: '', tier: 'free', category: 'marketStructure' },
+        tokenAge: { status: 'warning', value: 90, label: '', description: '', tier: 'free', category: 'behavior' },
+        holderCount: { status: 'warning', value: 87, label: '', description: '', tier: 'free', category: 'marketStructure' },
+        developerHistory: { status: 'danger', value: 'bad', label: '', description: '', tier: 'free', category: 'behavior' },
+        clusterControl: { status: 'danger', value: 38.4, label: '', description: '', tier: 'free', category: 'behavior' },
       },
     })).toBe(false);
+  });
+});
+
+describe('sanitizeTokenScore EVM address handling (Tests 13–16)', () => {
+  const EVM_SCORE_BASE = {
+    chain: 'ethereum',
+    score: 72,
+    risk: 'moderate' as const,
+    checks: {},
+  };
+
+  // Test 13 — EVM expectedAddress case-insensitive (positive + negatives)
+  it('13: accepts EVM score when address matches expectedAddress case-insensitively', () => {
+    const result = sanitizeTokenScore({
+      ...EVM_SCORE_BASE,
+      address: '0xABCDEF1234567890abcdef1234567890ABCDEF12',
+    }, {
+      expectedAddress: '0xabcdef1234567890abcdef1234567890abcdef12',
+    });
+    expect(result).not.toBeNull();
+    // address in output is the backend-supplied form, not normalized
+    expect(result?.address).toBe('0xABCDEF1234567890abcdef1234567890ABCDEF12');
+  });
+
+  it('13: rejects EVM score when expectedChain mismatches (wrong chain)', () => {
+    expect(sanitizeTokenScore({
+      ...EVM_SCORE_BASE,
+      address: '0xABCDEF1234567890abcdef1234567890ABCDEF12',
+    }, {
+      expectedAddress: '0xabcdef1234567890abcdef1234567890abcdef12',
+      expectedChain: 'bsc',
+    })).toBeNull();
+  });
+
+  it('13: rejects EVM score on real address mismatch after lowercase comparison', () => {
+    expect(sanitizeTokenScore({
+      ...EVM_SCORE_BASE,
+      address: '0x0000000000000000000000000000000000000001',
+    }, {
+      expectedAddress: '0xabcdef1234567890abcdef1234567890abcdef12',
+    })).toBeNull();
+  });
+
+  // Test 14 — sanitizeTokenScore with expectedChain mismatch
+  it('14: rejects valid score when chain is solana but expectedChain is ethereum', () => {
+    expect(sanitizeTokenScore({
+      address: 'So11111111111111111111111111111111111111112',
+      chain: 'solana',
+      score: 55,
+      risk: 'low',
+      checks: {},
+    }, {
+      expectedChain: 'ethereum',
+    })).toBeNull();
+  });
+
+  // Test 16 — Solana addresses are case-sensitive
+  it('16: rejects Solana score when address case does not match expectedAddress exactly', () => {
+    expect(sanitizeTokenScore({
+      address: 'so11111111111111111111111111111111111111112',
+      chain: 'solana',
+      score: 55,
+      risk: 'low',
+      checks: {},
+    }, {
+      expectedAddress: 'So11111111111111111111111111111111111111112',
+    })).toBeNull();
+  });
+});
+
+describe('extractTokenScores EVM allowedAddresses case-insensitive + expectedChain (Test 15)', () => {
+  const EVM_TOKEN_SCORE = {
+    address: '0xABCDEF1234567890abcdef1234567890ABCDEF12',
+    chain: 'ethereum',
+    score: 80,
+    risk: 'low' as const,
+    checks: {},
+  };
+
+  // Test 15 — positive: wrapper { data: TokenScore }, EVM case-insensitive + expectedChain
+  it('15: extracts EVM score from { data: TokenScore } with case-insensitive allowedAddresses and expectedChain', () => {
+    const results = extractTokenScores(
+      { data: EVM_TOKEN_SCORE },
+      {
+        allowedAddresses: ['0xabcdef1234567890abcdef1234567890abcdef12'],
+        expectedChain: 'ethereum',
+      },
+    );
+    expect(results).toHaveLength(1);
+    expect(results[0]?.address).toBe('0xABCDEF1234567890abcdef1234567890ABCDEF12');
+  });
+
+  // Test 15 — negative: expectedChain mismatch → empty array
+  it('15: returns empty array when expectedChain does not match score chain', () => {
+    const results = extractTokenScores(
+      { data: EVM_TOKEN_SCORE },
+      {
+        allowedAddresses: ['0xabcdef1234567890abcdef1234567890abcdef12'],
+        expectedChain: 'bsc',
+      },
+    );
+    expect(results).toHaveLength(0);
   });
 });
 
@@ -575,7 +654,7 @@ describe('sanitizeTokenScore Phase C check aliases', () => {
     const result = sanitizeTokenScore({
       ...BASE,
       checks: {
-        early_dump: { status: 'danger', value: true, label: 'Early dump', description: 'Dev sold early.', tier: 'free' },
+        early_dump: { status: 'danger', value: true, label: 'Early dump', description: 'Dev sold early.', tier: 'free', category: 'behavior' },
       },
     });
     expect(result?.checks['earlyDump']).toBeDefined();
@@ -586,7 +665,7 @@ describe('sanitizeTokenScore Phase C check aliases', () => {
     const result = sanitizeTokenScore({
       ...BASE,
       checks: {
-        sniper_dominance: { status: 'warning', value: 22, label: 'Sniper dominance', description: '22% snipers.', tier: 'free' },
+        sniper_dominance: { status: 'warning', value: 22, label: 'Sniper dominance', description: '22% snipers.', tier: 'free', category: 'behavior' },
       },
     });
     expect(result?.checks['sniperDominance']).toBeDefined();
@@ -597,7 +676,7 @@ describe('sanitizeTokenScore Phase C check aliases', () => {
     const result = sanitizeTokenScore({
       ...BASE,
       checks: {
-        sell_ability: { status: 'success', value: true, label: 'Sellable', description: 'No restrictions.', tier: 'free' },
+        sell_ability: { status: 'success', value: true, label: 'Sellable', description: 'No restrictions.', tier: 'free', category: 'behavior' },
       },
     });
     expect(result?.checks['sellability']).toBeDefined();
@@ -608,7 +687,7 @@ describe('sanitizeTokenScore Phase C check aliases', () => {
     const result = sanitizeTokenScore({
       ...BASE,
       checks: {
-        earlyDump: { status: 'danger', value: true, label: 'Early dump', description: 'Dev sold early.', tier: 'free' },
+        earlyDump: { status: 'danger', value: true, label: 'Early dump', description: 'Dev sold early.', tier: 'free', category: 'behavior' },
       },
     });
     expect(result?.checks['earlyDump']).toEqual({
@@ -617,6 +696,7 @@ describe('sanitizeTokenScore Phase C check aliases', () => {
       label: 'Early dump',
       description: 'Dev sold early.',
       tier: 'free',
+      category: 'behavior',
     });
   });
 });

@@ -26,19 +26,21 @@ Requests include authentication via:
 
 #### POST /api/analyze
 
-Full analysis of a single Solana token.
+Analysis of a single token. The extension always sends `mode: 'essential'` and `source: 'content_script'`, which the backend maps to Essential Mode (score cap 80, reduced data fetch).
 
 ```
-Request:  { address: string, chain: "solana", mode: "full" }
+Request:  { address: string, chain: "solana" | "ethereum" | "bsc" | "base", mode: "essential", source: "content_script" }
 Response: TokenScore object
 ```
+
+The `chain` field is mandatory and must match the chain the token lives on. The background worker derives it from `selectedToken.chain` (set by the platform adapter or content script). Sending the wrong chain or omitting chain causes the backend to default to Solana — the root bug that 1.7.10 fixes for EVM tokens.
 
 #### GET /api/token/:address
 
 Retrieve cached analysis from the server. This endpoint is cache-only and does not start a fresh analysis.
 
 ```
-Query:    ?chain=solana
+Query:    ?chain=solana | ethereum | bsc | base
 Response: TokenScore object, or 404 cache-miss JSON when no fresh cache entry exists
 ```
 
@@ -143,8 +145,8 @@ Public endpoint — returns cache TTLs and tier limits. Called on startup and ev
 
 ```typescript
 {
-  address: string;           // Solana mint address
-  chain: "solana";
+  address: string;           // Token address (chain-dependent: Solana = Base58 mint, EVM = 0x... hex address)
+  chain: "solana" | "ethereum" | "bsc" | "base";
   score: number;             // 0–100
   risk: "danger" | "high" | "caution" | "moderate" | "low";
   subscores?: {

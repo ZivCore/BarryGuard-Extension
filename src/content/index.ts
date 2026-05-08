@@ -135,6 +135,7 @@ function sendRuntimeMessage(
 
 function persistSelectedToken(selectedToken: {
   address: string;
+  chain?: string;
   score?: TokenScore;
   metadata?: TokenMetadata;
 }): void {
@@ -142,6 +143,35 @@ function persistSelectedToken(selectedToken: {
     void chrome.storage.local.set({ selectedToken }).catch((error: unknown) => {
       if (!isExtensionContextInvalidatedError(error)) {
         console.error('[BarryGuard] Failed to persist selected token:', error);
+      }
+    });
+  });
+}
+
+// Persist a scoreless update (address + chain only) while preserving an
+// existing score in storage. This prevents a stale content-script reconcile
+// write from erasing a score that arrived later from the background worker.
+// (Plan Step 5 — Storage-Reconcile must not lose score)
+function persistSelectedTokenPreserveScore(update: {
+  address: string;
+  chain?: string;
+  metadata?: TokenMetadata;
+}): void {
+  withSafeRuntime(() => {
+    void chrome.storage.local.get(SELECTED_TOKEN_STORAGE_KEY).then((stored) => {
+      const existing = stored[SELECTED_TOKEN_STORAGE_KEY] as SelectedToken | undefined;
+      const preserved: SelectedToken = {
+        ...update,
+        ...(existing?.address === update.address
+          && (update.chain == null || existing?.chain == null || existing?.chain === update.chain)
+          && existing?.score
+          ? { score: existing.score }
+          : {}),
+      };
+      return chrome.storage.local.set({ selectedToken: preserved });
+    }).catch((error: unknown) => {
+      if (!isExtensionContextInvalidatedError(error)) {
+        console.error('[BarryGuard] Failed to persist selected token (preserve-score):', error);
       }
     });
   });
@@ -581,6 +611,7 @@ export function initializeContentScript(): void {
           // Persist score immediately so the popup can show it right away
           persistSelectedToken({
             ...selectedToken,
+            chain,
             metadata,
           });
         }
@@ -601,7 +632,9 @@ export function initializeContentScript(): void {
       // the popup always reflects the current token state
       if (platform.getCurrentPageAddress() === address) {
         if (rateLimited) {
-          persistSelectedToken({ address });
+          // Scoreless write: use score-preserving variant so a previously
+          // fetched score is not erased by this partial update.
+          persistSelectedTokenPreserveScore({ address, chain });
         } else {
           scheduleStorageReconcile(address);
         }
@@ -685,13 +718,14 @@ export function initializeContentScript(): void {
     // always shows the current page's token (even before score resolves).
     // Try to include a cached score from a previous visit via the extension cache.
     if (currentPageAddress && document.hasFocus() && !resolvedScores.has(currentPageAddress)) {
-      sendRuntimeMessage({ type: 'GET_CACHED_SCORE', payload: currentPageAddress }, (cachedResponse) => {
+      const pageChain = (platform.detectChainFromUrl?.(window.location.href) ?? platform.chains?.[0]) ?? 'solana';
+      sendRuntimeMessage({ type: 'GET_CACHED_SCORE', payload: { address: currentPageAddress, chain: pageChain } }, (cachedResponse) => {
         if (cachedResponse?.success && cachedResponse.data) {
           const cachedScore = cachedResponse.data as TokenScore;
           const selectedToken = platform.buildSelectedToken(currentPageAddress, cachedScore);
-          persistSelectedToken(selectedToken);
+          persistSelectedToken({ ...selectedToken, chain: pageChain });
         } else {
-          persistSelectedToken({ address: currentPageAddress });
+          persistSelectedToken({ address: currentPageAddress, chain: pageChain });
         }
       });
     }

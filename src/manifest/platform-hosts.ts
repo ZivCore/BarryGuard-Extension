@@ -73,3 +73,34 @@ export const PLATFORM_HOST_PATTERNS = [
   '*://www.zerion.io/*',
 ] as const;
 
+/**
+ * Returns true if the given URL belongs to a supported extension host.
+ * Derived from PLATFORM_HOST_PATTERNS — single source of truth.
+ */
+export function isSupportedExtensionHost(url: string): boolean {
+  let hostname: string;
+  try {
+    hostname = new URL(url).hostname;
+  } catch {
+    return false;
+  }
+
+  for (const pattern of PLATFORM_HOST_PATTERNS) {
+    // Pattern form: *://host/* or *://*.host/*
+    // Extract the host segment between :// and /*
+    const hostPart = pattern.slice(pattern.indexOf('://') + 3, pattern.lastIndexOf('/*'));
+    if (hostPart.startsWith('*.')) {
+      // Wildcard subdomain: matches any subdomain of the base host
+      const base = hostPart.slice(2); // e.g. "solscan.io"
+      if (hostname === base || hostname.endsWith('.' + base)) {
+        return true;
+      }
+    } else {
+      if (hostname === hostPart) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+

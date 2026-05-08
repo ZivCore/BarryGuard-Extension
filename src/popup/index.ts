@@ -62,8 +62,9 @@ interface PopupState {
 }
 
 interface TabTokenDetectionState {
-  hasToken: boolean;
-  address: string | null;
+  status: 'has_token' | 'no_token' | 'unsupported' | 'unavailable';
+  address?: string;
+  chain?: string;
 }
 
 interface PlanBranding {
@@ -609,8 +610,9 @@ function renderWatchlistAlerts(): void {
     return;
   }
 
+  const currentChain = resolveTokenChain(state.selectedToken);
   const relevantAlerts = state.watchlistAlerts
-    .filter((alert) => alert.token_address === currentAddress)
+    .filter((alert) => alert.token_address === currentAddress && alert.chain === currentChain)
     .slice(0, 3);
 
   if (relevantAlerts.length === 0) {
@@ -753,8 +755,9 @@ async function refreshWatchlistForSelectedToken(): Promise<void> {
   state.watchlistStatus = null;
   renderWatchlistState();
 
+  const currentChain = resolveTokenChain(state.selectedToken);
   const [statusResponse, alertsResponse] = await Promise.all([
-    sendMessage<WatchlistStatus>({ type: 'GET_WATCHLIST_STATUS', payload: currentAddress }, 5000),
+    sendMessage<WatchlistStatus>({ type: 'GET_WATCHLIST_STATUS', payload: { address: currentAddress, chain: currentChain } }, 5000),
     sendMessage<{ alerts: WatchlistAlert[]; unreadAlerts: number; hasAccess: boolean }>({ type: 'GET_WATCHLIST_ALERTS' }, 5000),
   ]);
 
@@ -776,7 +779,7 @@ async function refreshWatchlistForSelectedToken(): Promise<void> {
     state.watchlistAlerts = alertsResponse.data.alerts ?? [];
     if (state.watchlistStatus) {
       state.watchlistStatus.unreadAlerts = state.watchlistStatus.saved
-        ? (state.watchlistAlerts.filter((alert) => alert.token_address === currentAddress && !alert.read_at).length)
+        ? (state.watchlistAlerts.filter((alert) => alert.token_address === currentAddress && alert.chain === currentChain && !alert.read_at).length)
         : 0;
     }
   } else {
@@ -810,10 +813,11 @@ async function handleWatchlistToggle(): Promise<void> {
   }
   setWatchlistError(null);
 
+  const toggleChain = resolveTokenChain(state.selectedToken);
   try {
     const response = state.watchlistStatus?.saved
-      ? await sendMessage<{ success: boolean }>({ type: 'REMOVE_FROM_WATCHLIST', payload: currentAddress }, 5000)
-      : await sendMessage<WatchlistStatus>({ type: 'ADD_TO_WATCHLIST', payload: currentAddress }, 5000);
+      ? await sendMessage<{ success: boolean }>({ type: 'REMOVE_FROM_WATCHLIST', payload: { address: currentAddress, chain: toggleChain } }, 5000)
+      : await sendMessage<WatchlistStatus>({ type: 'ADD_TO_WATCHLIST', payload: { address: currentAddress, chain: toggleChain } }, 5000);
 
     if (!response.success) {
       if (response.statusCode === 401) {
@@ -1159,6 +1163,49 @@ function renderLoadingTokenState(address: string): void {
   renderWatchlistState();
 }
 
+function renderScoreFetchErrorState(address: string, errorMessage: string): void {
+  // Shows a controlled error state while keeping the token identity visible.
+  // selectedToken is NOT cleared (ADR-018 / Plan Step 5).
+  const short = shortenAddress(address, 8, 6);
+  if (elements.tokenDetail.tokenName) elements.tokenDetail.tokenName.textContent = 'Score Unavailable';
+  if (elements.tokenDetail.tokenSymbol) elements.tokenDetail.tokenSymbol.textContent = '';
+  updateTokenAddressButton(short, address);
+  if (elements.tokenDetail.scoreValue) elements.tokenDetail.scoreValue.textContent = '--';
+  if (elements.tokenDetail.scoreDonut) {
+    elements.tokenDetail.scoreDonut.className = 'score-donut';
+    if (elements.tokenDetail.scoreDonutRing) {
+      elements.tokenDetail.scoreDonutRing.style.setProperty('--score-deg', '0deg');
+    }
+  }
+  if (elements.tokenDetail.riskLabel) {
+    elements.tokenDetail.riskLabel.textContent = 'RETRY';
+    elements.tokenDetail.riskLabel.className = 'risk-label';
+  }
+  if (elements.tokenDetail.checksList) {
+    elements.tokenDetail.checksList.textContent = '';
+    const item = document.createElement('div');
+    item.className = 'check-item';
+    const icon = document.createElement('div');
+    icon.className = 'check-icon warning';
+    icon.textContent = '!';
+    const content = document.createElement('div');
+    content.className = 'check-content';
+    const label = document.createElement('div');
+    label.className = 'check-label';
+    label.textContent = 'Score fetch failed';
+    const desc = document.createElement('div');
+    desc.className = 'check-description';
+    desc.textContent = errorMessage;
+    content.appendChild(label);
+    content.appendChild(desc);
+    item.appendChild(icon);
+    item.appendChild(content);
+    elements.tokenDetail.checksList.appendChild(item);
+  }
+  showScreen('token-detail');
+  renderWatchlistState();
+}
+
 function renderPrimaryTokenState(): void {
   renderUsageIndicator();
 
@@ -1435,13 +1482,14 @@ function handleSelectedTokenUpdate(selectedToken: SelectedToken | null): void {
     scoreRefreshAttempts = 0;
   }
 
-  // Preserve existing score/metadata if the incoming update has less info.
+  // Preserve existing score/metadata/chain if the incoming update has less info.
   // Content scripts frequently persist { address } on detail pages while a score
   // is still loading or being reconciled; that must not wipe the popup state.
   if (selectedToken && state.selectedToken?.address === selectedToken.address) {
     selectedToken = {
       ...state.selectedToken,
       ...selectedToken,
+      chain: selectedToken.chain ?? state.selectedToken.chain,
       ...(state.selectedToken.metadata || selectedToken.metadata
         ? {
             metadata: {
@@ -1713,17 +1761,34 @@ async function loadSelectedToken(): Promise<void> {
   }
 }
 
-async function detectActiveTabTokenState(): Promise<'has-token' | 'no-token' | 'unknown'> {
+/**
+ * Plan Step 3 chain priority for outbound payloads against the background:
+ *   1. selectedToken.chain (set by content script / adapter on the active tab)
+ *   2. selectedToken.score?.chain (canonical chain from a previously fetched score)
+ *   3. controlled fallback to 'solana' for legacy storage entries (pre-1.7.10) or
+ *      Solana-only hosts where neither chain field is populated.
+ *
+ * Phase A persists chain on every content-script write, so the fallback only
+ * triggers for pre-1.7.10 storage rows that have not been refreshed yet.
+ */
+function resolveTokenChain(token: SelectedToken | null | undefined): string {
+  return token?.chain ?? token?.score?.chain ?? 'solana';
+}
+
+async function detectActiveTabTokenState(): Promise<'has-token' | 'no-token' | 'unavailable'> {
   const response = await sendMessage<TabTokenDetectionState>(
     { type: 'GET_TAB_TOKEN_DETECTION_STATE' },
     250,
   );
 
   if (!response.success || !response.data) {
-    return 'unknown';
+    return 'unavailable';
   }
 
-  return response.data.hasToken ? 'has-token' : 'no-token';
+  const { status } = response.data;
+  if (status === 'has_token') return 'has-token';
+  if (status === 'unavailable') return 'unavailable';
+  return 'no-token';
 }
 
 async function refreshSelectedTokenScore(): Promise<void> {
@@ -1744,12 +1809,18 @@ async function refreshSelectedTokenScore(): Promise<void> {
 
   const response = await sendMessage<TokenScore>({
     type: 'GET_TOKEN_SCORE',
-    payload: selectedToken.address,
+    payload: { address: selectedToken.address, chain: resolveTokenChain(selectedToken) },
   }, POPUP_ANALYZE_REQUEST_TIMEOUT_MS);
 
   if (!response.success || !response.data) {
-    if (needsInitialFetch || shouldRetryScoreRefresh(response)) {
+    // selectedToken is intentionally NOT cleared here (ADR-018 / Plan Step 5):
+    // a fetch error is a confidence gap, not a "no token" signal.
+    if (shouldRetryScoreRefresh(response)) {
       scheduleSelectedTokenScoreRefresh();
+    } else if (needsInitialFetch && state.selectedToken?.address === selectedToken.address) {
+      // Permanent failure with no score and no retry: show controlled error text
+      // instead of leaving a blank loading state visible (Plan Step 5).
+      renderScoreFetchErrorState(selectedToken.address, response.error ?? 'Score unavailable');
     }
     return;
   }
@@ -1892,7 +1963,7 @@ async function handleRefreshToken(): Promise<void> {
   try {
     const response = await sendMessage<TokenScore>({
       type: 'REFRESH_TOKEN_SCORE',
-      payload: { address: selectedToken.address, chain: 'solana' },
+      payload: { address: selectedToken.address, chain: resolveTokenChain(selectedToken) },
     }, 10000);
 
     if (response.success && response.data) {
@@ -1960,7 +2031,7 @@ function setupCheckCategoryTabs(): void {
   const tabContainer = document.getElementById('check-category-tabs');
   if (!tabContainer) return;
   tabContainer.addEventListener('click', (event) => {
-    const target = (event.target as HTMLElement | null)?.closest<HTMLElement>('.check-category-tab');
+    const target = (event.target as HTMLElement | null)?.closest<HTMLElement>('.rd-tab');
     if (!target) return;
     const category = target.dataset.category as CheckCategory | undefined;
     if (!category || !CATEGORY_ORDER.includes(category)) return;
@@ -1982,9 +2053,9 @@ function setupEventListeners(): void {
     }
 
     if (changes.activePageToken) {
-      const active = changes.activePageToken.newValue as { address?: string; score?: TokenScore; updatedAt?: number } | undefined;
+      const active = changes.activePageToken.newValue as { address?: string; chain?: string; score?: TokenScore; updatedAt?: number } | undefined;
       if (active?.address && active?.score) {
-        handleSelectedTokenUpdate({ address: active.address, score: active.score });
+        handleSelectedTokenUpdate({ address: active.address, chain: active.chain, score: active.score });
       }
     }
 
@@ -2132,16 +2203,18 @@ async function init(): Promise<void> {
     await sendMessage({ type: 'REFRESH_USAGE' }, 3000).catch(() => {});
     await loadUsageState();
     const tabTokenState = await detectActiveTabTokenState();
-    // Plan platform-overhaul 2026-05-06 Step 10: only load the cached token
-    // when the active tab actively reports `has-token`. `'no-token'` and
-    // `'unknown'` (no content script on this page = unsupported domain) BOTH
-    // route to the empty-state screen; otherwise an unsupported tab would
-    // silently render the previously analyzed token with a stale "analyzing"
-    // hint, contradicting the empty-state requirement.
     if (tabTokenState === 'has-token') {
       await loadSelectedToken();
       await refreshSelectedTokenScore();
+    } else if (tabTokenState === 'unavailable') {
+      // ADR-018: confidence gap — content script not yet ready on a supported host.
+      // Preserve the last known selectedToken; do NOT clear storage.
+      await loadSelectedToken();
+      if (state.selectedToken) {
+        void refreshSelectedTokenScore();
+      }
     } else {
+      // 'no-token': page explicitly has no token, or unsupported host.
       state.selectedToken = null;
       await chrome.storage.local.remove('selectedToken');
       showScreen('no-token');
