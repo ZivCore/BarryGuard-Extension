@@ -71,7 +71,7 @@ describe('RESOLVE_DEX_PAIR boundary contract', () => {
       },
     ]);
     expect(mockFetch).toHaveBeenCalledWith(
-      'https://barryguard.com/api/resolve/pair',
+      'https://www.barryguard.com/api/resolve/pair',
       expect.objectContaining({
         method: 'POST',
         credentials: 'include',
@@ -136,7 +136,7 @@ describe('RESOLVE_DEX_PAIR boundary contract', () => {
     );
     expect(mockFetch).toHaveBeenNthCalledWith(
       4,
-      'https://barryguard.com/api/analyze',
+      'https://www.barryguard.com/api/analyze',
       expect.objectContaining({
         method: 'POST',
         body: JSON.stringify({

@@ -21,7 +21,7 @@ test('rehydrates popup token state exclusively through BarryGuard API endpoints'
 
   const seenHosts = new Set<string>();
 
-  await context.route('https://barryguard.com/api/**', async (route) => {
+  await context.route('https://www.barryguard.com/api/**', async (route) => {
     const url = new URL(route.request().url());
     seenHosts.add(url.host);
 

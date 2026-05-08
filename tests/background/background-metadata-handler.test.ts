@@ -14,7 +14,7 @@ import { describe, it, expect, vi, beforeEach } from 'vitest'
 // Helpers to construct expected API paths
 // ---------------------------------------------------------------------------
 
-const BASE_URL = 'https://barryguard.com/api'
+const BASE_URL = 'https://www.barryguard.com/api'
 
 function buildTokenDetailPath(chain: string, address: string): string {
   return `${BASE_URL}/token/${chain}/${address}?source=content_script`
@@ -26,7 +26,7 @@ describe('GET_TOKEN_METADATA — backend delegation (E-H3)', () => {
     const address = 'So11111111111111111111111111111111111111112'
     const url = buildTokenDetailPath(chain, address)
     expect(url).toBe(
-      'https://barryguard.com/api/token/solana/So11111111111111111111111111111111111111112?source=content_script'
+      'https://www.barryguard.com/api/token/solana/So11111111111111111111111111111111111111112?source=content_script'
     )
   })
 

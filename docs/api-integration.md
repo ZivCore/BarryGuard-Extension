@@ -2,11 +2,11 @@
 
 ## Overview
 
-The extension communicates with the BarryGuard API at `https://barryguard.com/api`. All scoring logic runs server-side — the extension only fetches and displays results.
+The extension communicates with the BarryGuard API at `https://www.barryguard.com/api`. All scoring logic runs server-side — the extension only fetches and displays results.
 
 ## Base URL
 
-Default: `https://barryguard.com/api`
+Default: `https://www.barryguard.com/api`
 
 Configurable via environment variables (checked in order):
 1. `BARRYGUARD_API_URL`

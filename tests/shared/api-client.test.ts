@@ -57,7 +57,7 @@ describe('BarryGuardApiClient', () => {
     await client.resolveDexPairs(['pair-1'], 'solana', 'sess-pair');
 
     expect(mockFetch).toHaveBeenCalledWith(
-      'https://barryguard.com/api/resolve/pair',
+      'https://www.barryguard.com/api/resolve/pair',
       expect.objectContaining({
         credentials: 'include',
         method: 'POST',
@@ -79,7 +79,7 @@ describe('BarryGuardApiClient', () => {
     });
 
     expect(mockFetch).toHaveBeenCalledWith(
-      'https://barryguard.com/api/analyze-list',
+      'https://www.barryguard.com/api/analyze-list',
       expect.objectContaining({
         credentials: 'include',
         method: 'POST',
