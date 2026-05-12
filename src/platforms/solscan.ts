@@ -8,6 +8,15 @@ export class SolscanPlatform extends GenericSolanaPlatform {
       hostPattern: ['*://solscan.io/*', '*://*.solscan.io/*'],
       hostnames: ['solscan.io'],
       detailTargetSelectors: [
+        // Live-DOM 2026-05-12: Solscan rendert Token-Name als <h4> innerhalb
+        // <div class="truncateWrapper">. Konsistent ueber Bonk + PYUSD verifiziert.
+        '.truncateWrapper h4',
+        '[class*="truncateWrapper"] h4',
+        '.truncateWrapper',
+        '[class*="truncateWrapper"]',
+        'h4.text-neutral8',
+        'h4[class*="text-neutral8"]',
+        // Legacy-Anker (Fallback fuer DOM-Reverts oder Solscan-Subroutes)
         '[data-testid="token-name"]',
         '[class*="token-name"]',
         '[class*="TokenName"]',
@@ -19,6 +28,10 @@ export class SolscanPlatform extends GenericSolanaPlatform {
         'h4',
       ],
       nameSelectors: [
+        '.truncateWrapper h4',
+        '[class*="truncateWrapper"] h4',
+        'h4.text-neutral8',
+        'h4[class*="text-neutral8"]',
         '[data-testid="token-name"]',
         '[class*="token-name"]',
         '[class*="TokenName"]',

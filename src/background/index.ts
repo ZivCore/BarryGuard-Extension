@@ -1094,8 +1094,42 @@ function isValidTokenAddress(address: unknown, chain: string): address is string
 
 const _inFlightAddresses = new Set<string>();
 
+/**
+ * Time-based dedup map for fresh-analysis POSTs.
+ *
+ * Plan `plan-admin-system-and-extension-bugs.md` Step 16b: Diagnose-SQL (2026-05-12)
+ * meldete 181 `source=extension` Doppel-Inserts in 24h auf `analysis_log` —
+ * Hauptursache des Doppel-Insert-Bugs.  `_inFlightAddresses` schuetzt nur
+ * gegen gleichzeitige Parallel-Calls, nicht gegen schnelle sequenzielle
+ * Re-Requests (z. B. Tab-Reload, URL-Change-Detect, Multi-Tab dasselbe
+ * Token, Cache-Miss-Race zwischen `cache.set` und naechstem Call).
+ *
+ * Diese Map traegt pro `(chain, address)` den letzten Zeitpunkt eines
+ * erfolgreichen `POST /api/analyze` ein.  Folge-Calls innerhalb des
+ * Dedup-Fensters greifen statt auf das Backend auf den lokalen Cache
+ * zurueck.  Greift unabhaengig vom Cache-Status — auch wenn der lokale
+ * Cache aus irgendeinem Grund (Reload, Eviction, Multi-Tab) zwischen
+ * zwei Calls leer ist, verhindert das Map den zweiten POST.
+ *
+ * Window: 60 s.  Kuerzer als der kuerzeste Tier-Cache (Pro: 10 min) — also
+ * keine Stale-Daten — aber laenger als typische Tab-Reload-Intervalle.
+ */
+const RECENT_POST_DEDUP_MS = 60_000;
+const _recentPostTimestamps = new Map<string, number>();
+
 function normalizeAddressForKey(chain: string, address: string): string {
   return chain === 'solana' ? address : address.toLowerCase();
+}
+
+function pruneRecentPostTimestamps(now: number): void {
+  // Best-effort cleanup so the Map doesn't grow unbounded across long sessions.
+  // Iterates only on insert paths; no scheduled timer to keep the service worker
+  // wake budget low.
+  for (const [key, ts] of _recentPostTimestamps) {
+    if (now - ts > RECENT_POST_DEDUP_MS) {
+      _recentPostTimestamps.delete(key);
+    }
+  }
 }
 
 async function getTokenScore(address: string, chain: string = 'solana') {
@@ -1174,6 +1208,30 @@ async function getTokenScore(address: string, chain: string = 'solana') {
     }
 
     // 4. Fresh analysis: POST /api/analyze
+    //
+    // Plan-Step 16b dedup: before issuing the POST, check whether the same
+    // (chain, address) has been analyzed within the last RECENT_POST_DEDUP_MS.
+    // If yes, fall back to the local cache (which may have just been written
+    // by the previous call) instead of triggering a duplicate analysis_log
+    // insert on the backend.
+    const dedupKey = inFlightKey;
+    const now = Date.now();
+    const lastPostMs = _recentPostTimestamps.get(dedupKey);
+    if (lastPostMs !== undefined && now - lastPostMs < RECENT_POST_DEDUP_MS) {
+      const recentCached = await cache.get(address, tier, chain);
+      if (recentCached) {
+        return { success: true, data: { ...recentCached, cached: true } };
+      }
+      // Cache miss despite recent POST — local-cache write may have failed.
+      // Skip the POST anyway (to honor the dedup contract) and report a
+      // soft "not ready" so the caller can retry after the window expires.
+      return {
+        success: false,
+        error: 'Analysis just completed for this token — try again shortly.',
+        errorType: 'busy' as const,
+      };
+    }
+
     const fresh = await api.analyzeToken(address, chain, telemetrySessionId);
     if (fresh.success && fresh.data) {
       const normalizedFresh = sanitizeTokenScore(fresh.data, { expectedAddress: address, expectedChain: chain });
@@ -1192,6 +1250,10 @@ async function getTokenScore(address: string, chain: string = 'solana') {
       await incrementHourlyUsage(normalizedProfile, 1);
 
       await cache.set(address, normalizedFresh, tier);
+      // Record post timestamp AFTER the successful insert+cache.set chain so
+      // that retries during the cache-write window are still blocked.
+      pruneRecentPostTimestamps(Date.now());
+      _recentPostTimestamps.set(dedupKey, Date.now());
       return { success: true, data: { ...normalizedFresh, cached: false } };
     }
 
