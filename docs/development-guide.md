@@ -201,7 +201,31 @@ Bei neuen oder geänderten Plattformen: **eine Zeile pro Adapter** mit Abgleich 
 | Background | `src/background/index.ts` → `SUPPORTED_PLATFORM_HOST_PATTERNS` (Reinject-Hosts) |
 | CSP | `wxt.config.ts` → `connect-src` / `img-src` falls nötig |
 
-### Audit-Matrix (ausgefüllt)
+### Mass-Scan / Token-List-Pfad
+
+Die Extension dedupliziert Mass-Scan-Analysen auf zwei Schichten im Background-Worker `analyzeTokenList`:
+
+- **In-Flight-Dedup via `_inFlightAddresses`-Set:** Parallele API-Calls auf derselben Adresse werden serialisiert. Eine Adresse wird nur einmal pro Analyse-Batch gesendet.
+- **60-Sekunden-Recent-Post-Dedup via `_recentPostTimestamps`-Map:** Fenster `RECENT_POST_DEDUP_MS = 60_000`. Wenn eine Adresse innerhalb der letzten 60 Sekunden bereits analysiert wurde, wird der lokale Cache statt eines neuen Backend-POST verwendet.
+
+**Analyse-Reihenfolge pro Token:**
+
+1. Set-Dedup-Check (`_inFlightAddresses`)
+2. Lokaler Browser-Cache-Lookup
+3. In-Flight-Filter (verhindert gleichzeitige Duplikate)
+4. Recent-Post-Filter (60-Sekunden-Fenster)
+5. Quota-Local-Check (analyzeTokenList-Budget)
+6. Backend `POST /api/analyze` oder `POST /api/analyze-list`
+7. Recent-Post-Stempel setzen (`_recentPostTimestamps`)
+8. In-Flight-Cleanup im finally-Block
+
+**Score-Memo im Content-Script:** Der Helper `setResolvedScore` befuellt eine persistente Map `resolvedScores`, die DOM-Sichtbarkeitsverlust ueberlebt (z. B. Live-Stream-Rotation auf pump.fun-Startpage) und auch SPA-URL-Wechsel. Soft-Cap `RESOLVED_SCORES_MAX = 5000` mit FIFO-Eviction via Map-Insertion-Order verhindert unbeschraenktes Wachstum bei Marathon-Sessions.
+
+**Burst-Throttle:** Alle `scanAll`-Trigger laufen ueber `scheduleScanAll(options?)`. Mindestabstand 1500 ms. Option `urgent: true` ueberspringt das Fenster, fuer Detail-Pages und URL-Change-Erststart.
+
+**Begruendung:** Auf hyperdynamischen Feed-Seiten (z. B. pump.fun-Startpage) verhindert die Kombination aus In-Flight- und Recent-Post-Dedup-Schichten redundante API-Calls pro einzigartigem Token, waehrend gleichzeitig eine 1:1-Beziehung zwischen sichtbaren Unique-Tokens und Mass-Scan-Verbrauch gewahrt bleibt.
+
+## Audit-Matrix (ausgefüllt)
 
 | Adapter-Datei | id | hostPattern | Content Script | Background | CSP |
 |---|---|---|---|---|---|

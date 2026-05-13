@@ -1312,6 +1312,47 @@ async function analyzeTokenList(addresses: string[]): Promise<ApiResponse<TokenL
     return { success: true, data: { scores, cachedAddresses } };
   }
 
+  // In-flight dedup: if a concurrent request is already analyzing this address,
+  // try the local cache one more time (the in-flight call may have just written it).
+  // If still missing, skip — caller will retry on next scan.
+  const chain = 'solana';
+  const now = Date.now();
+  for (let i = missingAddresses.length - 1; i >= 0; i--) {
+    const address = missingAddresses[i];
+    const key = `${chain}:${normalizeAddressForKey(chain, address)}`;
+    if (_inFlightAddresses.has(key)) {
+      const recentCached = await cache.get(address, tier);
+      if (recentCached) {
+        scores.push({ ...recentCached, cached: true });
+        cachedAddresses.push(address);
+      }
+      // Whether we got a cache hit or not, remove from the POST batch.
+      missingAddresses.splice(i, 1);
+    }
+  }
+
+  // Recent-post dedup: if the same address was analyzed within RECENT_POST_DEDUP_MS,
+  // prefer the cached result over a duplicate POST.
+  for (let i = missingAddresses.length - 1; i >= 0; i--) {
+    const address = missingAddresses[i];
+    const key = `${chain}:${normalizeAddressForKey(chain, address)}`;
+    const lastPostMs = _recentPostTimestamps.get(key);
+    if (lastPostMs !== undefined && now - lastPostMs < RECENT_POST_DEDUP_MS) {
+      const recentCached = await cache.get(address, tier);
+      if (recentCached) {
+        scores.push({ ...recentCached, cached: true });
+        cachedAddresses.push(address);
+      }
+      // Remove regardless of cache hit — skip duplicate POST.
+      missingAddresses.splice(i, 1);
+    }
+  }
+
+  // All addresses resolved without a POST.
+  if (missingAddresses.length === 0) {
+    return { success: true, data: { scores, cachedAddresses, lockedCount: 0 } };
+  }
+
   await correctLocalUsageFromBackend(normalizedProfile);
 
   const hourlyLimit = await maybeEnforceHourlyLimit(normalizedProfile, missingAddresses.length);
@@ -1319,63 +1360,85 @@ async function analyzeTokenList(addresses: string[]): Promise<ApiResponse<TokenL
     return hourlyLimit as ApiResponse<TokenListAnalysisData>;
   }
 
+  // Mark all remaining addresses as in-flight before the POST.
+  const inFlightKeys: string[] = [];
+  for (const address of missingAddresses) {
+    const key = `${chain}:${normalizeAddressForKey(chain, address)}`;
+    _inFlightAddresses.add(key);
+    inFlightKeys.push(key);
+  }
+
   const telemetrySessionIds: Record<string, string> = {};
   for (const address of missingAddresses) {
-    const sessionId = takeTelemetrySession(address, 'solana');
+    const sessionId = takeTelemetrySession(address, chain);
     if (sessionId) {
       telemetrySessionIds[address] = sessionId;
     }
   }
 
-  const response = await api.analyzeTokenList(
-    missingAddresses,
-    'solana',
-    false,
-    Object.keys(telemetrySessionIds).length > 0 ? telemetrySessionIds : undefined,
-  );
-  if (!response.success) {
-    if (isQuotaExceededResponse(response)) {
-      await syncUsageFromQuotaError(normalizedProfile, response);
-    }
-    return mapApiFailure(response) as ApiResponse<TokenListAnalysisData>;
-  }
-
-  const networkScores = extractTokenScores(response.data, { allowedAddresses: missingAddresses });
-  // Increment by requested count, not parsed count — backend counts all requested tokens
-  await incrementHourlyUsage(normalizedProfile, missingAddresses.length);
-  for (const score of networkScores) {
-    await cache.set(score.address, score, tier);
-    scores.push({ ...score, cached: false });
-  }
-
-  // M-7: Count locked checks across all scores so the popup can show "X tokens require upgrade"
-  let lockedCount = 0;
-  const responseRecord = response.data && typeof response.data === 'object' ? response.data as Record<string, unknown> : null;
-  if (Array.isArray(responseRecord)) {
-    for (const item of responseRecord) {
-      if (item && typeof item === 'object' && (item as Record<string, unknown>).locked === true) {
-        lockedCount++;
+  try {
+    const response = await api.analyzeTokenList(
+      missingAddresses,
+      chain,
+      false,
+      Object.keys(telemetrySessionIds).length > 0 ? telemetrySessionIds : undefined,
+    );
+    if (!response.success) {
+      if (isQuotaExceededResponse(response)) {
+        await syncUsageFromQuotaError(normalizedProfile, response);
       }
+      return mapApiFailure(response) as ApiResponse<TokenListAnalysisData>;
     }
-  } else if (responseRecord) {
-    const items = (responseRecord.results ?? responseRecord.scores ?? responseRecord.tokens ?? responseRecord.data ?? responseRecord.analyses) as unknown;
-    if (Array.isArray(items)) {
-      for (const item of items) {
+
+    const networkScores = extractTokenScores(response.data, { allowedAddresses: missingAddresses });
+    // Increment by requested count, not parsed count — backend counts all requested tokens.
+    await incrementHourlyUsage(normalizedProfile, missingAddresses.length);
+    for (const score of networkScores) {
+      await cache.set(score.address, score, tier);
+      scores.push({ ...score, cached: false });
+    }
+
+    // Stempel alle pre-POST-Adressen — auch teilweise gedroppte Responses verhindern erneutes POSTen im 60s-Fenster (Plan: Mehrfach-POST-Vermeidung pro Unique-Token).
+    const postNow = Date.now();
+    for (const key of inFlightKeys) {
+      _recentPostTimestamps.set(key, postNow);
+    }
+    pruneRecentPostTimestamps(postNow);
+
+    // M-7: Count locked checks across all scores so the popup can show "X tokens require upgrade"
+    let lockedCount = 0;
+    const responseRecord = response.data && typeof response.data === 'object' ? response.data as Record<string, unknown> : null;
+    if (Array.isArray(responseRecord)) {
+      for (const item of responseRecord) {
         if (item && typeof item === 'object' && (item as Record<string, unknown>).locked === true) {
           lockedCount++;
         }
       }
+    } else if (responseRecord) {
+      const items = (responseRecord.results ?? responseRecord.scores ?? responseRecord.tokens ?? responseRecord.data ?? responseRecord.analyses) as unknown;
+      if (Array.isArray(items)) {
+        for (const item of items) {
+          if (item && typeof item === 'object' && (item as Record<string, unknown>).locked === true) {
+            lockedCount++;
+          }
+        }
+      }
+    }
+
+    return {
+      success: true,
+      data: {
+        scores,
+        cachedAddresses,
+        lockedCount,
+      },
+    };
+  } finally {
+    // Always remove in-flight markers, even on API error.
+    for (const key of inFlightKeys) {
+      _inFlightAddresses.delete(key);
     }
   }
-
-  return {
-    success: true,
-    data: {
-      scores,
-      cachedAddresses,
-      lockedCount,
-    },
-  };
 }
 
 function getListAnalysisBlockReason(profile: UserProfile | null): Pick<ApiResponse<never>, 'error' | 'statusCode' | 'errorType'> | null {
@@ -1522,7 +1585,11 @@ export {
   getTokenScore as _getTokenScoreForTest,
   takeTelemetrySession as _takeTelemetrySessionForTest,
   resolveCacheProbeOutcome as _resolveCacheProbeOutcomeForTest,
+  analyzeTokenList as _analyzeTokenListForTest,
 };
+
+// Test-only export, do not use in production code
+export const __testHooks = { _inFlightAddresses, _recentPostTimestamps, cache };
 
 export function initializeBackground(): void {
   // Re-inject content script after Next.js soft navigations that kill the content script context.

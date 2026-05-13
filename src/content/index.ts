@@ -310,8 +310,8 @@ export function shouldApplySelectedTokenScore(
   );
 }
 
-export function initializeContentScript(): void {
-  const detectedPlatform = detectPlatform();
+export function initializeContentScript(_testPlatformOverride?: IPlatform): void {
+  const detectedPlatform = _testPlatformOverride ?? detectPlatform();
   if (!detectedPlatform) {
     return;
   }
@@ -376,7 +376,22 @@ export function initializeContentScript(): void {
     );
   }
   const pending = new Set<string>();
+  const RESOLVED_SCORES_MAX = 5000;
   const resolvedScores = new Map<string, TokenScore>();
+
+  function setResolvedScore(address: string, score: TokenScore): void {
+    if (resolvedScores.has(address)) {
+      // Re-insert to refresh LRU order (Map preserves insertion order).
+      resolvedScores.delete(address);
+    } else if (resolvedScores.size >= RESOLVED_SCORES_MAX) {
+      // Evict oldest entry.
+      const oldest = resolvedScores.keys().next().value;
+      if (oldest !== undefined) {
+        resolvedScores.delete(oldest);
+      }
+    }
+    resolvedScores.set(address, score);
+  }
   const individualFetchQueue: string[] = [];
   const queuedIndividualFetches = new Set<string>();
   let individualFetchDrain: Promise<void> | null = null;
@@ -421,19 +436,6 @@ export function initializeContentScript(): void {
     if (timerId) {
       window.clearTimeout(timerId);
       storageReconcileTimers.delete(address);
-    }
-  }
-
-  function clearAddressState(address: string): void {
-    clearRetry(address);
-    clearRenderRetry(address);
-    clearStorageReconcile(address);
-    pending.delete(address);
-    resolvedScores.delete(address);
-    queuedIndividualFetches.delete(address);
-    const queuedIndex = individualFetchQueue.indexOf(address);
-    if (queuedIndex >= 0) {
-      individualFetchQueue.splice(queuedIndex, 1);
     }
   }
 
@@ -501,7 +503,7 @@ export function initializeContentScript(): void {
       return false;
     }
 
-    resolvedScores.set(selectedToken.address, selectedToken.score);
+    setResolvedScore(selectedToken.address, selectedToken.score);
     clearRetry(selectedToken.address);
     pending.delete(selectedToken.address);
     platform.renderScoreBadge(selectedToken.address, selectedToken.score);
@@ -557,12 +559,12 @@ export function initializeContentScript(): void {
     sendRuntimeMessage({ type: 'GET_USER_TIER' }, (response) => {
       if (!response?.success || !response.data) {
         currentTier = 'free';
-        scanAll();
+        scheduleScanAll();
         return;
       }
 
       updateTierFromProfile(response.data);
-      scanAll();
+      scheduleScanAll();
     });
   }
 
@@ -593,7 +595,7 @@ export function initializeContentScript(): void {
       if (response?.success && response.data) {
         clearRetry(address);
         const score = response.data as TokenScore;
-        resolvedScores.set(address, score);
+        setResolvedScore(address, score);
         platform.renderScoreBadge(address, score);
         if (!hasRenderedBadge(address)) {
           scheduleRenderRetry(address);
@@ -691,7 +693,8 @@ export function initializeContentScript(): void {
         return;
       }
 
-      clearAddressState(address);
+      // Only remove the DOM badge — keep resolvedScores/pending/retryAttempts
+      // so re-appearing tokens skip a redundant network round-trip.
       badge.remove();
     });
   }
@@ -777,7 +780,7 @@ export function initializeContentScript(): void {
 
             for (const score of scores) {
               if (score.score != null && score.risk && score.address) {
-                resolvedScores.set(score.address, score);
+                setResolvedScore(score.address, score);
                 clearRetry(score.address);
                 platform.renderScoreBadge(score.address, score);
                 if (!hasRenderedBadge(score.address)) {
@@ -799,6 +802,38 @@ export function initializeContentScript(): void {
     }
   }
 
+  // Burst-throttle wrapper around scanAll.
+  // Prevents cascading DOM-mutation events from triggering back-to-back scans.
+  const SCAN_ALL_MIN_INTERVAL_MS = 1500;
+  let _lastScanAllAt = 0;
+  let _pendingScanAllTimer: ReturnType<typeof setTimeout> | null = null;
+
+  function scheduleScanAll(options?: { urgent?: boolean }): void {
+    const urgent = options?.urgent === true;
+    const now = Date.now();
+    const elapsed = now - _lastScanAllAt;
+
+    if (urgent || elapsed >= SCAN_ALL_MIN_INTERVAL_MS) {
+      if (_pendingScanAllTimer !== null) {
+        clearTimeout(_pendingScanAllTimer);
+        _pendingScanAllTimer = null;
+      }
+      _lastScanAllAt = now;
+      scanAll();
+      return;
+    }
+
+    if (_pendingScanAllTimer !== null) {
+      return; // coalesce — already scheduled
+    }
+    const delay = SCAN_ALL_MIN_INTERVAL_MS - elapsed;
+    _pendingScanAllTimer = setTimeout(() => {
+      _pendingScanAllTimer = null;
+      _lastScanAllAt = Date.now();
+      scanAll();
+    }, delay);
+  }
+
   let badgeVerifyTimer: ReturnType<typeof setInterval> | null = null;
 
   function handleUrlChange(): void {
@@ -809,27 +844,19 @@ export function initializeContentScript(): void {
 
     lastUrl = currentUrl;
 
-    // Clear resolved scores so stale badges don't persist across navigations
-    for (const address of resolvedScores.keys()) {
-      clearAddressState(address);
-    }
-
     // Stop any previous badge verification loop
     if (badgeVerifyTimer) {
       clearInterval(badgeVerifyTimer);
       badgeVerifyTimer = null;
     }
 
-    scanAll();
+    scheduleScanAll({ urgent: true });
 
     // React/Next.js re-renders the entire page after SPA navigation (3-5s).
     // We must keep re-inserting the badge until React settles.
-    // Retry at increasing intervals, then verify periodically.
-    setTimeout(scanAll, 200);
-    setTimeout(scanAll, 600);
-    setTimeout(scanAll, 1500);
-    setTimeout(scanAll, 3000);
-    setTimeout(scanAll, 5000);
+    // One delayed retry after the throttle window; the burst-throttle
+    // coalesces any further rapid calls.
+    setTimeout(() => scheduleScanAll(), 1500);
 
     // After initial retries, verify every 2s for 30s that badge still exists
     let verifyCount = 0;
@@ -842,12 +869,12 @@ export function initializeContentScript(): void {
       }
       const addr = platform.getCurrentPageAddress();
       if (addr && !hasRenderedBadge(addr)) {
-        scanAll();
+        scheduleScanAll();
       }
     }, 2000);
   }
 
-  platform.observeDOMChanges(scanAll);
+  platform.observeDOMChanges(() => scheduleScanAll());
 
   // Passive URL-change detection (E-M9): replaces history.pushState/replaceState patching.
   // MutationObserver + popstate + hashchange listeners — no host-page API modification.
@@ -900,13 +927,13 @@ export function initializeContentScript(): void {
       }
 
       updateTierFromProfile(changes[PROFILE_STORAGE_KEY].newValue);
-      scanAll();
+      scheduleScanAll();
     });
   });
-  window.addEventListener('focus', scanAll);
+  window.addEventListener('focus', () => scheduleScanAll());
   document.addEventListener('visibilitychange', () => {
     if (document.visibilityState === 'visible') {
-      scanAll();
+      scheduleScanAll();
     }
   });
 
@@ -927,11 +954,38 @@ export function initializeContentScript(): void {
 
   if (document.readyState === 'loading') {
     document.addEventListener('DOMContentLoaded', () => {
-      scanAll();
+      scheduleScanAll();
       loadUserTier();
     }, { once: true });
   } else {
-    scanAll();
+    scheduleScanAll();
     loadUserTier();
   }
+
+  // Test-only exports, do not use in production code.
+  Object.assign(__testHooks, { resolvedScores, setResolvedScore, syncVisibleBadges, handleUrlChange, scheduleScanAll, scanAll });
+  Object.defineProperty(__testHooks, '_lastScanAllAt', {
+    get() { return _lastScanAllAt; },
+    set(v: number) { _lastScanAllAt = v; },
+    configurable: true,
+    enumerable: true,
+  });
+  Object.defineProperty(__testHooks, '_pendingScanAllTimer', {
+    get() { return _pendingScanAllTimer; },
+    configurable: true,
+    enumerable: true,
+  });
 }
+
+// Test-only exports, do not use in production code.
+// Populated by initializeContentScript after it runs.
+export const __testHooks: {
+  resolvedScores?: Map<string, TokenScore>;
+  setResolvedScore?: (address: string, score: TokenScore) => void;
+  scheduleScanAll?: (options?: { urgent?: boolean }) => void;
+  syncVisibleBadges?: (addresses: string[]) => void;
+  handleUrlChange?: () => void;
+  scanAll?: () => void;
+  _lastScanAllAt?: number;
+  _pendingScanAllTimer?: ReturnType<typeof setTimeout> | null;
+} = {};
