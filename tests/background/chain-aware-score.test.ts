@@ -14,6 +14,7 @@ const SOLANA_ADDR = 'So11111111111111111111111111111111111111112';
 const EVM_ADDR = '0x0000000000000000000000000000000000000001';
 
 const storageMock: Record<string, unknown> = {};
+const sessionStorageMock: Record<string, unknown> = {};
 const mockFetch = vi.fn();
 
 vi.stubGlobal('fetch', mockFetch);
@@ -31,9 +32,14 @@ vi.stubGlobal('chrome', {
       }),
     },
     session: {
-      get: vi.fn(async () => ({})),
-      set: vi.fn(async () => {}),
-      remove: vi.fn(async () => {}),
+      get: vi.fn(async (key: string) => ({ [key]: sessionStorageMock[key] })),
+      set: vi.fn(async (values: Record<string, unknown>) => {
+        Object.assign(sessionStorageMock, values);
+      }),
+      remove: vi.fn(async (key: string | string[]) => {
+        const keys = Array.isArray(key) ? key : [key];
+        keys.forEach((k) => delete sessionStorageMock[k]);
+      }),
     },
   },
   action: { setIcon: vi.fn(async () => {}) },
@@ -55,6 +61,7 @@ const {
 describe('background GET_TOKEN_SCORE object payload chain-awareness (Test 11)', () => {
   beforeEach(() => {
     Object.keys(storageMock).forEach((key) => delete storageMock[key]);
+    Object.keys(sessionStorageMock).forEach((key) => delete sessionStorageMock[key]);
     mockFetch.mockReset();
   });
 
@@ -129,6 +136,7 @@ describe('background GET_TOKEN_SCORE object payload chain-awareness (Test 11)', 
 describe('background in-flight lock is chain-aware (Test 12)', () => {
   beforeEach(() => {
     Object.keys(storageMock).forEach((key) => delete storageMock[key]);
+    Object.keys(sessionStorageMock).forEach((key) => delete sessionStorageMock[key]);
     mockFetch.mockReset();
   });
 
@@ -221,8 +229,17 @@ describe('background in-flight lock is chain-aware (Test 12)', () => {
     // Erster Aufruf starten (noch nicht awaited)
     const firstPromise = getTokenScore(SOLANA_ADDR, 'solana');
 
-    // Kleiner Tick damit firstPromise den In-Flight-Key setzen kann
-    await Promise.resolve();
+    // Warten bis firstPromise den In-Flight-Key in chrome.storage.session
+    // geschrieben hat. Mit dem persistenten Dedup-Layer (chrome.storage.session)
+    // ist der Add asynchron — wir muessen warten, sonst sieht der zweite Call
+    // einen leeren In-Flight-Set. Polling auf den Mock-Store ist deterministisch,
+    // weil setInflightSet sessionStorageMock synchron beschreibt.
+    const inflightKey = `solana:${SOLANA_ADDR}`;
+    for (let i = 0; i < 50; i++) {
+      const inflightArr = sessionStorageMock['_inflightAddresses'];
+      if (Array.isArray(inflightArr) && inflightArr.includes(inflightKey)) break;
+      await Promise.resolve();
+    }
 
     // Zweiter Aufruf sofort — muss mit 'busy' abgelehnt werden
     const secondResult = await getTokenScore(SOLANA_ADDR, 'solana');

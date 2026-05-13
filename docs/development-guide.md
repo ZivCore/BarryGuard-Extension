@@ -205,25 +205,30 @@ Bei neuen oder geänderten Plattformen: **eine Zeile pro Adapter** mit Abgleich 
 
 Die Extension dedupliziert Mass-Scan-Analysen auf zwei Schichten im Background-Worker `analyzeTokenList`:
 
-- **In-Flight-Dedup via `_inFlightAddresses`-Set:** Parallele API-Calls auf derselben Adresse werden serialisiert. Eine Adresse wird nur einmal pro Analyse-Batch gesendet.
+- **In-Flight-Dedup via `_inFlightAddresses`-Set:** Parallele API-Calls auf derselben Adresse werden serialisiert. Eine Adresse wird nur einmal pro Analyse-Batch gesendet. Die Markierung als In-Flight geschieht jetzt **synchron direkt nach dem In-Flight-Filter** ohne dazwischenliegende `await`-Schritte, um Race-Conditions bei parallelen `analyzeTokenList`-Calls zu verhindern.
 - **60-Sekunden-Recent-Post-Dedup via `_recentPostTimestamps`-Map:** Fenster `RECENT_POST_DEDUP_MS = 60_000`. Wenn eine Adresse innerhalb der letzten 60 Sekunden bereits analysiert wurde, wird der lokale Cache statt eines neuen Backend-POST verwendet.
+
+**Pump.fun-Adapter-spezifische Adress-Extraktion:** Der `extractTokenAddresses`-Helper in `src/platforms/pumpfun.ts` nutzt jetzt eine Card-Container-Restriction: extrahiert nur Anchors aus `[data-testid*="coin"]`-Containern wenn >= 3 vorhanden, sonst Fallback auf alten unrestricted Scan. Damit werden Live-Trade-Stream und Sidebar-Links ausgefiltert, die bei Hyperfeed-Seiten zu Quota-Ueberzehrung fuehrten.
+
+**Persistente Dedup-State via `chrome.storage.session`:** Neues Helper-Modul `src/background/dedup-store.ts` mit atomaren Funktionen `getInflightSet()`, `setInflightSet()`, `getRecentPosts()`, `setRecentPosts()`, `pruneRecentPosts()`, plus Wrapper-Helper `withInflightSet()` und `withRecentPosts()`. Der `_inFlightAddresses`-Set und die `_recentPostTimestamps`-Map ueberleben jetzt einen Service-Worker-Restart und sind verfuegbar fuer den naechsten `analyzeTokenList`-Aufruf.
 
 **Analyse-Reihenfolge pro Token:**
 
 1. Set-Dedup-Check (`_inFlightAddresses`)
 2. Lokaler Browser-Cache-Lookup
 3. In-Flight-Filter (verhindert gleichzeitige Duplikate)
-4. Recent-Post-Filter (60-Sekunden-Fenster)
-5. Quota-Local-Check (analyzeTokenList-Budget)
-6. Backend `POST /api/analyze` oder `POST /api/analyze-list`
-7. Recent-Post-Stempel setzen (`_recentPostTimestamps`)
-8. In-Flight-Cleanup im finally-Block
+4. **In-Flight-Markierung synchron OHNE await-Luecke**
+5. Recent-Post-Filter (60-Sekunden-Fenster)
+6. Quota-Local-Check (analyzeTokenList-Budget)
+7. Backend `POST /api/analyze` oder `POST /api/analyze-list`
+8. Recent-Post-Stempel setzen (`_recentPostTimestamps`)
+9. In-Flight-Cleanup im finally-Block
 
 **Score-Memo im Content-Script:** Der Helper `setResolvedScore` befuellt eine persistente Map `resolvedScores`, die DOM-Sichtbarkeitsverlust ueberlebt (z. B. Live-Stream-Rotation auf pump.fun-Startpage) und auch SPA-URL-Wechsel. Soft-Cap `RESOLVED_SCORES_MAX = 5000` mit FIFO-Eviction via Map-Insertion-Order verhindert unbeschraenktes Wachstum bei Marathon-Sessions.
 
 **Burst-Throttle:** Alle `scanAll`-Trigger laufen ueber `scheduleScanAll(options?)`. Mindestabstand 1500 ms. Option `urgent: true` ueberspringt das Fenster, fuer Detail-Pages und URL-Change-Erststart.
 
-**Begruendung:** Auf hyperdynamischen Feed-Seiten (z. B. pump.fun-Startpage) verhindert die Kombination aus In-Flight- und Recent-Post-Dedup-Schichten redundante API-Calls pro einzigartigem Token, waehrend gleichzeitig eine 1:1-Beziehung zwischen sichtbaren Unique-Tokens und Mass-Scan-Verbrauch gewahrt bleibt.
+**Begruendung:** Auf hyperdynamischen Feed-Seiten (z. B. pump.fun-Startpage) verhindert die Kombination aus In-Flight- und Recent-Post-Dedup-Schichten redundante API-Calls pro einzigartigem Token, waehrend gleichzeitig eine 1:1-Beziehung zwischen sichtbaren Unique-Tokens und Mass-Scan-Verbrauch gewahrt bleibt. Die synchrone In-Flight-Markierung und persistente Dedup-State ueber Service-Worker-Restart erhoehen die Zuverlaessigkeit dieser Architektur massiv.
 
 ## Audit-Matrix (ausgefüllt)
 

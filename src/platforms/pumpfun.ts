@@ -29,12 +29,32 @@ export class PumpFunPlatform implements IPlatform {
       seen.add(currentAddress);
     }
 
+    const CARD_CONTAINER_SELECTOR = '[data-testid*="coin"]';
+    const CARD_THRESHOLD = 3;
+    const cardContainers = document.querySelectorAll(CARD_CONTAINER_SELECTOR);
+
+    // Card-container-restricted path: only extract anchors inside genuine token cards.
+    // Excludes trade stream, sidebar, and featured sections that share the same link format.
+    if (cardContainers.length >= CARD_THRESHOLD) {
+      cardContainers.forEach((container) => {
+        container.querySelectorAll<HTMLAnchorElement>('a[href]').forEach((link) => {
+          const href = link.getAttribute('href');
+          if (!href) return;
+          const match = href.match(/^\/(?:coin\/)?([1-9A-HJ-NP-Za-km-z]{32,44})(?:[/?#]|$)/);
+          if (match?.[1] && !seen.has(match[1])) {
+            addresses.push(match[1]);
+            seen.add(match[1]);
+          }
+        });
+      });
+      return addresses;
+    }
+
+    // Fallback: unrestricted scan (legacy behaviour) — protects against DOM changes
+    // where card containers are absent or renamed.
     document.querySelectorAll<HTMLAnchorElement>('a[href]').forEach((link) => {
       const href = link.getAttribute('href');
-      if (!href) {
-        return;
-      }
-
+      if (!href) return;
       const match = href.match(/^\/(?:coin\/)?([1-9A-HJ-NP-Za-km-z]{32,44})(?:[/?#]|$)/);
       if (match?.[1] && !seen.has(match[1])) {
         addresses.push(match[1]);

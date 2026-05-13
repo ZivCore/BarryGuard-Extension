@@ -1,3 +1,12 @@
+import {
+  getInflightSet,
+  setInflightSet,
+  withInflightSet,
+  getRecentPosts,
+  setRecentPosts,
+  withRecentPosts,
+  pruneRecentPosts,
+} from './dedup-store';
 import { BarryGuardApiClient } from '../shared/api-client';
 import { TokenCache, updateCacheTTL } from '../shared/cache';
 import { logger } from '../shared/logger';
@@ -1092,55 +1101,43 @@ function isValidTokenAddress(address: unknown, chain: string): address is string
   return isValidEvmAddress(address);
 }
 
-const _inFlightAddresses = new Set<string>();
-
 /**
- * Time-based dedup map for fresh-analysis POSTs.
+ * Time-based dedup window for fresh-analysis POSTs.
  *
- * Plan `plan-admin-system-and-extension-bugs.md` Step 16b: Diagnose-SQL (2026-05-12)
- * meldete 181 `source=extension` Doppel-Inserts in 24h auf `analysis_log` —
- * Hauptursache des Doppel-Insert-Bugs.  `_inFlightAddresses` schuetzt nur
- * gegen gleichzeitige Parallel-Calls, nicht gegen schnelle sequenzielle
- * Re-Requests (z. B. Tab-Reload, URL-Change-Detect, Multi-Tab dasselbe
- * Token, Cache-Miss-Race zwischen `cache.set` und naechstem Call).
+ * Plan `plan-pump-fun-mass-scan-bugfix.md` Step 3: persistent dedup via
+ * chrome.storage.session so the 60-second window survives service-worker
+ * restarts within the same browser session.
  *
- * Diese Map traegt pro `(chain, address)` den letzten Zeitpunkt eines
- * erfolgreichen `POST /api/analyze` ein.  Folge-Calls innerhalb des
- * Dedup-Fensters greifen statt auf das Backend auf den lokalen Cache
- * zurueck.  Greift unabhaengig vom Cache-Status — auch wenn der lokale
- * Cache aus irgendeinem Grund (Reload, Eviction, Multi-Tab) zwischen
- * zwei Calls leer ist, verhindert das Map den zweiten POST.
- *
- * Window: 60 s.  Kuerzer als der kuerzeste Tier-Cache (Pro: 10 min) — also
- * keine Stale-Daten — aber laenger als typische Tab-Reload-Intervalle.
+ * Window: 60 s.  Shorter than the shortest tier-cache (Pro: 10 min) — no
+ * stale data — but longer than typical tab-reload intervals.
  */
 const RECENT_POST_DEDUP_MS = 60_000;
-const _recentPostTimestamps = new Map<string, number>();
 
 function normalizeAddressForKey(chain: string, address: string): string {
   return chain === 'solana' ? address : address.toLowerCase();
 }
 
-function pruneRecentPostTimestamps(now: number): void {
-  // Best-effort cleanup so the Map doesn't grow unbounded across long sessions.
-  // Iterates only on insert paths; no scheduled timer to keep the service worker
-  // wake budget low.
-  for (const [key, ts] of _recentPostTimestamps) {
-    if (now - ts > RECENT_POST_DEDUP_MS) {
-      _recentPostTimestamps.delete(key);
-    }
-  }
-}
 
 async function getTokenScore(address: string, chain: string = 'solana') {
   const inFlightKey = `${chain}:${normalizeAddressForKey(chain, address)}`;
-  if (_inFlightAddresses.has(inFlightKey)) {
-    return { success: false, error: 'Analysis already in progress for this token.', errorType: 'busy' as const };
-  }
+
   if (!isValidTokenAddress(address, chain)) {
     return { success: false, error: 'Invalid token address format.', errorType: 'validation' as const };
   }
-  _inFlightAddresses.add(inFlightKey);
+
+  // Atomic read-modify-write: check and mark in-flight in a single storage round-trip.
+  let wasAlreadyInflight = false;
+  await withInflightSet((set) => {
+    if (set.has(inFlightKey)) {
+      wasAlreadyInflight = true;
+    } else {
+      set.add(inFlightKey);
+    }
+  });
+  if (wasAlreadyInflight) {
+    return { success: false, error: 'Analysis already in progress for this token.', errorType: 'busy' as const };
+  }
+
   try {
     const normalizedProfile = await refreshProfileStateIfNeeded();
     const tier: TierLevel = normalizedProfile?.tier ?? 'free';
@@ -1209,14 +1206,13 @@ async function getTokenScore(address: string, chain: string = 'solana') {
 
     // 4. Fresh analysis: POST /api/analyze
     //
-    // Plan-Step 16b dedup: before issuing the POST, check whether the same
-    // (chain, address) has been analyzed within the last RECENT_POST_DEDUP_MS.
-    // If yes, fall back to the local cache (which may have just been written
-    // by the previous call) instead of triggering a duplicate analysis_log
-    // insert on the backend.
+    // Recent-post dedup: check whether the same (chain, address) was analyzed
+    // within the last RECENT_POST_DEDUP_MS via persistent session storage so
+    // the window survives service-worker restarts.
     const dedupKey = inFlightKey;
     const now = Date.now();
-    const lastPostMs = _recentPostTimestamps.get(dedupKey);
+    const recentPostsMap = await getRecentPosts();
+    const lastPostMs = recentPostsMap.get(dedupKey);
     if (lastPostMs !== undefined && now - lastPostMs < RECENT_POST_DEDUP_MS) {
       const recentCached = await cache.get(address, tier, chain);
       if (recentCached) {
@@ -1252,8 +1248,9 @@ async function getTokenScore(address: string, chain: string = 'solana') {
       await cache.set(address, normalizedFresh, tier);
       // Record post timestamp AFTER the successful insert+cache.set chain so
       // that retries during the cache-write window are still blocked.
-      pruneRecentPostTimestamps(Date.now());
-      _recentPostTimestamps.set(dedupKey, Date.now());
+      const postNow = Date.now();
+      await withRecentPosts((map) => { map.set(dedupKey, postNow); });
+      await pruneRecentPosts(postNow, RECENT_POST_DEDUP_MS);
       return { success: true, data: { ...normalizedFresh, cached: false } };
     }
 
@@ -1275,7 +1272,7 @@ async function getTokenScore(address: string, chain: string = 'solana') {
 
     return mapApiFailure(fresh);
   } finally {
-    _inFlightAddresses.delete(inFlightKey);
+    await withInflightSet((set) => { set.delete(inFlightKey); });
   }
 }
 
@@ -1312,31 +1309,43 @@ async function analyzeTokenList(addresses: string[]): Promise<ApiResponse<TokenL
     return { success: true, data: { scores, cachedAddresses } };
   }
 
-  // In-flight dedup: if a concurrent request is already analyzing this address,
-  // try the local cache one more time (the in-flight call may have just written it).
-  // If still missing, skip — caller will retry on next scan.
+  // In-flight dedup + add: single atomic read-modify-write so that filter and
+  // mark happen in one storage round-trip, eliminating the race window that
+  // existed between the old separate filter and add steps.
   const chain = 'solana';
   const now = Date.now();
-  for (let i = missingAddresses.length - 1; i >= 0; i--) {
-    const address = missingAddresses[i];
-    const key = `${chain}:${normalizeAddressForKey(chain, address)}`;
-    if (_inFlightAddresses.has(key)) {
-      const recentCached = await cache.get(address, tier);
-      if (recentCached) {
-        scores.push({ ...recentCached, cached: true });
-        cachedAddresses.push(address);
+  const inFlightKeys: string[] = [];
+  {
+    const inflightSet = await getInflightSet();
+    for (let i = missingAddresses.length - 1; i >= 0; i--) {
+      const address = missingAddresses[i];
+      const key = `${chain}:${normalizeAddressForKey(chain, address)}`;
+      if (inflightSet.has(key)) {
+        const recentCached = await cache.get(address, tier);
+        if (recentCached) {
+          scores.push({ ...recentCached, cached: true });
+          cachedAddresses.push(address);
+        }
+        // Whether we got a cache hit or not, remove from the POST batch.
+        missingAddresses.splice(i, 1);
+      } else {
+        // Mark as in-flight immediately (still within this same read-modify-write).
+        inflightSet.add(key);
+        inFlightKeys.push(key);
       }
-      // Whether we got a cache hit or not, remove from the POST batch.
-      missingAddresses.splice(i, 1);
     }
+    // Write the updated set back once — atomic with respect to the loop above.
+    await setInflightSet(inflightSet);
   }
 
   // Recent-post dedup: if the same address was analyzed within RECENT_POST_DEDUP_MS,
   // prefer the cached result over a duplicate POST.
+  const recentPostsMap = await getRecentPosts();
+  const recentPostRemovals: string[] = [];
   for (let i = missingAddresses.length - 1; i >= 0; i--) {
     const address = missingAddresses[i];
     const key = `${chain}:${normalizeAddressForKey(chain, address)}`;
-    const lastPostMs = _recentPostTimestamps.get(key);
+    const lastPostMs = recentPostsMap.get(key);
     if (lastPostMs !== undefined && now - lastPostMs < RECENT_POST_DEDUP_MS) {
       const recentCached = await cache.get(address, tier);
       if (recentCached) {
@@ -1344,12 +1353,29 @@ async function analyzeTokenList(addresses: string[]): Promise<ApiResponse<TokenL
         cachedAddresses.push(address);
       }
       // Remove regardless of cache hit — skip duplicate POST.
+      // Also remove from inFlightKeys since we won't POST this address.
       missingAddresses.splice(i, 1);
+      const keyIdx = inFlightKeys.indexOf(key);
+      if (keyIdx !== -1) {
+        inFlightKeys.splice(keyIdx, 1);
+        recentPostRemovals.push(key);
+      }
     }
+  }
+  // Remove spliced keys from storage immediately — they were written to the inflight set
+  // above but won't reach the finally-block cleanup since they are no longer in inFlightKeys.
+  if (recentPostRemovals.length > 0) {
+    await withInflightSet((set) => {
+      for (const key of recentPostRemovals) set.delete(key);
+    });
   }
 
   // All addresses resolved without a POST.
   if (missingAddresses.length === 0) {
+    // Clean up any inflight markers we added but won't use.
+    if (inFlightKeys.length > 0) {
+      await withInflightSet((set) => { for (const k of inFlightKeys) set.delete(k); });
+    }
     return { success: true, data: { scores, cachedAddresses, lockedCount: 0 } };
   }
 
@@ -1357,16 +1383,12 @@ async function analyzeTokenList(addresses: string[]): Promise<ApiResponse<TokenL
 
   const hourlyLimit = await maybeEnforceHourlyLimit(normalizedProfile, missingAddresses.length);
   if (hourlyLimit) {
+    // Clean up inflight markers before returning the limit error.
+    await withInflightSet((set) => { for (const k of inFlightKeys) set.delete(k); });
     return hourlyLimit as ApiResponse<TokenListAnalysisData>;
   }
 
-  // Mark all remaining addresses as in-flight before the POST.
-  const inFlightKeys: string[] = [];
-  for (const address of missingAddresses) {
-    const key = `${chain}:${normalizeAddressForKey(chain, address)}`;
-    _inFlightAddresses.add(key);
-    inFlightKeys.push(key);
-  }
+  // inFlightKeys already populated and written to storage in the atomic block above.
 
   const telemetrySessionIds: Record<string, string> = {};
   for (const address of missingAddresses) {
@@ -1398,12 +1420,11 @@ async function analyzeTokenList(addresses: string[]): Promise<ApiResponse<TokenL
       scores.push({ ...score, cached: false });
     }
 
-    // Stempel alle pre-POST-Adressen — auch teilweise gedroppte Responses verhindern erneutes POSTen im 60s-Fenster (Plan: Mehrfach-POST-Vermeidung pro Unique-Token).
+    // Stamp all pre-POST addresses in persistent storage — even partially
+    // dropped responses prevent re-posting within the 60 s window.
     const postNow = Date.now();
-    for (const key of inFlightKeys) {
-      _recentPostTimestamps.set(key, postNow);
-    }
-    pruneRecentPostTimestamps(postNow);
+    await withRecentPosts((map) => { for (const key of inFlightKeys) map.set(key, postNow); });
+    await pruneRecentPosts(postNow, RECENT_POST_DEDUP_MS);
 
     // M-7: Count locked checks across all scores so the popup can show "X tokens require upgrade"
     let lockedCount = 0;
@@ -1435,9 +1456,7 @@ async function analyzeTokenList(addresses: string[]): Promise<ApiResponse<TokenL
     };
   } finally {
     // Always remove in-flight markers, even on API error.
-    for (const key of inFlightKeys) {
-      _inFlightAddresses.delete(key);
-    }
+    await withInflightSet((set) => { for (const key of inFlightKeys) set.delete(key); });
   }
 }
 
@@ -1588,8 +1607,16 @@ export {
   analyzeTokenList as _analyzeTokenListForTest,
 };
 
-// Test-only export, do not use in production code
-export const __testHooks = { _inFlightAddresses, _recentPostTimestamps, cache };
+// Test-only export, do not use in production code.
+// Direct Map/Set references have been replaced with async storage accessors
+// so that tests work with the same persistent layer as production code.
+export const __testHooks = {
+  getInflightSet,
+  setInflightSet,
+  getRecentPosts,
+  setRecentPosts,
+  cache,
+};
 
 export function initializeBackground(): void {
   // Re-inject content script after Next.js soft navigations that kill the content script context.

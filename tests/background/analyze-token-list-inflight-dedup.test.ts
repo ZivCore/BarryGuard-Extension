@@ -13,6 +13,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 // ---------------------------------------------------------------------------
 
 const storageMock: Record<string, unknown> = {};
+const sessionMock: Record<string, unknown> = {};
 const mockFetch = vi.fn();
 
 vi.stubGlobal('fetch', mockFetch);
@@ -30,9 +31,12 @@ vi.stubGlobal('chrome', {
       }),
     },
     session: {
-      get: vi.fn(async () => ({})),
-      set: vi.fn(async () => {}),
-      remove: vi.fn(async () => {}),
+      get: vi.fn(async (key: string) => ({ [key]: sessionMock[key] })),
+      set: vi.fn(async (obj: Record<string, unknown>) => { Object.assign(sessionMock, obj); }),
+      remove: vi.fn(async (key: string | string[]) => {
+        const keys = Array.isArray(key) ? key : [key];
+        keys.forEach((k) => delete sessionMock[k]);
+      }),
     },
   },
   action: { setIcon: vi.fn(async () => {}) },
@@ -50,7 +54,7 @@ const {
   __testHooks,
 } = await import('../../src/background/index');
 
-const { _inFlightAddresses, _recentPostTimestamps, cache } = __testHooks;
+const { getInflightSet, setInflightSet, getRecentPosts, setRecentPosts, cache } = __testHooks;
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -103,9 +107,10 @@ function buildAnalyzeListSuccess(addresses: string[]): object {
 describe('analyzeTokenList — in-flight dedup', () => {
   beforeEach(async () => {
     Object.keys(storageMock).forEach((k) => delete storageMock[k]);
+    Object.keys(sessionMock).forEach((k) => delete sessionMock[k]);
     mockFetch.mockReset();
-    _inFlightAddresses.clear();
-    _recentPostTimestamps.clear();
+    await setInflightSet(new Set());
+    await setRecentPosts(new Map());
     await cache.clear();
     seedProfile();
   });
@@ -118,8 +123,7 @@ describe('analyzeTokenList — in-flight dedup', () => {
     // simulating that a concurrent analyzeTokenList call already marked them.
     // Then start a single call for [ADDR_A, ADDR_B, ADDR_C] and verify that
     // ADDR_A / ADDR_B are skipped and only ADDR_C reaches the POST.
-    _inFlightAddresses.add(`solana:${ADDR_A}`);
-    _inFlightAddresses.add(`solana:${ADDR_B}`);
+    await setInflightSet(new Set([`solana:${ADDR_A}`, `solana:${ADDR_B}`]));
 
     mockValidateSession401();
 
@@ -145,15 +149,14 @@ describe('analyzeTokenList — in-flight dedup', () => {
     expect(postBody.addresses).toContain(ADDR_C);
 
     // After completion, ADDR_C should no longer be in-flight
-    expect(_inFlightAddresses.has(`solana:${ADDR_C}`)).toBe(false);
+    expect((await getInflightSet()).has(`solana:${ADDR_C}`)).toBe(false);
   });
 
   // -------------------------------------------------------------------------
   // Test 2: All addresses in-flight
   // -------------------------------------------------------------------------
   it('returns success with no POST when all addresses are already in-flight', async () => {
-    _inFlightAddresses.add(`solana:${ADDR_A}`);
-    _inFlightAddresses.add(`solana:${ADDR_B}`);
+    await setInflightSet(new Set([`solana:${ADDR_A}`, `solana:${ADDR_B}`]));
 
     mockValidateSession401();
 
@@ -187,9 +190,9 @@ describe('analyzeTokenList — in-flight dedup', () => {
     const first = await analyzeTokenList([ADDR_A]);
     expect(first.success).toBe(true);
 
-    // Simulate module re-init: clear both in-memory maps and the local cache entry
-    _inFlightAddresses.clear();
-    _recentPostTimestamps.clear();
+    // Simulate module re-init: clear both persistent maps and the local cache entry
+    await setInflightSet(new Set());
+    await setRecentPosts(new Map());
     await cache.invalidate(ADDR_A, 'solana');
 
     // Second call must reach the API again
@@ -224,7 +227,7 @@ describe('analyzeTokenList — in-flight dedup', () => {
     expect(result.success).toBe(false);
 
     // The in-flight key must be gone after the error
-    expect(_inFlightAddresses.has(`solana:${ADDR_A}`)).toBe(false);
+    expect((await getInflightSet()).has(`solana:${ADDR_A}`)).toBe(false);
 
     // A follow-up call must not be blocked by a stale in-flight entry
     mockValidateSession401();

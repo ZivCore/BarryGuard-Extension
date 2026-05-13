@@ -13,6 +13,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 // ---------------------------------------------------------------------------
 
 const storageMock: Record<string, unknown> = {};
+const sessionMock: Record<string, unknown> = {};
 const mockFetch = vi.fn();
 
 vi.stubGlobal('fetch', mockFetch);
@@ -30,9 +31,12 @@ vi.stubGlobal('chrome', {
       }),
     },
     session: {
-      get: vi.fn(async () => ({})),
-      set: vi.fn(async () => {}),
-      remove: vi.fn(async () => {}),
+      get: vi.fn(async (key: string) => ({ [key]: sessionMock[key] })),
+      set: vi.fn(async (obj: Record<string, unknown>) => { Object.assign(sessionMock, obj); }),
+      remove: vi.fn(async (key: string | string[]) => {
+        const keys = Array.isArray(key) ? key : [key];
+        keys.forEach((k) => delete sessionMock[k]);
+      }),
     },
   },
   action: { setIcon: vi.fn(async () => {}) },
@@ -50,7 +54,7 @@ const {
   __testHooks,
 } = await import('../../src/background/index');
 
-const { _inFlightAddresses, _recentPostTimestamps, cache } = __testHooks;
+const { getInflightSet, setInflightSet, getRecentPosts, setRecentPosts, cache } = __testHooks;
 
 // ---------------------------------------------------------------------------
 // Helpers
@@ -99,9 +103,10 @@ function buildAnalyzeListSuccess(addresses: string[]): object {
 describe('analyzeTokenList — recent-post dedup (60 s window)', () => {
   beforeEach(async () => {
     Object.keys(storageMock).forEach((k) => delete storageMock[k]);
+    Object.keys(sessionMock).forEach((k) => delete sessionMock[k]);
     mockFetch.mockReset();
-    _inFlightAddresses.clear();
-    _recentPostTimestamps.clear();
+    await setInflightSet(new Set());
+    await setRecentPosts(new Map());
     vi.useRealTimers();
     await cache.clear();
     seedProfile();
@@ -124,7 +129,7 @@ describe('analyzeTokenList — recent-post dedup (60 s window)', () => {
 
     const first = await analyzeTokenList([ADDR_A]);
     expect(first.success).toBe(true);
-    expect(_recentPostTimestamps.has(`solana:${ADDR_A}`)).toBe(true);
+    expect((await getRecentPosts()).has(`solana:${ADDR_A}`)).toBe(true);
 
     // Advance 30 s — still within the 60 s dedup window
     vi.advanceTimersByTime(30_000);
@@ -152,7 +157,7 @@ describe('analyzeTokenList — recent-post dedup (60 s window)', () => {
     // (now - lastPostMs < RECENT_POST_DEDUP_MS) evaluates to false,
     // without requiring real waiting or fake-timer/AbortController interactions.
     const staleMs = Date.now() - 61_000;
-    _recentPostTimestamps.set(`solana:${ADDR_A}`, staleMs);
+    await setRecentPosts(new Map([[`solana:${ADDR_A}`, staleMs]]));
 
     // ADDR_A is not in cache (cleared in beforeEach), so it is a cache miss.
     mockValidateSession401();
@@ -172,7 +177,7 @@ describe('analyzeTokenList — recent-post dedup (60 s window)', () => {
     expect(postCalls.length).toBe(1);
 
     // A fresh stamp must now be written
-    const newStamp = _recentPostTimestamps.get(`solana:${ADDR_A}`);
+    const newStamp = (await getRecentPosts()).get(`solana:${ADDR_A}`);
     expect(newStamp).toBeDefined();
     expect(newStamp!).toBeGreaterThan(staleMs);
   });
@@ -180,7 +185,7 @@ describe('analyzeTokenList — recent-post dedup (60 s window)', () => {
   // -------------------------------------------------------------------------
   // Test 3: Service-worker restart simulation
   // -------------------------------------------------------------------------
-  it('fires a new POST after _recentPostTimestamps is cleared (service-worker restart)', async () => {
+  it('fires a new POST after recentPosts is cleared (service-worker restart)', async () => {
     // First call sets the stamp
     mockValidateSession401();
     mockFetch.mockResolvedValueOnce({
@@ -191,11 +196,11 @@ describe('analyzeTokenList — recent-post dedup (60 s window)', () => {
 
     const first = await analyzeTokenList([ADDR_A]);
     expect(first.success).toBe(true);
-    expect(_recentPostTimestamps.has(`solana:${ADDR_A}`)).toBe(true);
+    expect((await getRecentPosts()).has(`solana:${ADDR_A}`)).toBe(true);
 
-    // Simulate module re-init — accepted trade-off documented in plan
-    _recentPostTimestamps.clear();
-    _inFlightAddresses.clear();
+    // Simulate module re-init — clear persistent maps and cache
+    await setRecentPosts(new Map());
+    await setInflightSet(new Set());
     await cache.invalidate(ADDR_A, 'solana');
 
     storageMock['profile_synced_at'] = Date.now() - 120_000;
