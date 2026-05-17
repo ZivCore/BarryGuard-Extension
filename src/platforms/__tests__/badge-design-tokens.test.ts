@@ -38,16 +38,14 @@ describe('badge-design-tokens', () => {
     const oklchTones: BadgeTone[] = ['safe', 'caution', 'danger'];
     const allTones: BadgeTone[] = ['safe', 'caution', 'danger', 'neutral'];
 
-    it.each(oklchTones)('returns oklch palette for %s when dark=false', (tone) => {
+    it.each(oklchTones)('returns oklch bg/ring palette for %s when dark=false', (tone) => {
       const c = toneColors(tone, false);
-      expect(c.fg).toMatch(/^oklch\(/);
       expect(c.bg).toMatch(/^oklch\(/);
       expect(c.ring).toMatch(/^oklch\(/);
     });
 
-    it.each(oklchTones)('returns oklch palette for %s when dark=true', (tone) => {
+    it.each(oklchTones)('returns oklch bg/ring palette for %s when dark=true', (tone) => {
       const c = toneColors(tone, true);
-      expect(c.fg).toMatch(/^oklch\(/);
       expect(c.bg).toMatch(/^oklch\(/);
       expect(c.ring).toMatch(/^oklch\(/);
     });
@@ -57,18 +55,33 @@ describe('badge-design-tokens', () => {
       expect(toneColors(tone, true)).toBeDefined();
     });
 
-    it('returns BarryGuard web-app token values for safe light', () => {
+    // Stripe-variant pastel palette — see `badge-design-tokens.ts` comment.
+    it('returns Stripe pastel values for safe light', () => {
       const c = toneColors('safe', false);
-      expect(c.bg).toBe('oklch(0.95 0.04 145)');
-      expect(c.ring).toBe('oklch(0.58 0.13 145)');
-      expect(c.fg).toBe('oklch(0.20 0 0)');
+      expect(c.bg).toBe('oklch(0.92 0.10 145)');
+      expect(c.ring).toBe('oklch(0.62 0.16 145)');
+      expect(c.fg).toBe('#0a3d20');
     });
 
-    it('returns BarryGuard web-app token values for danger dark', () => {
+    it('returns Stripe pastel values for caution light', () => {
+      const c = toneColors('caution', false);
+      expect(c.bg).toBe('oklch(0.94 0.10 80)');
+      expect(c.ring).toBe('oklch(0.62 0.14 75)');
+      expect(c.fg).toBe('#5a3500');
+    });
+
+    it('returns Stripe pastel values for danger light', () => {
+      const c = toneColors('danger', false);
+      expect(c.bg).toBe('oklch(0.92 0.08 25)');
+      expect(c.ring).toBe('oklch(0.58 0.20 25)');
+      expect(c.fg).toBe('#5a0a0a');
+    });
+
+    it('returns Stripe palette values for danger dark', () => {
       const c = toneColors('danger', true);
-      expect(c.bg).toBe('oklch(0.30 0.06 25)');
-      expect(c.ring).toBe('oklch(0.68 0.18 25)');
-      expect(c.fg).toBe('oklch(0.95 0 0)');
+      expect(c.bg).toBe('oklch(0.55 0.20 25)');
+      expect(c.ring).toBe('oklch(0.40 0.20 25)');
+      expect(c.fg).toBe('#ffffff');
     });
 
     it('returns BarryGuard paper-cream for neutral light', () => {

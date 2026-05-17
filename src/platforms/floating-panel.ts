@@ -262,7 +262,11 @@ function buildSubscoreGrid(
     cell.appendChild(labelEl);
 
     const cellTone = toneOf(value);
-    const cellRing = toneColors(cellTone, dark).ring;
+    const cellColors = toneColors(cellTone, dark);
+    // On dark panel the ring is too dark to read; promote the Stripe bg
+    // (the brighter pastel) to act as the readable accent. Light panel
+    // keeps the ring (the darker, vivid pencil tone) for crisp contrast.
+    const cellRing = dark ? cellColors.bg : cellColors.ring;
 
     const valueEl = document.createElement('div');
     setReset(valueEl);
@@ -326,7 +330,9 @@ function buildBullets(
   // ADR-018: omit block entirely when no reasons
   if (trimmed.length === 0) return null;
 
-  const ringColor = toneColors(tone, dark).ring;
+  const palette = toneColors(tone, dark);
+  // See buildSubscoreGrid comment: dark panel uses Stripe bg as accent.
+  const ringColor = dark ? palette.bg : palette.ring;
 
   const list = document.createElement('div');
   setReset(list);
@@ -371,7 +377,9 @@ function buildFooter(
   dark: boolean,
   address: string,
 ): HTMLAnchorElement {
-  const ringColor = toneColors(tone, dark).ring;
+  const palette = toneColors(tone, dark);
+  // See buildSubscoreGrid comment: dark panel uses Stripe bg as accent.
+  const ringColor = dark ? palette.bg : palette.ring;
 
   const footer = document.createElement('a');
   footer.href = '#';

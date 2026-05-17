@@ -43,49 +43,51 @@ export function toneOf(score: number): BadgeTone {
 // toneColors
 // ---------------------------------------------------------------------------
 
+// Stripe-variant pastel palette — exact values from Claude Design handoff
+// (`BarryGuard Badge.html` / `badge-designs.jsx` → `toneColors(tone, dark)`).
 const LIGHT_COLORS: Record<BadgeTone, BadgeToneColors> = {
   safe: {
-    fg: 'oklch(0.20 0 0)',            // BarryGuard --ink
-    bg: 'oklch(0.95 0.04 145)',       // BarryGuard --safe-bg (paper-tinted green)
-    ring: 'oklch(0.58 0.13 145)',     // BarryGuard --safe
+    fg: '#0a3d20',
+    bg: 'oklch(0.92 0.10 145)',
+    ring: 'oklch(0.62 0.16 145)',
   },
   caution: {
-    fg: 'oklch(0.20 0 0)',            // BarryGuard --ink
-    bg: 'oklch(0.96 0.05 80)',        // BarryGuard --caution-bg (paper-tinted amber)
-    ring: 'oklch(0.72 0.14 75)',      // BarryGuard --caution
+    fg: '#5a3500',
+    bg: 'oklch(0.94 0.10 80)',
+    ring: 'oklch(0.62 0.14 75)',
   },
   danger: {
-    fg: 'oklch(0.20 0 0)',            // BarryGuard --ink
-    bg: 'oklch(0.95 0.04 25)',        // BarryGuard --danger-bg (paper-tinted rose)
-    ring: 'oklch(0.56 0.18 25)',      // BarryGuard --danger
+    fg: '#5a0a0a',
+    bg: 'oklch(0.92 0.08 25)',
+    ring: 'oklch(0.58 0.20 25)',
   },
   neutral: {
-    fg: '#3a2f1f',                    // dark warm ink for contrast on paper-cream
-    bg: '#f3eee2',                    // BarryGuard paper-cream (X_PALETTE.paper)
-    ring: '#d4c8a8',                  // muted beige border, ~20% darker than bg
+    fg: '#3a2f1f',
+    bg: '#f3eee2',
+    ring: '#d4c8a8',
   },
 };
 
 const DARK_COLORS: Record<BadgeTone, BadgeToneColors> = {
   safe: {
-    fg: 'oklch(0.95 0 0)',            // BarryGuard --ink (dark mode)
-    bg: 'oklch(0.28 0.05 145)',       // BarryGuard --safe-bg (dark mode)
-    ring: 'oklch(0.72 0.14 145)',     // BarryGuard --safe (dark mode)
+    fg: '#0a0a0a',
+    bg: 'oklch(0.82 0.18 145)',
+    ring: 'oklch(0.55 0.18 145)',
   },
   caution: {
-    fg: 'oklch(0.95 0 0)',            // BarryGuard --ink (dark mode)
-    bg: 'oklch(0.30 0.06 80)',        // BarryGuard --caution-bg (dark mode)
-    ring: 'oklch(0.78 0.14 75)',      // BarryGuard --caution (dark mode)
+    fg: '#0a0a0a',
+    bg: 'oklch(0.82 0.14 75)',
+    ring: 'oklch(0.58 0.14 75)',
   },
   danger: {
-    fg: 'oklch(0.95 0 0)',            // BarryGuard --ink (dark mode)
-    bg: 'oklch(0.30 0.06 25)',        // BarryGuard --danger-bg (dark mode)
-    ring: 'oklch(0.68 0.18 25)',      // BarryGuard --danger (dark mode)
+    fg: '#ffffff',
+    bg: 'oklch(0.55 0.20 25)',
+    ring: 'oklch(0.40 0.20 25)',
   },
   neutral: {
-    fg: '#f3eee2',                    // paper-cream as foreground on dark
-    bg: '#3a2f1f',                    // inverted dark warm for dark mode
-    ring: '#6b5a3f',                  // muted warm border
+    fg: '#f3eee2',
+    bg: '#3a2f1f',
+    ring: '#6b5a3f',
   },
 };
 
