@@ -394,7 +394,7 @@ function buildFooter(
 
   const label = document.createElement('span');
   setReset(label);
-  label.textContent = 'Open full analysis';
+  label.textContent = 'View full report';
   footer.appendChild(label);
 
   const svgNS = 'http://www.w3.org/2000/svg';

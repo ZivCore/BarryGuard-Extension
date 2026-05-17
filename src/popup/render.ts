@@ -565,6 +565,67 @@ export function renderAnalysisFooter(
 // Each helper is independently exported for testability and to allow
 // renderRescueDial() to compose them in the popup pipeline.
 
+// ─── Hover-Sync State (plan-popup-rescue-dial-hover-sync) ────────────────────
+
+export type RingKey = 'contract' | 'market' | 'behavior';
+
+let currentFocusKey: RingKey | null = null;
+
+let hoverSyncCallback: ((category: CheckCategory) => void) | null = null;
+
+export function setHoverSyncCallback(cb: (category: CheckCategory) => void): void {
+  hoverSyncCallback = cb;
+}
+
+export function ringKeyToCategory(key: RingKey): CheckCategory {
+  if (key === 'market') return 'marketStructure';
+  return key;
+}
+
+export function categoryToRingKey(category: CheckCategory): RingKey {
+  if (category === 'marketStructure') return 'market';
+  return category as RingKey;
+}
+
+export function setRingFocus(key: RingKey | null): void {
+  currentFocusKey = key;
+  applyRingFocusEffects();
+  applyLegendFocusEffects();
+}
+
+// ─── Focus-Effect Helpers ─────────────────────────────────────────────────────
+
+const RING_W: Record<RingKey, number> = { contract: 12, market: 12, behavior: 12 };
+
+function applyRingFocusEffects(): void {
+  const groups = Array.from(document.querySelectorAll('g[data-ring-key]')) as SVGGElement[];
+  for (const g of groups) {
+    const key = g.getAttribute('data-ring-key') as RingKey;
+    const isDimmed = currentFocusKey !== null && currentFocusKey !== key;
+    const isFocused = currentFocusKey === key;
+    g.style.opacity = isDimmed ? '0.28' : '1';
+    g.style.transition = 'opacity 0.15s';
+    const arc = g.querySelector('[data-arc="true"]') as SVGPathElement | null;
+    if (arc) {
+      const baseW = RING_W[key] ?? 12;
+      arc.setAttribute('stroke-width', String(isFocused ? baseW + 2 : baseW));
+      arc.style.transition = 'stroke-width 0.15s';
+    }
+  }
+}
+
+export function applyLegendFocusEffects(): void {
+  const cols = Array.from(document.querySelectorAll('.rd-legend-col[data-key]')) as HTMLElement[];
+  for (const col of cols) {
+    const key = col.getAttribute('data-key') as RingKey;
+    const isDimmed = currentFocusKey !== null && currentFocusKey !== key;
+    col.style.opacity = isDimmed ? '0.4' : '1';
+    col.style.transition = 'opacity 0.15s';
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+
 const RD_RISK_ORDER: RiskLevel[] = ['danger', 'high', 'caution', 'moderate', 'low'];
 
 function rdRiskLevelForScore(score: number): RiskLevel {
@@ -627,6 +688,9 @@ export function renderTripleRings(
   score: number,
   subscores: { contract?: number | null; market?: number | null; behavior?: number | null },
 ): void {
+  // Schritt 5 / Codex-Finding 3: Focus-Reset at start of every render path.
+  setRingFocus(null);
+
   const host = document.getElementById('rd-rings');
   if (!host) return;
 
@@ -636,7 +700,7 @@ export function renderTripleRings(
   const GAP = 0.04;
   const NS = 'http://www.w3.org/2000/svg';
 
-  const RINGS: Array<{ r: number; w: number; key: 'contract' | 'market' | 'behavior'; label: string }> = [
+  const RINGS: Array<{ r: number; w: number; key: RingKey; label: string }> = [
     { r: 92, w: 12, key: 'contract', label: 'Contract subscore' },
     { r: 74, w: 12, key: 'market', label: 'Market subscore' },
     { r: 56, w: 12, key: 'behavior', label: 'Behavior subscore' },
@@ -666,7 +730,7 @@ export function renderTripleRings(
     return `M${x0},${y0} A${r},${r} 0 1 1 ${x1},${y1}`;
   };
 
-  // Build SVG from scratch each render to avoid stale arcs.
+  // Build SVG from scratch each render to avoid stale arcs and listeners.
   host.innerHTML = '';
   const svg = document.createElementNS(NS, 'svg');
   svg.setAttribute('width', String(SIZE));
@@ -680,13 +744,17 @@ export function renderTripleRings(
     const hasValue = raw != null && Number.isFinite(raw);
     const v = hasValue ? Math.max(0, Math.min(100, raw as number)) : 0;
     const frac = hasValue ? v / 100 : 0;
+
+    const g = document.createElementNS(NS, 'g');
+    g.setAttribute('data-ring-key', ring.key);
+
     const trackEl = document.createElementNS(NS, 'path');
     trackEl.setAttribute('d', trackPath(ring.r));
     trackEl.setAttribute('stroke', 'var(--rd-line-strong)');
     trackEl.setAttribute('stroke-width', String(ring.w));
     trackEl.setAttribute('fill', 'none');
     trackEl.setAttribute('stroke-linecap', 'round');
-    svg.appendChild(trackEl);
+    g.appendChild(trackEl);
 
     if (hasValue && frac > 0) {
       const arc = document.createElementNS(NS, 'path');
@@ -695,8 +763,36 @@ export function renderTripleRings(
       arc.setAttribute('stroke-width', String(ring.w));
       arc.setAttribute('fill', 'none');
       arc.setAttribute('stroke-linecap', 'round');
-      svg.appendChild(arc);
+      arc.setAttribute('data-arc', 'true');
+      g.appendChild(arc);
     }
+
+    if (hasValue) {
+      const hitArea = document.createElementNS(NS, 'path');
+      hitArea.setAttribute('d', trackPath(ring.r));
+      hitArea.setAttribute('stroke', 'transparent');
+      hitArea.setAttribute('stroke-width', String(ring.w + 8));
+      hitArea.setAttribute('fill', 'none');
+      hitArea.setAttribute('stroke-linecap', 'round');
+      hitArea.setAttribute('style', 'cursor:pointer;pointer-events:stroke');
+
+      const key = ring.key;
+      hitArea.addEventListener('mouseenter', () => {
+        setRingFocus(key);
+        hoverSyncCallback?.(ringKeyToCategory(key));
+      });
+      hitArea.addEventListener('mouseleave', () => {
+        setRingFocus(null);
+      });
+      hitArea.addEventListener('click', () => {
+        setRingFocus(key);
+        hoverSyncCallback?.(ringKeyToCategory(key));
+      });
+
+      g.appendChild(hitArea);
+    }
+
+    svg.appendChild(g);
   }
 
   // Center score number
@@ -723,6 +819,7 @@ export function renderTripleRings(
   svg.appendChild(sub);
 
   host.appendChild(svg);
+  applyRingFocusEffects();
 }
 
 /**
@@ -732,7 +829,7 @@ export function renderTripleRings(
 export function renderLegendValues(
   subscores: { contract?: number | null; market?: number | null; behavior?: number | null },
 ): void {
-  const set = (key: 'contract' | 'market' | 'behavior') => {
+  const set = (key: RingKey) => {
     const raw = subscores[key];
     const hasValue = raw != null && Number.isFinite(raw);
     const v = hasValue ? Math.round(Math.max(0, Math.min(100, raw as number))) : null;
@@ -742,11 +839,45 @@ export function renderLegendValues(
     if (col) {
       col.classList.toggle('is-disabled', !hasValue);
       rdSetRiskClass(col, hasValue ? rdRiskLevelForScore(v as number) : null, 'risk');
+
+      // Schritt 3: State-aware disabled gate (Codex-Finding 2).
+      // Attribute is set on every render so handlers always read current state.
+      col.setAttribute('data-disabled', hasValue ? 'false' : 'true');
+      col.setAttribute('tabindex', hasValue ? '0' : '-1');
+      col.style.cursor = hasValue ? 'pointer' : 'default';
+
+      // Bind listeners once; handlers check data-disabled at runtime.
+      if (!col.getAttribute('data-hover-bound')) {
+        col.setAttribute('data-hover-bound', 'true');
+        col.addEventListener('mouseenter', () => {
+          if (col.getAttribute('data-disabled') === 'true') return;
+          setRingFocus(key);
+          hoverSyncCallback?.(ringKeyToCategory(key));
+        });
+        col.addEventListener('mouseleave', () => {
+          setRingFocus(null);
+        });
+        col.addEventListener('click', () => {
+          if (col.getAttribute('data-disabled') === 'true') return;
+          setRingFocus(key);
+          hoverSyncCallback?.(ringKeyToCategory(key));
+        });
+        col.addEventListener('keydown', (e: KeyboardEvent) => {
+          if (col.getAttribute('data-disabled') === 'true') return;
+          if (e.key === 'Enter' || e.key === ' ') {
+            if (e.key === ' ') e.preventDefault();
+            setRingFocus(key);
+            hoverSyncCallback?.(ringKeyToCategory(key));
+          }
+        });
+      }
     }
   };
   set('contract');
   set('market');
   set('behavior');
+
+  applyLegendFocusEffects();
 }
 
 /**

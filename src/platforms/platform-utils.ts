@@ -5,6 +5,7 @@ import {
   toneColors,
   toneOf,
   verdictTextStripe,
+  type BadgeTone,
 } from './badge-design-tokens';
 import { ensureBadgeFontsLoaded } from './badge-font-injector';
 
@@ -184,7 +185,7 @@ interface StateDefinition {
   cursor: 'pointer' | 'default';
   paletteDark: boolean;
   // For non-scored states, fixed tone + manual opacity adjustment
-  fixedTone?: 'safe' | 'caution';
+  fixedTone?: 'safe' | 'caution' | 'neutral';
   opacity?: number;
 }
 
@@ -207,7 +208,7 @@ function resolveStateDefinition(
         scoreSlot: '·',
         cursor: 'default',
         paletteDark: false,
-        fixedTone: 'safe',
+        fixedTone: 'neutral',
         opacity: 0.5,
       };
     case 'error':
@@ -244,7 +245,7 @@ export function renderStripeBadge(
   const def = resolveStateDefinition(params);
 
   // Resolve palette
-  let tone: 'safe' | 'caution' | 'danger';
+  let tone: BadgeTone;
   if (def.fixedTone) {
     tone = def.fixedTone;
   } else {

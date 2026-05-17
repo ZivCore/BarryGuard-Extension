@@ -97,6 +97,6 @@ describe('renderFloatingPanel — subscore grid', () => {
     await fireHoverAndWait(badge);
     const footer = document.querySelector('[data-barryguard-footer]');
     expect(footer).not.toBeNull();
-    expect(footer?.textContent).toContain('Open full analysis');
+    expect(footer?.textContent).toContain('View full report');
   });
 });

@@ -35,34 +35,46 @@ describe('badge-design-tokens', () => {
   });
 
   describe('toneColors', () => {
-    const tones: BadgeTone[] = ['safe', 'caution', 'danger'];
+    const oklchTones: BadgeTone[] = ['safe', 'caution', 'danger'];
+    const allTones: BadgeTone[] = ['safe', 'caution', 'danger', 'neutral'];
 
-    it.each(tones)('returns light palette for %s when dark=false', (tone) => {
+    it.each(oklchTones)('returns oklch palette for %s when dark=false', (tone) => {
       const c = toneColors(tone, false);
-      expect(c.fg).toMatch(/^#/);
+      expect(c.fg).toMatch(/^oklch\(/);
       expect(c.bg).toMatch(/^oklch\(/);
       expect(c.ring).toMatch(/^oklch\(/);
     });
 
-    it.each(tones)('returns dark palette for %s when dark=true', (tone) => {
+    it.each(oklchTones)('returns oklch palette for %s when dark=true', (tone) => {
       const c = toneColors(tone, true);
-      expect(c.fg).toMatch(/^#/);
+      expect(c.fg).toMatch(/^oklch\(/);
       expect(c.bg).toMatch(/^oklch\(/);
       expect(c.ring).toMatch(/^oklch\(/);
     });
 
-    it('returns 1:1 oklch values from the Claude design (safe light)', () => {
-      const c = toneColors('safe', false);
-      expect(c.bg).toBe('oklch(0.92 0.10 145)');
-      expect(c.ring).toBe('oklch(0.62 0.16 145)');
-      expect(c.fg).toBe('#0a3d20');
+    it.each(allTones)('returns a defined record for %s in both modes', (tone) => {
+      expect(toneColors(tone, false)).toBeDefined();
+      expect(toneColors(tone, true)).toBeDefined();
     });
 
-    it('returns 1:1 oklch values from the Claude design (danger dark)', () => {
+    it('returns BarryGuard web-app token values for safe light', () => {
+      const c = toneColors('safe', false);
+      expect(c.bg).toBe('oklch(0.95 0.04 145)');
+      expect(c.ring).toBe('oklch(0.58 0.13 145)');
+      expect(c.fg).toBe('oklch(0.20 0 0)');
+    });
+
+    it('returns BarryGuard web-app token values for danger dark', () => {
       const c = toneColors('danger', true);
-      expect(c.bg).toBe('oklch(0.55 0.20 25)');
-      expect(c.ring).toBe('oklch(0.40 0.20 25)');
-      expect(c.fg).toBe('#ffffff');
+      expect(c.bg).toBe('oklch(0.30 0.06 25)');
+      expect(c.ring).toBe('oklch(0.68 0.18 25)');
+      expect(c.fg).toBe('oklch(0.95 0 0)');
+    });
+
+    it('returns BarryGuard paper-cream for neutral light', () => {
+      const c = toneColors('neutral', false);
+      expect(c.bg).toBe('#f3eee2');
+      expect(c.fg).toBe('#3a2f1f');
     });
   });
 

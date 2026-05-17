@@ -29,6 +29,9 @@ import {
   renderAnalysisFooter,
   renderRescueDial,
   getExplorerUrl,
+  setRingFocus,
+  setHoverSyncCallback,
+  categoryToRingKey,
 } from './render';
 import { type CheckCategory, CATEGORY_ORDER } from './check-categories';
 import {
@@ -2038,6 +2041,9 @@ function setupCheckCategoryTabs(): void {
   const tabContainer = document.getElementById('check-category-tabs');
   if (!tabContainer) return;
 
+  // Register hover-sync callback so ring/legend hover can trigger tab switches.
+  setHoverSyncCallback((cat) => applyActiveCheckTab(cat));
+
   const handleTabSelect = (target: HTMLElement) => {
     if (target.getAttribute('aria-disabled') === 'true') return;
     const category = target.dataset.category as CheckCategory | undefined;
@@ -2059,6 +2065,23 @@ function setupCheckCategoryTabs(): void {
       event.preventDefault();
       handleTabSelect(target);
     }
+  });
+
+  // Schritt 4: Tab-Hover triggers ring focus and tab switch (event delegation).
+  tabContainer.addEventListener('mouseover', (event) => {
+    const target = (event.target as HTMLElement | null)?.closest<HTMLElement>('.rd-tab');
+    if (!target) return;
+    if (target.getAttribute('aria-disabled') === 'true') return;
+    const category = target.dataset.category as CheckCategory | undefined;
+    if (!category || !CATEGORY_ORDER.includes(category)) return;
+    setRingFocus(categoryToRingKey(category));
+    applyActiveCheckTab(category);
+  });
+
+  tabContainer.addEventListener('mouseout', (event) => {
+    const related = (event as MouseEvent).relatedTarget;
+    if (related instanceof HTMLElement && tabContainer.contains(related)) return;
+    setRingFocus(null);
   });
 }
 

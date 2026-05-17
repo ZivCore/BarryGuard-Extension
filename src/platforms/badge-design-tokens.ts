@@ -1,8 +1,9 @@
 /**
  * Badge Design Tokens
  *
- * Color values originate from the Claude Design Handoff (Stripe-Variante E,
- * Floating-Variante F) and must be preserved 1:1 — no adjustments allowed.
+ * Risk-tone palette aligned with BarryGuard web-app design system
+ * (see `BarryGuard/src/app/globals.css` — --safe / --caution / --danger).
+ * Soft paper-tinted backgrounds with kraeftige Ring-/Accent-Farben.
  * No DOM access; module is independently testable.
  */
 
@@ -17,7 +18,7 @@ export const BADGE_FONT_MONO = "'JetBrains Mono', ui-monospace, monospace";
 // Types
 // ---------------------------------------------------------------------------
 
-export type BadgeTone = 'safe' | 'caution' | 'danger';
+export type BadgeTone = 'safe' | 'caution' | 'danger' | 'neutral';
 
 export type BadgeToneColors = {
   fg: string;
@@ -44,37 +45,47 @@ export function toneOf(score: number): BadgeTone {
 
 const LIGHT_COLORS: Record<BadgeTone, BadgeToneColors> = {
   safe: {
-    fg: '#0a3d20',                    // ≈ #0a3d20
-    bg: 'oklch(0.92 0.10 145)',       // ≈ #d4ecd0
-    ring: 'oklch(0.62 0.16 145)',     // ≈ #5fa45f
+    fg: 'oklch(0.20 0 0)',            // BarryGuard --ink
+    bg: 'oklch(0.95 0.04 145)',       // BarryGuard --safe-bg (paper-tinted green)
+    ring: 'oklch(0.58 0.13 145)',     // BarryGuard --safe
   },
   caution: {
-    fg: '#5a3500',                    // ≈ #5a3500
-    bg: 'oklch(0.94 0.10 80)',        // ≈ #f0e3b3
-    ring: 'oklch(0.62 0.14 75)',      // ≈ #b08442
+    fg: 'oklch(0.20 0 0)',            // BarryGuard --ink
+    bg: 'oklch(0.96 0.05 80)',        // BarryGuard --caution-bg (paper-tinted amber)
+    ring: 'oklch(0.72 0.14 75)',      // BarryGuard --caution
   },
   danger: {
-    fg: '#5a0a0a',                    // ≈ #5a0a0a
-    bg: 'oklch(0.92 0.08 25)',        // ≈ #efd2cc
-    ring: 'oklch(0.58 0.20 25)',      // ≈ #c83a2f
+    fg: 'oklch(0.20 0 0)',            // BarryGuard --ink
+    bg: 'oklch(0.95 0.04 25)',        // BarryGuard --danger-bg (paper-tinted rose)
+    ring: 'oklch(0.56 0.18 25)',      // BarryGuard --danger
+  },
+  neutral: {
+    fg: '#3a2f1f',                    // dark warm ink for contrast on paper-cream
+    bg: '#f3eee2',                    // BarryGuard paper-cream (X_PALETTE.paper)
+    ring: '#d4c8a8',                  // muted beige border, ~20% darker than bg
   },
 };
 
 const DARK_COLORS: Record<BadgeTone, BadgeToneColors> = {
   safe: {
-    fg: '#0a0a0a',                    // ≈ #0a0a0a
-    bg: 'oklch(0.82 0.18 145)',       // ≈ #97d191
-    ring: 'oklch(0.55 0.18 145)',     // ≈ #4a8a4a
+    fg: 'oklch(0.95 0 0)',            // BarryGuard --ink (dark mode)
+    bg: 'oklch(0.28 0.05 145)',       // BarryGuard --safe-bg (dark mode)
+    ring: 'oklch(0.72 0.14 145)',     // BarryGuard --safe (dark mode)
   },
   caution: {
-    fg: '#0a0a0a',                    // ≈ #0a0a0a
-    bg: 'oklch(0.82 0.14 75)',        // ≈ #d6b876
-    ring: 'oklch(0.58 0.14 75)',      // ≈ #a07a3e
+    fg: 'oklch(0.95 0 0)',            // BarryGuard --ink (dark mode)
+    bg: 'oklch(0.30 0.06 80)',        // BarryGuard --caution-bg (dark mode)
+    ring: 'oklch(0.78 0.14 75)',      // BarryGuard --caution (dark mode)
   },
   danger: {
-    fg: '#ffffff',                    // ≈ #ffffff
-    bg: 'oklch(0.55 0.20 25)',        // ≈ #b83d33
-    ring: 'oklch(0.40 0.20 25)',      // ≈ #821f1a
+    fg: 'oklch(0.95 0 0)',            // BarryGuard --ink (dark mode)
+    bg: 'oklch(0.30 0.06 25)',        // BarryGuard --danger-bg (dark mode)
+    ring: 'oklch(0.68 0.18 25)',      // BarryGuard --danger (dark mode)
+  },
+  neutral: {
+    fg: '#f3eee2',                    // paper-cream as foreground on dark
+    bg: '#3a2f1f',                    // inverted dark warm for dark mode
+    ring: '#6b5a3f',                  // muted warm border
   },
 };
 

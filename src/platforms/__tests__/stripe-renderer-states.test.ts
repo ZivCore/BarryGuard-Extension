@@ -53,6 +53,18 @@ describe('renderStripeBadge — five states', () => {
     expect(badge.style.cursor).toBe('default');
   });
 
+  it('loading state uses neutral paper-cream (#f3eee2), not caution or safe palette', () => {
+    const badge = createBadgeElement('TEST');
+    renderStripeBadge(badge, { state: 'loading', dark: false });
+    // jsdom normalizes #f3eee2 to rgb(243, 238, 226). Accept either form.
+    const bg = badge.style.background.toLowerCase().replace(/\s+/g, '');
+    const isPaperCream =
+      bg.includes('#f3eee2') || bg.includes('rgb(243,238,226)');
+    expect(isPaperCream).toBe(true);
+    expect(bg).not.toMatch(/oklch\([^)]*\b80\)/);
+    expect(bg).not.toMatch(/oklch\([^)]*\b145\)/);
+  });
+
   it('renders error state', () => {
     const badge = createBadgeElement('TEST');
     renderStripeBadge(badge, { state: 'error', dark: false });
