@@ -1,5 +1,6 @@
 import type { IPlatform } from './platform.interface';
-import { createBadgeElement, getRiskColors, renderBadgeTooltip, safeSendPopupMessage, setBadgeContent } from './platform-utils';
+import { createBadgeElement, renderFloatingPanel, renderStripeBadge, safeSendPopupMessage } from './platform-utils';
+import { detectHostThemeCached } from './host-theme';
 import { dedupeAddresses } from './address-helpers';
 import type { SelectedToken, TokenMetadata, TokenScore } from '../shared/types';
 
@@ -175,15 +176,16 @@ export class GenericEvmPlatform implements IPlatform {
       return;
     }
 
-    const colors = getRiskColors(score.risk);
     const existingBadge = this.getBadge(address);
     const badge = existingBadge ?? createBadgeElement(address);
     badge.removeAttribute('data-barryguard-locked');
-    badge.style.backgroundColor = colors.bg;
-    badge.style.color = colors.text;
-    badge.style.border = `1px solid ${colors.border}`;
-    badge.style.boxShadow = colors.glow;
-    setBadgeContent(badge, String(score.score), this.compactBadge);
+    const dark = detectHostThemeCached(target as HTMLElement) === 'dark';
+    renderStripeBadge(badge, {
+      state: 'scored',
+      score: score.score,
+      dark,
+      compact: this.compactBadge,
+    });
     badge.title = `BarryGuard Score: ${score.score}/100 - Click for details`;
     badge.onclick = (event) => {
       event.preventDefault();
@@ -191,7 +193,14 @@ export class GenericEvmPlatform implements IPlatform {
       safeSendPopupMessage(this.buildSelectedToken(address, score));
     };
 
-    renderBadgeTooltip(badge, score.score, score.risk, score.reasons ?? [], score.coverageRisk);
+    renderFloatingPanel(badge, {
+      score: score.score,
+      reasons: score.reasons ?? [],
+      subscores: score.subscores,
+      coverageRisk: score.coverageRisk,
+      dark,
+      address,
+    });
 
     if (!existingBadge || this.shouldReinsertBadge(address, existingBadge)) {
       this.insertBadge(address, target, badge);
@@ -214,10 +223,12 @@ export class GenericEvmPlatform implements IPlatform {
     }
 
     const badge = existingBadge ?? createBadgeElement(address);
-    badge.style.backgroundColor = '#f3f4f6';
-    badge.style.color = '#6b7280';
-    badge.style.border = '1px solid #e5e7eb';
-    setBadgeContent(badge, '...', this.compactBadge);
+    const dark = detectHostThemeCached(target as HTMLElement) === 'dark';
+    renderStripeBadge(badge, {
+      state: 'loading',
+      dark,
+      compact: this.compactBadge,
+    });
     badge.title = 'BarryGuard: Loading...';
     badge.onclick = null;
 
@@ -232,11 +243,13 @@ export class GenericEvmPlatform implements IPlatform {
       return;
     }
 
-    setBadgeContent(badge, '?', this.compactBadge);
+    const dark = detectHostThemeCached(badge) === 'dark';
+    renderStripeBadge(badge, {
+      state: 'error',
+      dark,
+      compact: this.compactBadge,
+    });
     badge.title = 'BarryGuard: Score unavailable';
-    badge.style.backgroundColor = '#f3f4f6';
-    badge.style.color = '#9ca3af';
-    badge.style.border = '1px solid #e5e7eb';
     badge.onclick = null;
   }
 
@@ -249,10 +262,12 @@ export class GenericEvmPlatform implements IPlatform {
     const existingBadge = this.getBadge(address);
     const badge = existingBadge ?? createBadgeElement(address);
     badge.setAttribute('data-barryguard-locked', 'true');
-    badge.style.backgroundColor = '#fef3c7';
-    badge.style.color = '#92400e';
-    badge.style.border = '1px solid #fde68a';
-    setBadgeContent(badge, '\u{1F512}', this.compactBadge);
+    const dark = detectHostThemeCached(target as HTMLElement) === 'dark';
+    renderStripeBadge(badge, {
+      state: 'locked-quota',
+      dark,
+      compact: this.compactBadge,
+    });
     badge.title = 'BarryGuard: Limit reached — upgrade or wait';
     badge.onclick = null;
 

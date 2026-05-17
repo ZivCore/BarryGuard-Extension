@@ -1,4 +1,12 @@
 import type { SelectedToken, TokenMetadata, TokenScore } from '../shared/types';
+import {
+  BADGE_FONT_DISPLAY,
+  BADGE_FONT_MONO,
+  toneColors,
+  toneOf,
+  verdictTextStripe,
+} from './badge-design-tokens';
+import { ensureBadgeFontsLoaded } from './badge-font-injector';
 
 function isExtensionContextInvalidatedError(error: unknown): boolean {
   const message =
@@ -33,283 +41,268 @@ export function safeSendPopupMessage(payload: SelectedToken): void {
   }
 }
 
+// ---------------------------------------------------------------------------
+// Stripe-Badge (Design E aus Claude-Design-Handoff, 1:1)
+// ---------------------------------------------------------------------------
+
+export type StripeState =
+  | 'scored'
+  | 'loading'
+  | 'error'
+  | 'locked-quota'
+  | 'locked-anonymous';
+
+export interface RenderStripeParams {
+  state: StripeState;
+  score?: number;
+  dark: boolean;
+  compact?: boolean;
+}
+
+const STRIPE_WIDTH_NORMAL = 220;
+const STRIPE_WIDTH_COMPACT = 160;
+
+const LOCK_GLYPH = '\u{1F512}';
+
+function applyResetToSpan(span: HTMLSpanElement): void {
+  span.style.margin = '0';
+  span.style.padding = '0';
+  span.style.background = 'transparent';
+  span.style.border = '0';
+  span.style.boxShadow = 'none';
+  span.style.textDecoration = 'none';
+  span.style.boxSizing = 'border-box';
+}
+
 export function createBadgeElement(address: string): HTMLDivElement {
+  ensureBadgeFontsLoaded().catch(() => {
+    // best-effort; render proceeds with system-font fallback
+  });
+
   const badge = document.createElement('div');
   badge.setAttribute('data-barryguard-badge', address);
   badge.setAttribute('data-barryguard', 'true');
+  // Container styles — Design E geometry, defaults applied; tone-specific
+  // bg/border/color are set later in renderStripeBadge().
   badge.style.cssText = [
     'display:inline-flex',
     'align-items:center',
-    'justify-content:center',
-    'gap:6px',
-    'padding:4px 8px',
-    'border-radius:999px',
-    'font-size:11px',
-    'font-weight:700',
-    'font-family:system-ui,-apple-system,sans-serif',
-    'margin-left:6px',
+    'gap:8px',
+    'padding:4px 8px 4px 4px',
+    'border-radius:6px',
+    'box-sizing:border-box',
+    'vertical-align:middle',
+    'text-decoration:none',
+    'text-align:left',
+    `font-family:${BADGE_FONT_DISPLAY}`,
+    'line-height:1',
     'cursor:pointer',
-    'transition:all 0.2s ease',
     'z-index:1000',
     'white-space:nowrap',
-    'box-shadow:0 0 8px rgba(220,38,38,0.5)',
+    'margin-left:6px',
+    'transition:all 0.2s ease',
   ].join(';');
+
+  // Slot 1: Logo
+  const logo = document.createElement('img');
+  logo.setAttribute('data-slot', 'logo');
+  logo.alt = '';
+  logo.width = 22;
+  logo.height = 22;
+  logo.style.cssText = [
+    'display:block',
+    'width:22px',
+    'height:22px',
+    'flex-shrink:0',
+    'box-sizing:border-box',
+    'border:0',
+  ].join(';');
+  try {
+    logo.src = chrome.runtime.getURL('badge/barryguard-logo.png');
+  } catch {
+    // chrome.runtime not available (test env) — leave src empty
+  }
+  badge.appendChild(logo);
+
+  // Slot 2: Text-Stack (brand + verdict)
+  const textStack = document.createElement('span');
+  textStack.setAttribute('data-slot', 'text');
+  applyResetToSpan(textStack);
+  textStack.style.display = 'flex';
+  textStack.style.flexDirection = 'column';
+  textStack.style.gap = '2px';
+  textStack.style.alignItems = 'flex-start';
+  textStack.style.flex = '1';
+  textStack.style.minWidth = '0';
+
+  const brand = document.createElement('span');
+  brand.setAttribute('data-slot', 'brand');
+  applyResetToSpan(brand);
+  brand.style.fontFamily = BADGE_FONT_DISPLAY;
+  brand.style.fontSize = '7.5px';
+  brand.style.fontWeight = '800';
+  brand.style.letterSpacing = '-0.1px';
+  brand.style.lineHeight = '1';
+  brand.style.whiteSpace = 'nowrap';
+  brand.style.opacity = '0.7';
+  brand.textContent = 'BarryGuard';
+  textStack.appendChild(brand);
+
+  const verdict = document.createElement('span');
+  verdict.setAttribute('data-slot', 'verdict');
+  applyResetToSpan(verdict);
+  verdict.style.fontFamily = BADGE_FONT_DISPLAY;
+  verdict.style.fontSize = '10.5px';
+  verdict.style.fontWeight = '700';
+  verdict.style.letterSpacing = '0.4px';
+  verdict.style.textTransform = 'uppercase';
+  verdict.style.overflow = 'hidden';
+  verdict.style.textOverflow = 'ellipsis';
+  verdict.style.whiteSpace = 'nowrap';
+  verdict.style.lineHeight = '1';
+  textStack.appendChild(verdict);
+
+  badge.appendChild(textStack);
+
+  // Slot 3: Score
+  const score = document.createElement('span');
+  score.setAttribute('data-slot', 'score');
+  applyResetToSpan(score);
+  score.style.fontFamily = BADGE_FONT_MONO;
+  score.style.fontWeight = '800';
+  score.style.fontSize = '14px';
+  score.style.letterSpacing = '-0.4px';
+  score.style.flexShrink = '0';
+  badge.appendChild(score);
 
   return badge;
 }
 
-export function setBadgeTooltipData(
-  badge: HTMLDivElement,
-  score: number,
-  risk: string,
-  reasons: string[],
-): void {
-  badge.dataset.bgScore = String(score);
-  badge.dataset.bgRisk = risk;
-  badge.dataset.bgReasons = JSON.stringify(reasons.slice(0, 3));
+interface StateDefinition {
+  verdictText: string;
+  scoreSlot: string;
+  cursor: 'pointer' | 'default';
+  paletteDark: boolean;
+  // For non-scored states, fixed tone + manual opacity adjustment
+  fixedTone?: 'safe' | 'caution';
+  opacity?: number;
 }
 
-let _tooltipElement: HTMLDivElement | null = null;
-let _tooltipHideTimeout: ReturnType<typeof setTimeout> | null = null;
-
-function _scheduleTooltipHide(): void {
-  if (_tooltipHideTimeout) {
-    clearTimeout(_tooltipHideTimeout);
-  }
-  _tooltipHideTimeout = setTimeout(() => {
-    if (_tooltipElement) {
-      _tooltipElement.style.display = 'none';
+function resolveStateDefinition(
+  params: RenderStripeParams,
+): StateDefinition {
+  switch (params.state) {
+    case 'scored': {
+      const tone = toneOf(params.score ?? 0);
+      return {
+        verdictText: verdictTextStripe(tone),
+        scoreSlot: String(params.score ?? '?'),
+        cursor: 'pointer',
+        paletteDark: params.dark,
+      };
     }
-    _tooltipHideTimeout = null;
-  }, 200);
-}
-
-function _cancelTooltipHide(): void {
-  if (_tooltipHideTimeout) {
-    clearTimeout(_tooltipHideTimeout);
-    _tooltipHideTimeout = null;
+    case 'loading':
+      return {
+        verdictText: 'Analyzing',
+        scoreSlot: '·',
+        cursor: 'default',
+        paletteDark: false,
+        fixedTone: 'safe',
+        opacity: 0.5,
+      };
+    case 'error':
+      return {
+        verdictText: 'Unavailable',
+        scoreSlot: '?',
+        cursor: 'default',
+        paletteDark: false,
+        fixedTone: 'caution',
+      };
+    case 'locked-quota':
+      return {
+        verdictText: 'Limit reached',
+        scoreSlot: LOCK_GLYPH,
+        cursor: 'default',
+        paletteDark: false,
+        fixedTone: 'caution',
+      };
+    case 'locked-anonymous':
+      return {
+        verdictText: 'Sign up free to see all checks',
+        scoreSlot: LOCK_GLYPH,
+        cursor: 'pointer',
+        paletteDark: false,
+        fixedTone: 'caution',
+      };
   }
 }
 
-function getTooltipElement(): HTMLDivElement {
-  if (!_tooltipElement) {
-    _tooltipElement = document.createElement('div');
-    _tooltipElement.setAttribute('data-barryguard-tooltip', 'true');
-    _tooltipElement.style.cssText = [
-      'position:fixed',
-      'display:none',
-      'background:#1e293b',
-      'color:#f8fafc',
-      'padding:12px 14px',
-      'border-radius:10px',
-      'font-size:12px',
-      'line-height:1.5',
-      'font-family:system-ui,-apple-system,sans-serif',
-      'box-shadow:0 8px 30px rgba(0,0,0,0.25)',
-      'z-index:999999',
-      'max-width:280px',
-      'min-width:220px',
-    ].join(';');
-    document.body.appendChild(_tooltipElement);
-
-    // Attach tooltip hover listeners once at creation time.
-    // When the user moves from the badge into the tooltip, cancel the
-    // pending hide so they can interact with content (e.g. "Full analysis" link).
-    _tooltipElement.addEventListener('mouseenter', () => {
-      _cancelTooltipHide();
-    });
-    _tooltipElement.addEventListener('mouseleave', () => {
-      _scheduleTooltipHide();
-    });
-  }
-  return _tooltipElement;
-}
-
-export function renderBadgeTooltip(
+export function renderStripeBadge(
   badge: HTMLDivElement,
-  score: number,
-  risk: string,
-  reasons: string[],
-  coverageRisk?: string | null,
+  params: RenderStripeParams,
 ): void {
-  setBadgeTooltipData(badge, score, risk, reasons);
+  const def = resolveStateDefinition(params);
 
-  const tooltip = getTooltipElement();
-  let showTimeoutId: ReturnType<typeof setTimeout> | null = null;
+  // Resolve palette
+  let tone: 'safe' | 'caution' | 'danger';
+  if (def.fixedTone) {
+    tone = def.fixedTone;
+  } else {
+    tone = toneOf(params.score ?? 0);
+  }
+  const colors = toneColors(tone, def.paletteDark);
 
-  function getRiskIcon(riskLevel: string): string {
-    const level = riskLevel.toLowerCase();
-    if (level === 'critical') return '🚨';
-    if (level === 'high') return '⚠️';
-    if (level === 'moderate' || level === 'medium') return '⚡';
-    if (level === 'low') return '🟢';
-    return '✅';
+  // Container style: width, palette, cursor, opacity
+  const width = params.compact ? STRIPE_WIDTH_COMPACT : STRIPE_WIDTH_NORMAL;
+  badge.style.width = `${width}px`;
+  badge.style.background = colors.bg;
+  badge.style.color = colors.fg;
+  badge.style.border = `1px solid ${colors.ring}`;
+  badge.style.boxShadow = 'none';
+  badge.style.cursor = def.cursor;
+  badge.style.opacity = def.opacity !== undefined ? String(def.opacity) : '1';
+
+  // Slots
+  const verdictNode = badge.querySelector<HTMLSpanElement>('[data-slot="verdict"]');
+  if (verdictNode) {
+    verdictNode.textContent = def.verdictText;
+    verdictNode.style.color = colors.fg;
+  }
+  const brandNode = badge.querySelector<HTMLSpanElement>('[data-slot="brand"]');
+  if (brandNode) {
+    brandNode.style.color = colors.fg;
+  }
+  const scoreNode = badge.querySelector<HTMLSpanElement>('[data-slot="score"]');
+  if (scoreNode) {
+    scoreNode.textContent = def.scoreSlot;
+    scoreNode.style.color = colors.fg;
   }
 
-  function formatRiskLabel(riskLevel: string): string {
-    const labels: Record<string, string> = {
-      critical: 'CRITICAL',
-      high: 'HIGH',
-      moderate: 'MODERATE',
-      low: 'LOW',
-      safe: 'VERY LOW',
-      medium: 'MODERATE',
+  // ADR-020: locked-anonymous opens sign-up flow on click.
+  if (params.state === 'locked-anonymous') {
+    const address = badge.getAttribute('data-barryguard-badge') ?? '';
+    badge.onclick = (event: MouseEvent) => {
+      event.preventDefault();
+      event.stopPropagation();
+      safeSendPopupMessage({ address });
     };
-    return labels[riskLevel.toLowerCase()] ?? riskLevel.toUpperCase();
   }
-
-  function showTooltip(event: MouseEvent): void {
-    const scoreValue = parseInt(badge.dataset.bgScore ?? '', 10);
-    const riskValue = badge.dataset.bgRisk ?? 'high';
-    let reasonsData: string[] = [];
-    try {
-      reasonsData = JSON.parse(badge.dataset.bgReasons ?? '[]') as string[];
-    } catch {
-      reasonsData = reasons.slice(0, 3);
-    }
-
-    const riskIcon = getRiskIcon(riskValue);
-    const riskLabel = formatRiskLabel(riskValue);
-
-    // Safe DOM construction — no innerHTML with API-sourced data (XSS prevention)
-    tooltip.textContent = '';
-
-    const header = document.createElement('div');
-    Object.assign(header.style, { fontWeight: '600', fontSize: '12.5px', marginBottom: '8px' });
-    header.textContent = `${riskIcon} Risk: ${riskLabel}${scoreValue ? ` (${scoreValue})` : ''}`;
-    tooltip.appendChild(header);
-
-    if (coverageRisk === 'high' || coverageRisk === 'severe') {
-      const dqEl = document.createElement('div');
-      Object.assign(dqEl.style, { fontSize: '10px', color: '#f59e0b', marginBottom: '6px' });
-      dqEl.textContent = `Data quality: ${coverageRisk === 'severe' ? 'Very limited' : 'Limited'}`;
-      tooltip.appendChild(dqEl);
-    }
-
-    const divider = document.createElement('div');
-    Object.assign(divider.style, { height: '1px', background: '#334155', margin: '6px 0' });
-    tooltip.appendChild(divider);
-
-    if (reasonsData.length > 0) {
-      reasonsData.slice(0, 3).forEach((reason) => {
-        const row = document.createElement('div');
-        Object.assign(row.style, { paddingLeft: '8px', marginBottom: '4px' });
-        row.textContent = `• ${reason.substring(0, 55)}${reason.length > 55 ? '…' : ''}`;
-        tooltip.appendChild(row);
-      });
-    } else {
-      const noIssues = document.createElement('div');
-      Object.assign(noIssues.style, { color: '#94a3b8', fontStyle: 'italic' });
-      noIssues.textContent = 'No major concerns detected';
-      tooltip.appendChild(noIssues);
-    }
-
-    const spacer = document.createElement('div');
-    spacer.style.height = '10px';
-    tooltip.appendChild(spacer);
-
-    const cta = document.createElement('div');
-    Object.assign(cta.style, { fontSize: '11px', color: '#60a5fa', textAlign: 'center', cursor: 'pointer' });
-    cta.textContent = 'Full analysis ↗';
-    tooltip.appendChild(cta);
-
-    const badgeRect = badge.getBoundingClientRect();
-    const viewportWidth = window.innerWidth;
-    const viewportHeight = window.innerHeight;
-
-    let left = badgeRect.left;
-    let top = badgeRect.bottom + 4;
-
-    if (top + 140 > viewportHeight) {
-      top = badgeRect.top - 140;
-    }
-
-    if (left + 240 > viewportWidth) {
-      left = viewportWidth - 250;
-    }
-    if (left < 10) {
-      left = 10;
-    }
-
-    tooltip.style.left = `${left}px`;
-    tooltip.style.top = `${top}px`;
-    tooltip.style.display = 'block';
-
-    const fullAnalysisLink = tooltip.querySelector('div:last-child');
-    if (fullAnalysisLink) {
-      fullAnalysisLink.addEventListener('click', () => {
-        const address = badge.dataset.barryguardBadge;
-        if (address) {
-          safeSendPopupMessage({ address });
-        }
-        hideTooltip();
-      });
-    }
-  }
-
-  function hideTooltip(): void {
-    tooltip.style.display = 'none';
-    _cancelTooltipHide();
-  }
-
-  // Guard against duplicate listeners on re-renders
-  if (badge.dataset.bgTooltipBound) return;
-  badge.dataset.bgTooltipBound = 'true';
-
-  badge.addEventListener('mouseenter', (event) => {
-    _cancelTooltipHide();
-    if (showTimeoutId) {
-      clearTimeout(showTimeoutId);
-      showTimeoutId = null;
-    }
-    showTimeoutId = setTimeout(() => {
-      showTooltip(event);
-      showTimeoutId = null;
-    }, 150);
-  });
-
-  badge.addEventListener('mouseleave', () => {
-    if (showTimeoutId) {
-      clearTimeout(showTimeoutId);
-      showTimeoutId = null;
-    }
-    _scheduleTooltipHide();
-  });
 }
 
-export function setBadgeContent(badge: HTMLDivElement, value: string, compact = false): void {
-  // Label is always "BarryGuard".
-  const label = 'BarryGuard';
-  const labelStyle = compact
-    ? 'font-size:9px;font-weight:800;letter-spacing:0.02em;line-height:1;'
-    : 'font-size:10px;font-weight:800;letter-spacing:0.03em;line-height:1;';
-  const valueStyle = compact
-    ? 'font-size:11px;font-weight:800;line-height:1;'
-    : 'font-size:12px;font-weight:800;line-height:1;';
+// ---------------------------------------------------------------------------
+// Hover-Detail: delegiert an Floating Detail Panel (Design F, 1:1).
+// ---------------------------------------------------------------------------
+//
+// renderBadgeTooltip bleibt als Backward-Compat-Alias erhalten und delegiert
+// an renderFloatingPanel aus ./floating-panel.ts. Call-sites koennen auch
+// direkt renderFloatingPanel(badge, { ... }) verwenden — bevorzugt fuer
+// neue Pfade, weil dann subscores mitgegeben werden koennen.
+//
+// setBadgeContent und getRiskColors wurden in 1.7.19 entfernt — ersetzt
+// durch renderStripeBadge oben (Design E stripe badge).
 
-  const labelNode = document.createElement('span');
-  labelNode.style.cssText = labelStyle;
-  labelNode.textContent = label;
-
-  const valueNode = document.createElement('span');
-  valueNode.style.cssText = valueStyle;
-  valueNode.textContent = value;
-
-  badge.replaceChildren(labelNode, valueNode);
-}
-
-export function getRiskColors(risk: string): { bg: string; text: string; border: string; glow: string } {
-  const map: Record<string, { bg: string; text: string; border: string; glow: string }> = {
-    danger:   { bg: '#dc2626', text: '#ffffff', border: '#b91c1c', glow: '0 0 8px rgba(220,38,38,0.5)' },
-    high:     { bg: '#ea580c', text: '#ffffff', border: '#c2410c', glow: '0 0 8px rgba(234,88,12,0.5)' },
-    caution:  { bg: '#d97706', text: '#ffffff', border: '#b45309', glow: '0 0 8px rgba(217,119,6,0.4)' },
-    moderate: { bg: '#16a34a', text: '#ffffff', border: '#15803d', glow: '0 0 8px rgba(22,163,74,0.4)' },
-    low:      { bg: '#059669', text: '#ffffff', border: '#047857', glow: '0 0 8px rgba(5,150,105,0.4)' },
-    // Backward compatibility
-    critical: { bg: '#dc2626', text: '#ffffff', border: '#b91c1c', glow: '0 0 8px rgba(220,38,38,0.5)' },
-    medium:   { bg: '#d97706', text: '#ffffff', border: '#b45309', glow: '0 0 8px rgba(217,119,6,0.4)' },
-    safe:     { bg: '#059669', text: '#ffffff', border: '#047857', glow: '0 0 8px rgba(5,150,105,0.4)' },
-  };
-
-  return map[risk] ?? map.danger;
-}
+export {
+  renderFloatingPanel,
+  type RenderFloatingPanelParams,
+  type FloatingPanelSubscores,
+} from './floating-panel';

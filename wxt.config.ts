@@ -54,6 +54,22 @@ export default defineConfig({
     content_security_policy: {
       extension_pages: `script-src 'self'; object-src 'none'; style-src 'self'; img-src 'self' data: https://pump.fun https://images.pump.fun https://cf-ipfs.com https://ipfs.io https://api.dexscreener.com https://dd.dexscreener.com https://birdeye.so; connect-src ${CSP_CONNECT_SRC}`,
     },
+    // Badge assets exposed to content-script-host pages. matches MUST be the
+    // canonical PLATFORM_HOST_PATTERNS list (not '<all_urls>') to prevent
+    // install-fingerprinting by arbitrary third-party origins via probe
+    // requests on stable chrome-extension:// URLs.
+    web_accessible_resources: [
+      {
+        resources: [
+          'fonts/inter-tight-700.woff2',
+          'fonts/inter-tight-800.woff2',
+          'fonts/jetbrains-mono-700.woff2',
+          'fonts/jetbrains-mono-800.woff2',
+          'badge/barryguard-logo.png',
+        ],
+        matches: [...PLATFORM_HOST_PATTERNS],
+      },
+    ],
   },
   // barryguard-auth content script matches (dev gets localhost, prod does not)
   // Note: WXT uses the content script's own `matches` field from defineContentScript —

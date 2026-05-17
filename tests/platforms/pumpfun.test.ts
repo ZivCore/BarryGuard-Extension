@@ -79,7 +79,9 @@ describe('PumpFunPlatform', () => {
     const badge = document.querySelector('[data-barryguard-badge="7xKXtg2CW87d97TXJSDpbD5jBkheTqA83TZRuJosgAsU"]');
     expect(badge?.textContent).toContain('BarryGuard');
     expect(badge?.textContent).toContain('82');
-    expect((badge as HTMLElement).style.backgroundColor).toBe('rgb(5, 150, 105)');
+    // Stripe badge (Design E) uses oklch palette per badge-design-tokens.ts.
+    // Score 82 → safe tone; background = LIGHT_COLORS.safe.bg.
+    expect((badge as HTMLElement).style.background).toContain('oklch');
   });
 
   it('requests the popup to open when a badge is clicked', () => {

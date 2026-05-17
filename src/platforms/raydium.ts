@@ -1,6 +1,7 @@
 import { GenericSolanaPlatform } from './generic-solana';
 import { pickPreferredSolanaAddress } from './address-helpers';
-import { createBadgeElement, getRiskColors, renderBadgeTooltip, safeSendPopupMessage, setBadgeContent } from './platform-utils';
+import { createBadgeElement, renderFloatingPanel, renderStripeBadge, safeSendPopupMessage } from './platform-utils';
+import { detectHostThemeCached } from './host-theme';
 import type { TokenScore } from '../shared/types';
 
 const COMMON_SOLANA_QUOTES = new Set([
@@ -72,13 +73,14 @@ export class RaydiumPlatform extends GenericSolanaPlatform {
       return;
     }
 
-    const colors = getRiskColors(score.risk);
     const badge = this.getRaydiumBadge(address) ?? createBadgeElement(address);
-    badge.style.backgroundColor = colors.bg;
-    badge.style.color = colors.text;
-    badge.style.border = `1px solid ${colors.border}`;
-    badge.style.boxShadow = colors.glow;
-    setBadgeContent(badge, String(score.score));
+    const dark = detectHostThemeCached(placement.target as HTMLElement) === 'dark';
+    renderStripeBadge(badge, {
+      state: 'scored',
+      score: score.score,
+      dark,
+      compact: false,
+    });
     badge.title = `BarryGuard Score: ${score.score}/100 - Click for details`;
     badge.onclick = (event) => {
       event.preventDefault();
@@ -86,7 +88,14 @@ export class RaydiumPlatform extends GenericSolanaPlatform {
       safeSendPopupMessage(this.buildSelectedToken(address, score));
     };
 
-    renderBadgeTooltip(badge, score.score, score.risk, score.reasons ?? [], score.coverageRisk);
+    renderFloatingPanel(badge, {
+      score: score.score,
+      reasons: score.reasons ?? [],
+      subscores: score.subscores,
+      coverageRisk: score.coverageRisk,
+      dark,
+      address,
+    });
 
     this.insertRaydiumBadge(address, badge, placement);
   }
@@ -98,10 +107,12 @@ export class RaydiumPlatform extends GenericSolanaPlatform {
     }
 
     const badge = this.getRaydiumBadge(address) ?? createBadgeElement(address);
-    badge.style.backgroundColor = '#f3f4f6';
-    badge.style.color = '#6b7280';
-    badge.style.border = '1px solid #e5e7eb';
-    setBadgeContent(badge, '...');
+    const dark = detectHostThemeCached(placement.target as HTMLElement) === 'dark';
+    renderStripeBadge(badge, {
+      state: 'loading',
+      dark,
+      compact: false,
+    });
     badge.title = 'BarryGuard: Loading...';
     badge.onclick = null;
 
@@ -114,11 +125,13 @@ export class RaydiumPlatform extends GenericSolanaPlatform {
       return;
     }
 
-    setBadgeContent(badge, '?');
+    const dark = detectHostThemeCached(badge) === 'dark';
+    renderStripeBadge(badge, {
+      state: 'error',
+      dark,
+      compact: false,
+    });
     badge.title = 'BarryGuard: Score unavailable';
-    badge.style.backgroundColor = '#f3f4f6';
-    badge.style.color = '#9ca3af';
-    badge.style.border = '1px solid #e5e7eb';
     badge.onclick = null;
   }
 
@@ -130,10 +143,12 @@ export class RaydiumPlatform extends GenericSolanaPlatform {
 
     const badge = this.getRaydiumBadge(address) ?? createBadgeElement(address);
     badge.setAttribute('data-barryguard-locked', 'true');
-    badge.style.backgroundColor = '#fef3c7';
-    badge.style.color = '#92400e';
-    badge.style.border = '1px solid #fde68a';
-    setBadgeContent(badge, '\u{1F512}');
+    const dark = detectHostThemeCached(placement.target as HTMLElement) === 'dark';
+    renderStripeBadge(badge, {
+      state: 'locked-quota',
+      dark,
+      compact: false,
+    });
     badge.title = 'BarryGuard: Limit reached — upgrade or wait';
     badge.onclick = null;
 
