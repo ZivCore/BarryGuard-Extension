@@ -160,3 +160,37 @@ export interface WatchlistStatus {
   unreadAlerts: number;
   entry: WatchlistEntry | null;
 }
+
+// ---------------------------------------------------------------------------
+// NDJSON-Streaming-Frames für /api/analyze-list (Schritt 9)
+// ---------------------------------------------------------------------------
+
+export interface TokenResultFrame {
+  type: 'token_result';
+  address: string;
+  result: unknown;
+}
+
+export interface TokenLockedFrame {
+  type: 'token_locked';
+  address: string;
+  reason?: string;
+}
+
+export interface SummaryFrame {
+  type: 'summary';
+  count: number;
+  elapsedMs: number;
+}
+
+export interface SingleJsonFallbackFrame {
+  type: '__single_json__';
+  payload: unknown;
+}
+
+/** Discriminated Union aller möglichen Stream-Frames von /api/analyze-list */
+export type AnalyzeListStreamFrame =
+  | TokenResultFrame
+  | TokenLockedFrame
+  | SummaryFrame
+  | SingleJsonFallbackFrame;

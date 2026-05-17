@@ -804,7 +804,8 @@ export function initializeContentScript(_testPlatformOverride?: IPlatform): void
 
   // Burst-throttle wrapper around scanAll.
   // Prevents cascading DOM-mutation events from triggering back-to-back scans.
-  const SCAN_ALL_MIN_INTERVAL_MS = 1500;
+  // Plan mass-scan-throughput Schritt 10: von 1500 ms auf 800 ms reduziert.
+  const SCAN_ALL_MIN_INTERVAL_MS = 800;
   let _lastScanAllAt = 0;
   let _pendingScanAllTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -908,6 +909,23 @@ export function initializeContentScript(_testPlatformOverride?: IPlatform): void
         handleUrlChange();
         setTimeout(handleUrlChange, 200);
         setTimeout(handleUrlChange, 800);
+      }
+      // Schritt 9: Progressives Rendering — Background sendet Scores einzeln pro Frame.
+      // Idempotent: spätere Frames für dieselbe Adresse überschreiben den vorherigen Score.
+      if (message?.type === 'RENDER_PARTIAL_SCORES') {
+        const partialScores = (message.payload as { scores?: unknown } | undefined)?.scores;
+        if (Array.isArray(partialScores)) {
+          for (const score of partialScores as TokenScore[]) {
+            if (score?.address) {
+              setResolvedScore(score.address, score);
+              clearRetry(score.address);
+              platform.renderScoreBadge(score.address, score);
+              if (!hasRenderedBadge(score.address)) {
+                scheduleRenderRetry(score.address);
+              }
+            }
+          }
+        }
       }
     });
   });

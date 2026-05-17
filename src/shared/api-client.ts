@@ -1,5 +1,6 @@
 // src/shared/api-client.ts
-import type { ApiErrorType, ApiResponse, AuthToken, TokenScore, UserProfile, WatchlistAlert, WatchlistStatus } from './types';
+import type { AnalyzeListStreamFrame, ApiErrorType, ApiResponse, AuthToken, TokenScore, UserProfile, WatchlistAlert, WatchlistStatus } from './types';
+import { readNdjsonStream } from './ndjson-stream';
 import { getApiBaseUrl } from './runtime-config';
 
 export const REQUEST_TIMEOUT_MS = 12000;
@@ -154,19 +155,100 @@ export class BarryGuardApiClient {
     });
   }
 
-  analyzeTokenList(addresses: string[], chain = 'solana', force = false, telemetrySessionIds?: Record<string, string>): Promise<ApiResponse<unknown>> {
-    return this.request<unknown>('/analyze-list', {
-      method: 'POST',
-      timeoutMs: ANALYSIS_REQUEST_TIMEOUT_MS,
-      body: JSON.stringify({
-        addresses,
-        chain,
-        force,
-        mode: 'essential',
-        source: 'content_script',
-        ...(telemetrySessionIds && Object.keys(telemetrySessionIds).length > 0 ? { telemetrySessionIds } : {}),
-      }),
+  /**
+   * Sendet eine Liste von Adressen an /api/analyze-list.
+   *
+   * Streaming-Modus (wenn `onStreamFrame` gesetzt):
+   *   - Setzt `Accept: application/x-ndjson`
+   *   - Liest die Response via readNdjsonStream und ruft onStreamFrame pro Frame auf
+   *   - Gibt `{ success: true, data: undefined }` zurück — Scores kommen per Frame-Callback
+   *
+   * Single-JSON-Modus (kein `onStreamFrame`):
+   *   - Bisheriges Verhalten unverändert
+   */
+  async analyzeTokenList(
+    addresses: string[],
+    chain = 'solana',
+    force = false,
+    telemetrySessionIds?: Record<string, string>,
+    onStreamFrame?: (frame: AnalyzeListStreamFrame) => void,
+  ): Promise<ApiResponse<unknown>> {
+    const body = JSON.stringify({
+      addresses,
+      chain,
+      force,
+      mode: 'essential',
+      source: 'content_script',
+      ...(telemetrySessionIds && Object.keys(telemetrySessionIds).length > 0 ? { telemetrySessionIds } : {}),
     });
+
+    if (!onStreamFrame) {
+      // Bisheriges Verhalten: Single-JSON-Modus
+      return this.request<unknown>('/analyze-list', {
+        method: 'POST',
+        timeoutMs: ANALYSIS_REQUEST_TIMEOUT_MS,
+        body,
+      });
+    }
+
+    // Streaming-Modus: eigenes Fetch ohne den request()-Helper, da wir
+    // den Response-Body als Stream lesen müssen.
+    const baseUrl = getApiBaseUrl();
+    const extensionVersion = (typeof chrome !== 'undefined' && chrome?.runtime?.getManifest?.()?.version) ?? '';
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+      'Accept': 'application/x-ndjson',
+      ...(extensionVersion ? { 'X-Extension-Version': extensionVersion } : {}),
+    };
+    if (this.authToken) {
+      headers['Authorization'] = `Bearer ${this.authToken.access_token}`;
+    }
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), ANALYSIS_REQUEST_TIMEOUT_MS);
+
+    try {
+      const res = await fetch(`${baseUrl}/analyze-list`, {
+        method: 'POST',
+        credentials: 'include',
+        headers,
+        body,
+        signal: controller.signal,
+      });
+      clearTimeout(timeoutId);
+
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({ error: `HTTP ${res.status}` })) as {
+          error?: string;
+          message?: string;
+          errorType?: string;
+          retryAfterSeconds?: number;
+        };
+        return {
+          success: false,
+          error: err.error ?? err.message ?? `HTTP ${res.status}`,
+          statusCode: res.status,
+          ...(err.errorType ? { errorType: err.errorType as ApiErrorType } : {}),
+          ...(err.retryAfterSeconds !== undefined ? { retryAfterSeconds: err.retryAfterSeconds } : {}),
+        };
+      }
+
+      await readNdjsonStream<AnalyzeListStreamFrame>(res, (frame) => {
+        onStreamFrame(frame as AnalyzeListStreamFrame);
+      });
+
+      return { success: true, data: undefined };
+    } catch (e) {
+      clearTimeout(timeoutId);
+      if (e instanceof DOMException && e.name === 'AbortError') {
+        return { success: false, error: 'Request timed out. Please try again.', errorType: 'network' };
+      }
+      return {
+        success: false,
+        error: e instanceof Error ? e.message : 'Network error',
+        errorType: 'network',
+      };
+    }
   }
 
   getUserTier(): Promise<ApiResponse<UserProfile>> {

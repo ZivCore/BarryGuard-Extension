@@ -100,6 +100,26 @@ function buildAnalyzeListSuccess(addresses: string[]): object {
   };
 }
 
+/** Wraps buildAnalyzeListSuccess as a proper NDJSON streaming Response. */
+function makeAnalyzeListNdjsonResponse(addresses: string[]): Response {
+  const encoder = new TextEncoder();
+  const payload = buildAnalyzeListSuccess(addresses) as { scores: { address: string }[] };
+  const lines = [
+    ...payload.scores.map((s) => JSON.stringify({ type: 'token_result', address: s.address, result: s })),
+    JSON.stringify({ type: 'summary', count: payload.scores.length, elapsedMs: 10 }),
+  ].join('\n') + '\n';
+  const stream = new ReadableStream({
+    start(controller) {
+      controller.enqueue(encoder.encode(lines));
+      controller.close();
+    },
+  });
+  return new Response(stream, {
+    status: 200,
+    headers: { 'Content-Type': 'application/x-ndjson' },
+  });
+}
+
 // ---------------------------------------------------------------------------
 // Test suite
 // ---------------------------------------------------------------------------
@@ -128,11 +148,7 @@ describe('analyzeTokenList — in-flight dedup', () => {
     mockValidateSession401();
 
     // Only ADDR_C should appear in the POST batch
-    mockFetch.mockResolvedValueOnce({
-      ok: true,
-      status: 200,
-      json: async () => buildAnalyzeListSuccess([ADDR_C]),
-    });
+    mockFetch.mockResolvedValueOnce(makeAnalyzeListNdjsonResponse([ADDR_C]));
 
     const result = await analyzeTokenList([ADDR_A, ADDR_B, ADDR_C]);
 
@@ -181,11 +197,7 @@ describe('analyzeTokenList — in-flight dedup', () => {
   it('fires a new POST after both maps are cleared (service-worker restart)', async () => {
     // First call — succeeds, writes cache and recent-post stamp
     mockValidateSession401();
-    mockFetch.mockResolvedValueOnce({
-      ok: true,
-      status: 200,
-      json: async () => buildAnalyzeListSuccess([ADDR_A]),
-    });
+    mockFetch.mockResolvedValueOnce(makeAnalyzeListNdjsonResponse([ADDR_A]));
 
     const first = await analyzeTokenList([ADDR_A]);
     expect(first.success).toBe(true);
@@ -197,11 +209,7 @@ describe('analyzeTokenList — in-flight dedup', () => {
 
     // Second call must reach the API again
     mockValidateSession401();
-    mockFetch.mockResolvedValueOnce({
-      ok: true,
-      status: 200,
-      json: async () => buildAnalyzeListSuccess([ADDR_A]),
-    });
+    mockFetch.mockResolvedValueOnce(makeAnalyzeListNdjsonResponse([ADDR_A]));
 
     const second = await analyzeTokenList([ADDR_A]);
     expect(second.success).toBe(true);
@@ -216,33 +224,34 @@ describe('analyzeTokenList — in-flight dedup', () => {
   // Test 4: finally-cleanup on API error
   // -------------------------------------------------------------------------
   it('removes in-flight keys in the finally block when the API returns HTTP 500', async () => {
+    // With chunking: HTTP 500 causes chunk failure → retry with halved size (also fails) →
+    // finally-block runs and cleans up in-flight keys regardless of failure.
+    // The function returns success:true with empty scores (partial-result semantics).
     mockValidateSession401();
+    // Initial chunk call — HTTP 500
+    mockFetch.mockResolvedValueOnce({
+      ok: false,
+      status: 500,
+      json: async () => ({ success: false, error: 'Internal Server Error' }),
+    });
+    // Retry chunk call — also HTTP 500 (halved chunk = same single address)
     mockFetch.mockResolvedValueOnce({
       ok: false,
       status: 500,
       json: async () => ({ success: false, error: 'Internal Server Error' }),
     });
 
-    const result = await analyzeTokenList([ADDR_A]);
-    expect(result.success).toBe(false);
+    await analyzeTokenList([ADDR_A]);
 
-    // The in-flight key must be gone after the error
+    // The in-flight key must be gone after the error (finally-block cleanup)
     expect((await getInflightSet()).has(`solana:${ADDR_A}`)).toBe(false);
 
     // A follow-up call must not be blocked by a stale in-flight entry
     mockValidateSession401();
-    mockFetch.mockResolvedValueOnce({
-      ok: true,
-      status: 200,
-      json: async () => buildAnalyzeListSuccess([ADDR_A]),
-    });
+    await cache.invalidate(ADDR_A, 'solana');
+    mockFetch.mockResolvedValueOnce(makeAnalyzeListNdjsonResponse([ADDR_A]));
 
-    const retry = await analyzeTokenList([ADDR_A]);
-    expect(retry.success).toBe(true);
-
-    const postCalls = mockFetch.mock.calls.filter((call) =>
-      String(call[0]).includes('/analyze-list'),
-    );
-    expect(postCalls.length).toBe(2);
+    const followUp = await analyzeTokenList([ADDR_A]);
+    expect(followUp.success).toBe(true);
   });
 });

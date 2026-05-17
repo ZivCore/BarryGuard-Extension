@@ -101,6 +101,26 @@ function buildAnalyzeListSuccess(addresses: string[]): object {
   };
 }
 
+/** Wraps buildAnalyzeListSuccess as a proper NDJSON streaming Response. */
+function makeAnalyzeListNdjsonResponse(addresses: string[]): Response {
+  const encoder = new TextEncoder();
+  const payload = buildAnalyzeListSuccess(addresses) as { scores: { address: string }[] };
+  const lines = [
+    ...payload.scores.map((s) => JSON.stringify({ type: 'token_result', address: s.address, result: s })),
+    JSON.stringify({ type: 'summary', count: payload.scores.length, elapsedMs: 10 }),
+  ].join('\n') + '\n';
+  const stream = new ReadableStream({
+    start(controller) {
+      controller.enqueue(encoder.encode(lines));
+      controller.close();
+    },
+  });
+  return new Response(stream, {
+    status: 200,
+    headers: { 'Content-Type': 'application/x-ndjson' },
+  });
+}
+
 // ---------------------------------------------------------------------------
 // Test suite
 // ---------------------------------------------------------------------------
@@ -146,11 +166,7 @@ describe('analyzeTokenList — in-flight sync (parallel calls, same addresses)',
   // -------------------------------------------------------------------------
   it('fires exactly one POST when addresses are not already in-flight', async () => {
     mockValidateSession401();
-    mockFetch.mockResolvedValueOnce({
-      ok: true,
-      status: 200,
-      json: async () => buildAnalyzeListSuccess([ADDR_1, ADDR_2]),
-    });
+    mockFetch.mockResolvedValueOnce(makeAnalyzeListNdjsonResponse([ADDR_1, ADDR_2]));
 
     const result = await analyzeTokenList([ADDR_1, ADDR_2]);
 

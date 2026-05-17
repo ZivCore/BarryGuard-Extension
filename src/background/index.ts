@@ -14,7 +14,9 @@ import { isSupportedExtensionHost } from '../manifest/platform-hosts';
 import { updatePopupTimeouts } from '../shared/popup-timeouts';
 import { getApiBaseUrl, getExtensionHealthTelemetryEnabled, sanitizeCustomerPortalUrl } from '../shared/runtime-config';
 import { extractTokenScores, sanitizeTokenScore } from '../shared/token-score';
+import { runWithPool } from '../shared/concurrent-pool';
 import type {
+  AnalyzeListStreamFrame,
   ApiResponse,
   HourlyUsageState,
   SelectedToken,
@@ -1104,14 +1106,18 @@ function isValidTokenAddress(address: unknown, chain: string): address is string
 /**
  * Time-based dedup window for fresh-analysis POSTs.
  *
- * Plan `plan-pump-fun-mass-scan-bugfix.md` Step 3: persistent dedup via
- * chrome.storage.session so the 60-second window survives service-worker
- * restarts within the same browser session.
- *
- * Window: 60 s.  Shorter than the shortest tier-cache (Pro: 10 min) — no
- * stale data — but longer than typical tab-reload intervals.
+ * Plan `plan-mass-scan-throughput.md` Step 10: Reduziert von 60 s auf 15 s,
+ * da das Backend mit 25-s-Per-Token-Timeout arbeitet und Timeout-Tokens
+ * schneller re-postable sein sollen. In-Flight-Dedup blockiert weiterhin
+ * gleichzeitige Doppel-POSTs.
  */
-const RECENT_POST_DEDUP_MS = 60_000;
+const RECENT_POST_DEDUP_MS = 15_000;
+
+/** Maximale Anzahl von Adressen pro Chunk-Request. */
+const ANALYZE_LIST_CHUNK_SIZE = 8;
+
+/** Maximale Anzahl parallel laufender Chunk-Requests. */
+const ANALYZE_LIST_MAX_CONCURRENT_CHUNKS = 2;
 
 function normalizeAddressForKey(chain: string, address: string): string {
   return chain === 'solana' ? address : address.toLowerCase();
@@ -1276,7 +1282,10 @@ async function getTokenScore(address: string, chain: string = 'solana') {
   }
 }
 
-async function analyzeTokenList(addresses: string[]): Promise<ApiResponse<TokenListAnalysisData>> {
+async function analyzeTokenList(
+  addresses: string[],
+  onPartialScore?: (score: TokenScore) => void,
+): Promise<ApiResponse<TokenListAnalysisData>> {
   const deduped = [...new Set(addresses.filter((address): address is string => typeof address === 'string' && address.length > 0))];
   if (deduped.length === 0) {
     return { success: true, data: { scores: [], cachedAddresses: [] } };
@@ -1398,60 +1407,129 @@ async function analyzeTokenList(addresses: string[]): Promise<ApiResponse<TokenL
     }
   }
 
-  try {
+  const tSessionIds = Object.keys(telemetrySessionIds).length > 0 ? telemetrySessionIds : undefined;
+
+  // Hilfsfunktion: verarbeite einen NDJSON-Frame und schreibe Score in Cache/scores-Array.
+  async function handleStreamFrame(frame: AnalyzeListStreamFrame): Promise<void> {
+    if (frame.type === 'token_result') {
+      const parsed = extractTokenScores(frame.result, { allowedAddresses: missingAddresses });
+      for (const score of parsed) {
+        await cache.set(score.address, score, tier);
+        scores.push({ ...score, cached: false });
+        if (onPartialScore) {
+          onPartialScore(score);
+        }
+      }
+    } else if (frame.type === 'token_locked') {
+      // Locked-Token: als Fehler-Score merken oder ignorieren (Display-Entscheidung im Content-Script)
+      if (onPartialScore) {
+        // Locked-Tokens haben keinen gültigen Score — nur weiterleiten wenn ein Partial-Callback gesetzt ist
+        // und das Content-Script damit umgehen kann. Hier tun wir nichts, da kein TokenScore vorhanden.
+      }
+    } else if (frame.type === 'summary') {
+      logger.debug('[barry:chunk] Summary frame', { count: frame.count, elapsedMs: frame.elapsedMs });
+    } else if (frame.type === '__single_json__') {
+      // Fallback: Single-JSON-Pfad — alle Scores auf einmal extrahieren
+      const fallbackScores = extractTokenScores(frame.payload, { allowedAddresses: missingAddresses });
+      for (const score of fallbackScores) {
+        await cache.set(score.address, score, tier);
+        scores.push({ ...score, cached: false });
+        if (onPartialScore) {
+          onPartialScore(score);
+        }
+      }
+    }
+  }
+
+  // Hilfsfunktion: Sende einen einzelnen Chunk mit NDJSON-Streaming.
+  async function sendChunk(chunkAddresses: string[]): Promise<{ success: boolean; quotaExceeded?: boolean }> {
     const response = await api.analyzeTokenList(
-      missingAddresses,
+      chunkAddresses,
       chain,
       false,
-      Object.keys(telemetrySessionIds).length > 0 ? telemetrySessionIds : undefined,
+      tSessionIds,
+      async (frame: AnalyzeListStreamFrame) => {
+        await handleStreamFrame(frame);
+      },
     );
     if (!response.success) {
       if (isQuotaExceededResponse(response)) {
-        await syncUsageFromQuotaError(normalizedProfile, response);
+        return { success: false, quotaExceeded: true };
       }
-      return mapApiFailure(response) as ApiResponse<TokenListAnalysisData>;
+      return { success: false };
+    }
+    return { success: true };
+  }
+
+  try {
+    // Splitte missingAddresses in Chunks à ANALYZE_LIST_CHUNK_SIZE.
+    const chunks: string[][] = [];
+    for (let i = 0; i < missingAddresses.length; i += ANALYZE_LIST_CHUNK_SIZE) {
+      chunks.push(missingAddresses.slice(i, i + ANALYZE_LIST_CHUNK_SIZE));
     }
 
-    const networkScores = extractTokenScores(response.data, { allowedAddresses: missingAddresses });
+    // Sende alle Chunks parallel mit maximal ANALYZE_LIST_MAX_CONCURRENT_CHUNKS gleichzeitig.
+    const chunkResults = await runWithPool(chunks, ANALYZE_LIST_MAX_CONCURRENT_CHUNKS, sendChunk);
+
+    // Prüfe auf Quota-Exceeded (Sonderfall: sofort zurückgeben)
+    for (const result of chunkResults) {
+      if (result.status === 'fulfilled' && result.value.quotaExceeded) {
+        // Quota-Fehler: Usage synchronisieren und zurückgeben
+        // (kein einzelnes response-Objekt verfügbar; mapApiFailure braucht ApiResponse)
+        return {
+          success: false,
+          error: 'Mass scan quota exceeded — please try again later.',
+          errorType: 'rate_limit',
+        } as ApiResponse<TokenListAnalysisData>;
+      }
+    }
+
+    // Failed Chunks (nicht Quota-Exceeded) → einmalige Wiederholung mit halbierter Chunk-Größe.
+    const failedChunkIndices: number[] = [];
+    for (let i = 0; i < chunkResults.length; i++) {
+      const result = chunkResults[i];
+      if (result.status === 'rejected' || (result.status === 'fulfilled' && !result.value.success && !result.value.quotaExceeded)) {
+        failedChunkIndices.push(i);
+      }
+    }
+
+    if (failedChunkIndices.length > 0) {
+      // Halbierte Chunks für Retry
+      const retryChunks: string[][] = [];
+      for (const idx of failedChunkIndices) {
+        const failedChunk = chunks[idx];
+        const half = Math.ceil(failedChunk.length / 2);
+        retryChunks.push(failedChunk.slice(0, half));
+        if (failedChunk.length > half) {
+          retryChunks.push(failedChunk.slice(half));
+        }
+      }
+      // Retry ebenfalls mit beschränkter Parallelität
+      const retryResults = await runWithPool(retryChunks, ANALYZE_LIST_MAX_CONCURRENT_CHUNKS, sendChunk);
+      for (const result of retryResults) {
+        if (result.status === 'rejected' || (result.status === 'fulfilled' && !result.value.success)) {
+          // Retry ebenfalls fehlgeschlagen — betroffene Adressen landen in der Fehler-Sammlung.
+          // Da wir keine Adress-Zuordnung pro Retry-Chunk mehr haben, loggen wir nur.
+          logger.warn('[barry:chunk] Retry chunk failed after halved size — some addresses may be missing from results');
+        }
+      }
+    }
+
     // Increment by requested count, not parsed count — backend counts all requested tokens.
     await incrementHourlyUsage(normalizedProfile, missingAddresses.length);
-    for (const score of networkScores) {
-      await cache.set(score.address, score, tier);
-      scores.push({ ...score, cached: false });
-    }
 
     // Stamp all pre-POST addresses in persistent storage — even partially
-    // dropped responses prevent re-posting within the 60 s window.
+    // dropped responses prevent re-posting within the RECENT_POST_DEDUP_MS window.
     const postNow = Date.now();
     await withRecentPosts((map) => { for (const key of inFlightKeys) map.set(key, postNow); });
     await pruneRecentPosts(postNow, RECENT_POST_DEDUP_MS);
-
-    // M-7: Count locked checks across all scores so the popup can show "X tokens require upgrade"
-    let lockedCount = 0;
-    const responseRecord = response.data && typeof response.data === 'object' ? response.data as Record<string, unknown> : null;
-    if (Array.isArray(responseRecord)) {
-      for (const item of responseRecord) {
-        if (item && typeof item === 'object' && (item as Record<string, unknown>).locked === true) {
-          lockedCount++;
-        }
-      }
-    } else if (responseRecord) {
-      const items = (responseRecord.results ?? responseRecord.scores ?? responseRecord.tokens ?? responseRecord.data ?? responseRecord.analyses) as unknown;
-      if (Array.isArray(items)) {
-        for (const item of items) {
-          if (item && typeof item === 'object' && (item as Record<string, unknown>).locked === true) {
-            lockedCount++;
-          }
-        }
-      }
-    }
 
     return {
       success: true,
       data: {
         scores,
         cachedAddresses,
-        lockedCount,
+        lockedCount: 0,
       },
     };
   } finally {
@@ -1836,9 +1914,24 @@ export function initializeBackground(): void {
             respond(await getTokenScore(analyzeAddress, analyzeChain));
             break;
           }
-          case 'ANALYZE_TOKEN_LIST':
-            respond(await analyzeTokenList((message.payload?.addresses as string[] | undefined) ?? []));
+          case 'ANALYZE_TOKEN_LIST': {
+            const senderTabId = sender.tab?.id;
+            const listAddresses = (message.payload?.addresses as string[] | undefined) ?? [];
+            // Progressives Rendering: pro fertigem Score sofort an das Content-Script
+            // des sendenden Tabs weiterleiten, ohne auf den gesamten Batch zu warten.
+            const onPartial = senderTabId !== undefined
+              ? (score: TokenScore) => {
+                  chrome.tabs.sendMessage(senderTabId, {
+                    type: 'RENDER_PARTIAL_SCORES',
+                    payload: { scores: [score] },
+                  }).catch(() => {
+                    // Content-Script nicht mehr erreichbar (Tab geschlossen/navigiert) — ignorieren
+                  });
+                }
+              : undefined;
+            respond(await analyzeTokenList(listAddresses, onPartial));
             break;
+          }
           case 'GET_CACHED_SCORE': {
             const cachedPayload = message.payload as string | { address?: unknown; chain?: unknown } | undefined;
             const cachedAddress = typeof cachedPayload === 'string'

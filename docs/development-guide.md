@@ -206,7 +206,11 @@ Bei neuen oder geänderten Plattformen: **eine Zeile pro Adapter** mit Abgleich 
 Die Extension dedupliziert Mass-Scan-Analysen auf zwei Schichten im Background-Worker `analyzeTokenList`:
 
 - **In-Flight-Dedup via `_inFlightAddresses`-Set:** Parallele API-Calls auf derselben Adresse werden serialisiert. Eine Adresse wird nur einmal pro Analyse-Batch gesendet. Die Markierung als In-Flight geschieht jetzt **synchron direkt nach dem In-Flight-Filter** ohne dazwischenliegende `await`-Schritte, um Race-Conditions bei parallelen `analyzeTokenList`-Calls zu verhindern.
-- **60-Sekunden-Recent-Post-Dedup via `_recentPostTimestamps`-Map:** Fenster `RECENT_POST_DEDUP_MS = 60_000`. Wenn eine Adresse innerhalb der letzten 60 Sekunden bereits analysiert wurde, wird der lokale Cache statt eines neuen Backend-POST verwendet.
+- **15-Sekunden-Recent-Post-Dedup via `_recentPostTimestamps`-Map:** Fenster `RECENT_POST_DEDUP_MS = 15_000` (reduziert von 60_000 seit 2026-05-17). Wenn eine Adresse innerhalb der letzten 15 Sekunden bereits analysiert wurde, wird der lokale Cache statt eines neuen Backend-POST verwendet.
+
+**Chunking und parallele Batch-Anfragen (seit 2026-05-17):** Die Extension sendet Adressen an `POST /api/analyze-list` in Chunks von **8 Tokens** (`ANALYZE_LIST_CHUNK_SIZE = 8`), mit maximal **2 Chunks parallel** via `concurrent-pool`-Helper. Dieses 8x2-Muster balanciert Durchsatz und Backend-Concurrency-Caps.
+
+**NDJSON-Stream-Konsumierung (seit 2026-05-17):** Der Background-Worker sendet `Accept: application/x-ndjson` an `POST /api/analyze-list` und konsumiert die Antwort via `fetch().body.getReader()`. Jede eingehende Zeile wird sofort als Frame geparst (`token_locked`, `token_result`, `summary`). Pro `token_result`-Frame: Cache-Schreiben + Badge-Rendering via `RENDER_PARTIAL_SCORES`-Message an den Content-Script. Faellt der Server Single-JSON zurueck (kein `application/x-ndjson` Content-Type in der Antwort), greift ein JSON-Fallback-Pfad. Vollstaendige Streaming-API-Spezifikation: `BarryGuard/docs/features/feature-analyze-list-streaming.md`.
 
 **Pump.fun-Adapter-spezifische Adress-Extraktion:** Der `extractTokenAddresses`-Helper in `src/platforms/pumpfun.ts` nutzt jetzt eine Card-Container-Restriction: extrahiert nur Anchors aus `[data-testid*="coin"]`-Containern wenn >= 3 vorhanden, sonst Fallback auf alten unrestricted Scan. Damit werden Live-Trade-Stream und Sidebar-Links ausgefiltert, die bei Hyperfeed-Seiten zu Quota-Ueberzehrung fuehrten.
 
@@ -218,17 +222,18 @@ Die Extension dedupliziert Mass-Scan-Analysen auf zwei Schichten im Background-W
 2. Lokaler Browser-Cache-Lookup
 3. In-Flight-Filter (verhindert gleichzeitige Duplikate)
 4. **In-Flight-Markierung synchron OHNE await-Luecke**
-5. Recent-Post-Filter (60-Sekunden-Fenster)
+5. Recent-Post-Filter (15-Sekunden-Fenster, `RECENT_POST_DEDUP_MS = 15_000`)
 6. Quota-Local-Check (analyzeTokenList-Budget)
-7. Backend `POST /api/analyze` oder `POST /api/analyze-list`
-8. Recent-Post-Stempel setzen (`_recentPostTimestamps`)
-9. In-Flight-Cleanup im finally-Block
+7. Backend `POST /api/analyze-list` mit `Accept: application/x-ndjson` (Chunk-Batch)
+8. Pro `token_result`-Frame: Cache-Schreiben + Badge-Rendering
+9. Recent-Post-Stempel setzen (`_recentPostTimestamps`)
+10. In-Flight-Cleanup im finally-Block
 
 **Score-Memo im Content-Script:** Der Helper `setResolvedScore` befuellt eine persistente Map `resolvedScores`, die DOM-Sichtbarkeitsverlust ueberlebt (z. B. Live-Stream-Rotation auf pump.fun-Startpage) und auch SPA-URL-Wechsel. Soft-Cap `RESOLVED_SCORES_MAX = 5000` mit FIFO-Eviction via Map-Insertion-Order verhindert unbeschraenktes Wachstum bei Marathon-Sessions.
 
-**Burst-Throttle:** Alle `scanAll`-Trigger laufen ueber `scheduleScanAll(options?)`. Mindestabstand 1500 ms. Option `urgent: true` ueberspringt das Fenster, fuer Detail-Pages und URL-Change-Erststart.
+**Burst-Throttle:** Alle `scanAll`-Trigger laufen ueber `scheduleScanAll(options?)`. Mindestabstand **800 ms** (`SCAN_ALL_MIN_INTERVAL_MS = 800`, reduziert von 1500 ms seit 2026-05-17). Option `urgent: true` ueberspringt das Fenster, fuer Detail-Pages und URL-Change-Erststart.
 
-**Begruendung:** Auf hyperdynamischen Feed-Seiten (z. B. pump.fun-Startpage) verhindert die Kombination aus In-Flight- und Recent-Post-Dedup-Schichten redundante API-Calls pro einzigartigem Token, waehrend gleichzeitig eine 1:1-Beziehung zwischen sichtbaren Unique-Tokens und Mass-Scan-Verbrauch gewahrt bleibt. Die synchrone In-Flight-Markierung und persistente Dedup-State ueber Service-Worker-Restart erhoehen die Zuverlaessigkeit dieser Architektur massiv.
+**Begruendung:** Auf hyperdynamischen Feed-Seiten (z. B. pump.fun-Startpage) verhindert die Kombination aus In-Flight- und Recent-Post-Dedup-Schichten redundante API-Calls pro einzigartigem Token, waehrend gleichzeitig eine 1:1-Beziehung zwischen sichtbaren Unique-Tokens und Mass-Scan-Verbrauch gewahrt bleibt. Die synchrone In-Flight-Markierung und persistente Dedup-State ueber Service-Worker-Restart erhoehen die Zuverlaessigkeit dieser Architektur massiv. Das 8x2-Chunking mit NDJSON-Streaming ermoeglicht progressives Badge-Rendering ohne auf den kompletten Batch warten zu muessen.
 
 ## Audit-Matrix (ausgefüllt)
 

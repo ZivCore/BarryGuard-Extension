@@ -96,6 +96,26 @@ function buildAnalyzeListSuccess(addresses: string[]): object {
   };
 }
 
+/** Wraps buildAnalyzeListSuccess as a proper NDJSON streaming Response. */
+function makeAnalyzeListNdjsonResponse(addresses: string[]): Response {
+  const encoder = new TextEncoder();
+  const payload = buildAnalyzeListSuccess(addresses) as { scores: { address: string }[] };
+  const lines = [
+    ...payload.scores.map((s) => JSON.stringify({ type: 'token_result', address: s.address, result: s })),
+    JSON.stringify({ type: 'summary', count: payload.scores.length, elapsedMs: 10 }),
+  ].join('\n') + '\n';
+  const stream = new ReadableStream({
+    start(controller) {
+      controller.enqueue(encoder.encode(lines));
+      controller.close();
+    },
+  });
+  return new Response(stream, {
+    status: 200,
+    headers: { 'Content-Type': 'application/x-ndjson' },
+  });
+}
+
 // ---------------------------------------------------------------------------
 // Test suite
 // ---------------------------------------------------------------------------
@@ -115,24 +135,20 @@ describe('analyzeTokenList — recent-post dedup (60 s window)', () => {
   // -------------------------------------------------------------------------
   // Test 1: Dedup window active (< 60 s)
   // -------------------------------------------------------------------------
-  it('skips a second POST when the same address was analyzed within the 60 s window', async () => {
+  it('skips a second POST when the same address was analyzed within the 15 s window', async () => {
     vi.useFakeTimers();
     const startTime = Date.now();
 
     // First call — performs a POST and records the timestamp
     mockValidateSession401();
-    mockFetch.mockResolvedValueOnce({
-      ok: true,
-      status: 200,
-      json: async () => buildAnalyzeListSuccess([ADDR_A]),
-    });
+    mockFetch.mockResolvedValueOnce(makeAnalyzeListNdjsonResponse([ADDR_A]));
 
     const first = await analyzeTokenList([ADDR_A]);
     expect(first.success).toBe(true);
     expect((await getRecentPosts()).has(`solana:${ADDR_A}`)).toBe(true);
 
-    // Advance 30 s — still within the 60 s dedup window
-    vi.advanceTimersByTime(30_000);
+    // Advance 7 s — still within the 15 s dedup window
+    vi.advanceTimersByTime(7_000);
 
     storageMock['profile_synced_at'] = startTime - 120_000;
     mockValidateSession401();
@@ -152,20 +168,16 @@ describe('analyzeTokenList — recent-post dedup (60 s window)', () => {
   // -------------------------------------------------------------------------
   // Test 2: Dedup window expired (> 60 s)
   // -------------------------------------------------------------------------
-  it('fires a new POST after 60 001 ms have elapsed since the last analysis', async () => {
-    // Directly inject a timestamp 61 s in the past so the dedup check
+  it('fires a new POST after 15 001 ms have elapsed since the last analysis', async () => {
+    // Directly inject a timestamp 16 s in the past so the dedup check
     // (now - lastPostMs < RECENT_POST_DEDUP_MS) evaluates to false,
     // without requiring real waiting or fake-timer/AbortController interactions.
-    const staleMs = Date.now() - 61_000;
+    const staleMs = Date.now() - 16_000;
     await setRecentPosts(new Map([[`solana:${ADDR_A}`, staleMs]]));
 
     // ADDR_A is not in cache (cleared in beforeEach), so it is a cache miss.
     mockValidateSession401();
-    mockFetch.mockResolvedValueOnce({
-      ok: true,
-      status: 200,
-      json: async () => buildAnalyzeListSuccess([ADDR_A]),
-    });
+    mockFetch.mockResolvedValueOnce(makeAnalyzeListNdjsonResponse([ADDR_A]));
 
     const result = await analyzeTokenList([ADDR_A]);
     expect(result.success).toBe(true);
@@ -188,11 +200,7 @@ describe('analyzeTokenList — recent-post dedup (60 s window)', () => {
   it('fires a new POST after recentPosts is cleared (service-worker restart)', async () => {
     // First call sets the stamp
     mockValidateSession401();
-    mockFetch.mockResolvedValueOnce({
-      ok: true,
-      status: 200,
-      json: async () => buildAnalyzeListSuccess([ADDR_A]),
-    });
+    mockFetch.mockResolvedValueOnce(makeAnalyzeListNdjsonResponse([ADDR_A]));
 
     const first = await analyzeTokenList([ADDR_A]);
     expect(first.success).toBe(true);
@@ -205,13 +213,9 @@ describe('analyzeTokenList — recent-post dedup (60 s window)', () => {
 
     storageMock['profile_synced_at'] = Date.now() - 120_000;
     mockValidateSession401();
-    mockFetch.mockResolvedValueOnce({
-      ok: true,
-      status: 200,
-      json: async () => buildAnalyzeListSuccess([ADDR_A]),
-    });
+    mockFetch.mockResolvedValueOnce(makeAnalyzeListNdjsonResponse([ADDR_A]));
 
-    // Even though wall-clock is within 60 s, the map was wiped — POST must fire
+    // Even though wall-clock is within 15 s, the map was wiped — POST must fire
     const second = await analyzeTokenList([ADDR_A]);
     expect(second.success).toBe(true);
 
@@ -230,11 +234,7 @@ describe('analyzeTokenList — recent-post dedup (60 s window)', () => {
 
     // First call — POST succeeds, stamp + cache entry are written
     mockValidateSession401();
-    mockFetch.mockResolvedValueOnce({
-      ok: true,
-      status: 200,
-      json: async () => buildAnalyzeListSuccess([ADDR_A]),
-    });
+    mockFetch.mockResolvedValueOnce(makeAnalyzeListNdjsonResponse([ADDR_A]));
 
     const first = await analyzeTokenList([ADDR_A]);
     expect(first.success).toBe(true);
