@@ -120,7 +120,7 @@ function buildHeader(
   score: number,
   dark: boolean,
 ): HTMLDivElement {
-  const ringColor = toneColors(tone, dark).ring;
+  const colors = toneColors(tone, dark);
 
   const header = document.createElement('div');
   setReset(header);
@@ -128,8 +128,8 @@ function buildHeader(
   header.style.alignItems = 'center';
   header.style.gap = '10px';
   header.style.padding = '11px 13px';
-  header.style.background = ringColor;
-  header.style.color = '#ffffff';
+  header.style.background = colors.bg;
+  header.style.color = colors.fg;
 
   // Logo tile
   const tile = document.createElement('span');
