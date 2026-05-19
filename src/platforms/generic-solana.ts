@@ -2,7 +2,7 @@ import type { IPlatform } from './platform.interface';
 import { createBadgeElement, renderFloatingPanel, renderStripeBadge, safeSendPopupMessage } from './platform-utils';
 import { detectHostThemeCached } from './host-theme';
 import { dedupeAddresses, extractFirstSolanaAddress } from './address-helpers';
-import type { SelectedToken, TokenMetadata, TokenScore } from '../shared/types';
+import type { ChainMismatchPayload, SelectedToken, TokenMetadata, TokenScore } from '../shared/types';
 
 const DEFAULT_DETAIL_TARGET_SELECTORS = ['h1', 'h2', '[data-token-name]', '[class*="token"] [class*="name"]'];
 const DEFAULT_CARD_CONTAINER_SELECTORS = [
@@ -240,6 +240,30 @@ export class GenericSolanaPlatform implements IPlatform {
     });
     badge.title = 'BarryGuard: Score unavailable';
     badge.onclick = null;
+  }
+
+  renderChainMismatchBadge(address: string, payload: ChainMismatchPayload): void {
+    const target = this.getTargetElement(address);
+    if (!target) {
+      return;
+    }
+
+    const existingBadge = this.getBadge(address);
+    const badge = existingBadge ?? createBadgeElement(address);
+    const dark = detectHostThemeCached(target as HTMLElement) === 'dark';
+    renderStripeBadge(badge, {
+      state: 'error',
+      dark,
+      compact: this.compactBadge,
+    });
+    const activeLabels = payload.detectedChains.map((c) => c.label).join(', ');
+    const activePart = activeLabels ? ` · Active on: ${activeLabels}` : '';
+    badge.title = `BarryGuard: Not on ${payload.requestedChain}${activePart}`;
+    badge.onclick = null;
+
+    if (!existingBadge || this.shouldReinsertBadge(address, existingBadge)) {
+      this.insertBadge(address, target, badge);
+    }
   }
 
   renderLockedBadge(address: string): void {

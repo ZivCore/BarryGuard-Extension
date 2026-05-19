@@ -1,6 +1,7 @@
 import { GenericSolanaPlatform } from './generic-solana';
 import { dedupeAddresses } from './address-helpers';
 import type { SelectedToken, TokenScore } from '../shared/types';
+import { getUnsupportedChainLabel } from '../shared/chain-labels';
 
 const DEXSCREENER_TOKEN_LINK_SELECTORS = [
   'a[href*="solscan.io/token/"]',
@@ -237,7 +238,34 @@ export class DexScreenerPlatform extends GenericSolanaPlatform {
       }
     }
 
-    return 'solana';
+    return null;
+  }
+
+  detectUnsupportedChainFromUrl(url: string): { chainSegment: string; label: string } | null {
+    const unsupportedPatterns: Array<[RegExp, string]> = [
+      [/\/pulsechain(?:\/|$)/i, 'pulsechain'],
+      [/\/polygon(?:\/|$)/i, 'polygon'],
+      [/\/arbitrum(?:\/|$)/i, 'arbitrum'],
+      [/\/avalanche(?:\/|$)/i, 'avalanche'],
+      [/\/optimism(?:\/|$)/i, 'optimism'],
+      [/\/fantom(?:\/|$)/i, 'fantom'],
+      [/\/cronos(?:\/|$)/i, 'cronos'],
+      [/\/linea(?:\/|$)/i, 'linea'],
+      [/\/scroll(?:\/|$)/i, 'scroll'],
+      [/\/zksync(?:\/|$)/i, 'zksync'],
+      [/\/blast(?:\/|$)/i, 'blast'],
+    ];
+
+    for (const [pattern, segment] of unsupportedPatterns) {
+      if (pattern.test(url)) {
+        const label = getUnsupportedChainLabel(segment);
+        if (label) {
+          return { chainSegment: segment, label };
+        }
+      }
+    }
+
+    return null;
   }
 
   private async resolvePairAddresses(pairAddresses: string[]): Promise<void> {

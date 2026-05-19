@@ -967,6 +967,15 @@ function mapApiFailure<T>(response: ApiResponse<T>): ApiResponse<T> {
     };
   }
 
+  // Chain mismatch: token exists but not on the requested chain
+  if (response.errorCode === 'chain_mismatch') {
+    return {
+      ...response,
+      errorType: 'chain_mismatch',
+      error: response.error ?? 'Token is not on the requested chain.',
+    };
+  }
+
   return {
     ...response,
     errorType: response.errorType ?? 'server',
@@ -1704,7 +1713,7 @@ export function initializeBackground(): void {
   const TELEMETRY_DEBOUNCE_MS = 5 * 60 * 1000;
   const _telemetryDebounce = new Map<string, number>();
 
-  type ExtensionHealthEventKind = 'anchor_not_found' | 'injection_failed' | 'scan_zero_tokens';
+  type ExtensionHealthEventKind = 'anchor_not_found' | 'injection_failed' | 'scan_zero_tokens' | 'unsupported_chain_url_detected';
 
   function fnv1a32(input: string): string {
     let hash = 0x811c9dc5;
@@ -1871,7 +1880,7 @@ export function initializeBackground(): void {
             const payload = message.payload as { platformId?: unknown; eventKind?: unknown } | undefined;
             const platformId = typeof payload?.platformId === 'string' ? payload.platformId : '';
             const eventKind = payload?.eventKind;
-            if (!platformId || (eventKind !== 'anchor_not_found' && eventKind !== 'injection_failed' && eventKind !== 'scan_zero_tokens')) {
+            if (!platformId || (eventKind !== 'anchor_not_found' && eventKind !== 'injection_failed' && eventKind !== 'scan_zero_tokens' && eventKind !== 'unsupported_chain_url_detected')) {
               respond({ success: false, error: 'Invalid telemetry payload' });
               break;
             }
@@ -2096,6 +2105,41 @@ export function initializeBackground(): void {
             await clearSessionState(true);
             respond({ success: true });
             break;
+          case 'UNSUPPORTED_CHAIN_DETECTED': {
+            // Content script detected an unsupported chain from URL (no backend call made).
+            // Forward a mismatch render trigger back to the sending tab's content script.
+            const unsupportedPayload = message.payload as { address?: unknown; chainSegment?: unknown; label?: unknown } | undefined;
+            const unsupportedAddress = typeof unsupportedPayload?.address === 'string' ? unsupportedPayload.address : '';
+            const unsupportedLabel = typeof unsupportedPayload?.label === 'string' ? unsupportedPayload.label : '';
+            const senderTabId = sender.tab?.id;
+            if (senderTabId !== undefined && unsupportedAddress && unsupportedLabel) {
+              const platformIdStr = typeof message.payload?.platformId === 'string' ? message.payload.platformId : '';
+              if (platformIdStr) {
+                await postExtensionHealthEvent({
+                  platformId: platformIdStr,
+                  eventKind: 'unsupported_chain_url_detected' as Parameters<typeof postExtensionHealthEvent>[0]['eventKind'],
+                  tabId: senderTabId,
+                  tabUrl: sender.tab?.url ?? null,
+                }).catch(() => {
+                  // best-effort telemetry
+                });
+              }
+              chrome.tabs.sendMessage(senderTabId, {
+                type: 'RENDER_CHAIN_MISMATCH',
+                payload: {
+                  address: unsupportedAddress,
+                  chainMismatch: {
+                    requestedChain: unsupportedLabel,
+                    detectedChains: [],
+                  },
+                },
+              }).catch(() => {
+                // content script may be unavailable
+              });
+            }
+            respond({ success: true });
+            break;
+          }
           default:
             respond({ success: false, error: 'Unknown message type' });
         }

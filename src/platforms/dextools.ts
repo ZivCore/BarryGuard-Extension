@@ -1,6 +1,7 @@
 import { GenericSolanaPlatform } from './generic-solana';
 import { dedupeAddresses } from './address-helpers';
 import type { SelectedToken, TokenScore } from '../shared/types';
+import { getUnsupportedChainLabel } from '../shared/chain-labels';
 
 // DexTools uses pair addresses in URLs, not token addresses.
 // Resolution strategy: DOM-based (Solscan/Birdeye links) + DexScreener API fallback.
@@ -85,8 +86,9 @@ export class DextoolsPlatform extends GenericSolanaPlatform {
       return false;
     }
 
-    // Only activate on Solana pages
-    return /\/solana(?:\/|$)/i.test(location.pathname);
+    // Activate on supported chains and known unsupported chains (to show badge)
+    const KNOWN_CHAIN_PATTERN = /\/(solana|ethereum|bsc|base|polygon|arbitrum|avalanche|optimism|fantom|pulsechain|cronos|linea|scroll|zksync|blast)(?:\/|$)/i;
+    return KNOWN_CHAIN_PATTERN.test(location.pathname);
   }
 
   override observeDOMChanges(callback: () => void): void {
@@ -324,7 +326,34 @@ export class DextoolsPlatform extends GenericSolanaPlatform {
       }
     }
 
-    return 'solana';
+    return null;
+  }
+
+  detectUnsupportedChainFromUrl(url: string): { chainSegment: string; label: string } | null {
+    const unsupportedPatterns: Array<[RegExp, string]> = [
+      [/\/pulsechain(?:\/|$)/i, 'pulsechain'],
+      [/\/polygon(?:\/|$)/i, 'polygon'],
+      [/\/arbitrum(?:\/|$)/i, 'arbitrum'],
+      [/\/avalanche(?:\/|$)/i, 'avalanche'],
+      [/\/optimism(?:\/|$)/i, 'optimism'],
+      [/\/fantom(?:\/|$)/i, 'fantom'],
+      [/\/cronos(?:\/|$)/i, 'cronos'],
+      [/\/linea(?:\/|$)/i, 'linea'],
+      [/\/scroll(?:\/|$)/i, 'scroll'],
+      [/\/zksync(?:\/|$)/i, 'zksync'],
+      [/\/blast(?:\/|$)/i, 'blast'],
+    ];
+
+    for (const [pattern, segment] of unsupportedPatterns) {
+      if (pattern.test(url)) {
+        const label = getUnsupportedChainLabel(segment);
+        if (label) {
+          return { chainSegment: segment, label };
+        }
+      }
+    }
+
+    return null;
   }
 
   private isLikelyTokenName(value: string): boolean {

@@ -28,6 +28,7 @@ import {
   renderChecks,
   renderAnalysisFooter,
   renderRescueDial,
+  renderChainMismatchCard,
   getExplorerUrl,
   setRingFocus,
   setHoverSyncCallback,
@@ -361,6 +362,18 @@ function showScreen(screen: ScreenName): void {
 
   if (screen === 'account') {
     updateAccountScreen();
+  }
+
+  if (screen === 'no-token') {
+    const mismatchContainer = document.getElementById('chain-mismatch-info');
+    if (mismatchContainer) {
+      const chainMismatch = state.selectedToken?.chainMismatch;
+      if (chainMismatch) {
+        renderChainMismatchCard(mismatchContainer, chainMismatch);
+      } else {
+        mismatchContainer.innerHTML = '';
+      }
+    }
   }
 
   // H-9: Focus management — move focus into the newly-shown screen

@@ -2,7 +2,12 @@
 
 export type RiskLevel = 'danger' | 'high' | 'caution' | 'moderate' | 'medium' | 'low';
 export type TierLevel = 'free' | 'rescue_pass' | 'pro';
-export type ApiErrorType = 'plan_gate' | 'rate_limit' | 'cooldown' | 'server' | 'network' | 'busy' | 'validation' | 'anon_daily_limit';
+export type ApiErrorType = 'plan_gate' | 'rate_limit' | 'cooldown' | 'server' | 'network' | 'busy' | 'validation' | 'anon_daily_limit' | 'chain_mismatch';
+
+export interface ChainMismatchPayload {
+  requestedChain: string;
+  detectedChains: Array<{ id: string; label: string }>;
+}
 
 export interface TierCapabilities {
   singleTokenAnalysis: boolean;
@@ -106,6 +111,7 @@ export interface ApiResponse<T> {
   limit?: number;
   used?: number;
   remaining?: number;
+  chainMismatch?: ChainMismatchPayload;
 }
 
 export interface CacheEntry {
@@ -119,6 +125,7 @@ export interface SelectedToken {
   chain?: string;
   score?: TokenScore;
   metadata?: TokenMetadata;
+  chainMismatch?: ChainMismatchPayload;
 }
 
 export interface TokenListAnalysisData {

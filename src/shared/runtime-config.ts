@@ -103,6 +103,22 @@ export function getExtensionHealthTelemetryEnabled(): boolean {
   return parsed ?? true;
 }
 
+/**
+ * Feature flag: detect unsupported EVM chains from platform URLs (DexScreener,
+ * DexTools) and show a "Not supported: <chain>" badge instead of silently
+ * defaulting to Solana.
+ * Default: true. Set to false to revert to the old Solana-fallback behaviour.
+ */
+export function getUnsupportedChainUrlDetectionEnabled(): boolean {
+  const configured =
+    getEnvValue('BARRYGUARD_UNSUPPORTED_CHAIN_URL_DETECTION_ENABLED')
+    || getEnvValue('WXT_BARRYGUARD_UNSUPPORTED_CHAIN_URL_DETECTION_ENABLED')
+    || getEnvValue('VITE_BARRYGUARD_UNSUPPORTED_CHAIN_URL_DETECTION_ENABLED');
+
+  const parsed = parseBooleanEnv(configured);
+  return parsed ?? true;
+}
+
 export function getAccountUrl(): string {
   const configuredUrl = getEnvValue('BARRYGUARD_ACCOUNT_URL')
     || getEnvValue('WXT_BARRYGUARD_ACCOUNT_URL')

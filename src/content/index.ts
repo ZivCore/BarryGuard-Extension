@@ -37,7 +37,8 @@ import { VirtualsPlatform } from '../platforms/virtuals';
 import { DeBankPlatform } from '../platforms/debank';
 import { ZerionPlatform } from '../platforms/zerion';
 import type { IPlatform } from '../platforms/platform.interface';
-import type { ApiResponse, SelectedToken, TierLevel, TokenMetadata, TokenScore } from '../shared/types';
+import type { ApiResponse, ChainMismatchPayload, SelectedToken, TierLevel, TokenMetadata, TokenScore } from '../shared/types';
+import { getUnsupportedChainUrlDetectionEnabled } from '../shared/runtime-config';
 
 const PLATFORMS: IPlatform[] = [
   new PumpSwapPlatform(),
@@ -138,6 +139,7 @@ function persistSelectedToken(selectedToken: {
   chain?: string;
   score?: TokenScore;
   metadata?: TokenMetadata;
+  chainMismatch?: ChainMismatchPayload;
 }): void {
   withSafeRuntime(() => {
     void chrome.storage.local.set({ selectedToken }).catch((error: unknown) => {
@@ -588,7 +590,51 @@ export function initializeContentScript(_testPlatformOverride?: IPlatform): void
       reportHealth('anchor_not_found');
     }
 
-    const chain = (platform.detectChainFromUrl?.(window.location.href) ?? platform.chains?.[0]) ?? 'solana';
+    // Three-tier chain resolution (Step 6a):
+    // (a) Supported chain via detectChainFromUrl
+    // (b) Unsupported chain via detectUnsupportedChainFromUrl → dispatch to background, no backend call
+    // (c) Fail → render nothing (return early, already showing loading badge)
+    const detectedChain = platform.detectChainFromUrl?.(window.location.href) ?? platform.chains?.[0] ?? null;
+    if (!detectedChain) {
+      // Tier (b): check for unsupported EVM chain URL
+      const unsupportedChainEnabled = getUnsupportedChainUrlDetectionEnabled();
+      const unsupportedChain = unsupportedChainEnabled
+        ? (platform.detectUnsupportedChainFromUrl?.(window.location.href) ?? null)
+        : null;
+
+      if (unsupportedChain) {
+        pending.delete(address);
+        onSettled?.();
+        // Synchronously replace the loading badge before the background roundtrip
+        // so that SPA navigations never leave a stale loading badge visible.
+        if (platform.renderChainMismatchBadge) {
+          platform.renderChainMismatchBadge(address, { requestedChain: unsupportedChain.label, detectedChains: [] });
+        } else {
+          platform.renderErrorBadge(address);
+        }
+        // Persist so the popup can show the chain mismatch card
+        persistSelectedToken({
+          address,
+          chain: unsupportedChain.chainSegment,
+          chainMismatch: { requestedChain: unsupportedChain.label, detectedChains: [] },
+        });
+        sendRuntimeMessage(
+          {
+            type: 'UNSUPPORTED_CHAIN_DETECTED',
+            payload: { address, chainSegment: unsupportedChain.chainSegment, label: unsupportedChain.label, platformId: platform.id },
+          },
+          () => {},
+        );
+        return;
+      }
+
+      // Tier (c): unknown chain — render nothing, clean up loading state
+      pending.delete(address);
+      onSettled?.();
+      return;
+    }
+
+    const chain = detectedChain;
     sendRuntimeMessage({ type: 'GET_TOKEN_SCORE', payload: { address, chain } }, (response) => {
       pending.delete(address);
       onSettled?.();
@@ -621,7 +667,23 @@ export function initializeContentScript(_testPlatformOverride?: IPlatform): void
         return;
       }
 
-      const rateLimited = isRateLimitResponse(response as ApiResponse<TokenScore> | undefined);
+      const typedResponse = response as ApiResponse<TokenScore> | undefined;
+      const rateLimited = isRateLimitResponse(typedResponse);
+      const isChainMismatch = !typedResponse?.success && typedResponse?.errorType === 'chain_mismatch';
+
+      // Backend chain-mismatch response: render mismatch badge and persist
+      if (isChainMismatch) {
+        const mismatchPayload = typedResponse?.chainMismatch ?? { requestedChain: chain, detectedChains: [] };
+        if (platform.renderChainMismatchBadge) {
+          platform.renderChainMismatchBadge(address, mismatchPayload);
+        } else {
+          platform.renderErrorBadge(address);
+        }
+        if (platform.getCurrentPageAddress() === address) {
+          persistSelectedToken({ address, chain, chainMismatch: mismatchPayload });
+        }
+        return;
+      }
 
       // Bug fix: on rate limit, show lock badge instead of question mark
       if (rateLimited) {
@@ -642,7 +704,7 @@ export function initializeContentScript(_testPlatformOverride?: IPlatform): void
         }
       }
 
-      if (!rateLimited && shouldRetryScoreFetch(address, response as ApiResponse<TokenScore> | undefined)) {
+      if (!rateLimited && shouldRetryScoreFetch(address, typedResponse)) {
         scheduleRetry(address);
       }
     });
@@ -924,6 +986,19 @@ export function initializeContentScript(_testPlatformOverride?: IPlatform): void
                 scheduleRenderRetry(score.address);
               }
             }
+          }
+        }
+      }
+      if (message?.type === 'RENDER_CHAIN_MISMATCH') {
+        const mismatchPayload = message.payload as { address?: unknown; chainMismatch?: unknown } | undefined;
+        const mismatchAddress = typeof mismatchPayload?.address === 'string' ? mismatchPayload.address : null;
+        const chainMismatch = mismatchPayload?.chainMismatch as ChainMismatchPayload | undefined;
+        if (mismatchAddress && chainMismatch) {
+          pending.delete(mismatchAddress);
+          if (platform.renderChainMismatchBadge) {
+            platform.renderChainMismatchBadge(mismatchAddress, chainMismatch);
+          } else {
+            platform.renderErrorBadge(mismatchAddress);
           }
         }
       }

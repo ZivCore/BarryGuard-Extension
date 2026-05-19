@@ -2,7 +2,7 @@
 // Rendering functions extracted from popup/index.ts for testability.
 // These functions have no module-level side effects and can be imported in tests.
 
-import type { CheckResult, ConfidenceLevel, RiskLevel, Subscores, TokenScore } from '../shared/types';
+import type { ChainMismatchPayload, CheckResult, ConfidenceLevel, RiskLevel, Subscores, TokenScore } from '../shared/types';
 import { buildCheckUrl } from '../shared/check-url';
 import { type CheckCategory, CATEGORY_ORDER } from './check-categories';
 
@@ -983,4 +983,42 @@ export function renderRescueDial(score: TokenScore, resolvedTier?: string): void
   renderLegendValues(subscores);
   renderVerdictBand(risk, riskLabel, score.reasons, resolvedTier);
   renderDataStrip(score);
+}
+
+// ─── Chain Mismatch Card ──────────────────────────────────────────────────────
+
+/**
+ * Renders a chain-mismatch info card into `container`.
+ * Shows a headline ("Not supported on <chain>") and optional chain chips
+ * listing the chains on which the token is active.
+ */
+export function renderChainMismatchCard(container: HTMLElement, payload: ChainMismatchPayload): void {
+  container.innerHTML = '';
+
+  const card = document.createElement('div');
+  card.className = 'chain-mismatch-card';
+
+  const headline = document.createElement('p');
+  headline.className = 'chain-mismatch-headline';
+  headline.textContent = `Not supported: ${payload.requestedChain}`;
+  card.appendChild(headline);
+
+  if (payload.detectedChains.length > 0) {
+    const chipsLabel = document.createElement('p');
+    chipsLabel.className = 'chain-mismatch-chips-label';
+    chipsLabel.textContent = 'Active on:';
+    card.appendChild(chipsLabel);
+
+    const chipsRow = document.createElement('div');
+    chipsRow.className = 'chain-mismatch-chips';
+    for (const c of payload.detectedChains) {
+      const chip = document.createElement('span');
+      chip.className = 'chain-mismatch-chip';
+      chip.textContent = c.label;
+      chipsRow.appendChild(chip);
+    }
+    card.appendChild(chipsRow);
+  }
+
+  container.appendChild(card);
 }

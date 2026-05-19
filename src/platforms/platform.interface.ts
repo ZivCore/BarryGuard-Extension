@@ -1,5 +1,5 @@
 // src/platforms/platform.interface.ts
-import type { SelectedToken, TokenScore } from '../shared/types';
+import type { ChainMismatchPayload, SelectedToken, TokenScore } from '../shared/types';
 
 export interface IPlatform {
   readonly id: string;
@@ -13,7 +13,9 @@ export interface IPlatform {
   renderLoadingBadge(address: string): void;
   renderErrorBadge(address: string): void;
   renderLockedBadge(address: string): void;
+  renderChainMismatchBadge?(address: string, payload: ChainMismatchPayload): void;
   observeDOMChanges(callback: () => void): void;
   readonly chains?: string[];
   detectChainFromUrl?(url: string): string | null;
+  detectUnsupportedChainFromUrl?(url: string): { chainSegment: string; label: string } | null;
 }
