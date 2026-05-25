@@ -94,6 +94,7 @@ export class PumpFunPlatform implements IPlatform {
     renderStripeBadge(badge, {
       state: 'scored',
       score: score.score,
+      risk: score.risk,
       dark,
       compact: false,
     });
@@ -107,6 +108,7 @@ export class PumpFunPlatform implements IPlatform {
 
     renderFloatingPanel(badge, {
       score: score.score,
+      risk: score.risk,
       reasons: score.reasons ?? [],
       subscores: score.subscores,
       coverageRisk: score.coverageRisk,

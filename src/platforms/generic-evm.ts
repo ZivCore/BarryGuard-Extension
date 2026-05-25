@@ -183,6 +183,7 @@ export class GenericEvmPlatform implements IPlatform {
     renderStripeBadge(badge, {
       state: 'scored',
       score: score.score,
+      risk: score.risk,
       dark,
       compact: this.compactBadge,
     });
@@ -195,6 +196,7 @@ export class GenericEvmPlatform implements IPlatform {
 
     renderFloatingPanel(badge, {
       score: score.score,
+      risk: score.risk,
       reasons: score.reasons ?? [],
       subscores: score.subscores,
       coverageRisk: score.coverageRisk,

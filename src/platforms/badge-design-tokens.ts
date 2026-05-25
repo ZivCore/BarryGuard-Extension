@@ -99,6 +99,24 @@ export function toneColors(tone: BadgeTone, dark: boolean): BadgeToneColors {
 // Verdict text
 // ---------------------------------------------------------------------------
 
+/**
+ * Maps the backend `risk` field to the official five-tier display label.
+ * This is the canonical verdict-text source for both Stripe badge and
+ * Floating Panel. `verdictTextStripe` / `verdictTextFloating` remain for
+ * backward compatibility with tone-only code paths.
+ */
+export function verdictTextFromRisk(risk: string): string {
+  switch (risk) {
+    case 'danger':   return 'Danger';
+    case 'high':     return 'High Risk';
+    case 'caution':  return 'Caution';
+    case 'moderate': return 'Moderate';
+    case 'medium':   return 'Caution'; // backward compat alias
+    case 'low':      return 'Low Risk';
+    default:         return 'Unknown Risk';
+  }
+}
+
 export function verdictTextStripe(tone: BadgeTone): string {
   if (tone === 'safe') return 'All clear';
   if (tone === 'caution') return 'Tread carefully';

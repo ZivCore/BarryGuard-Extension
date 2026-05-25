@@ -5,6 +5,7 @@ import {
   toneColors,
   toneOf,
   verdictTextFloating,
+  verdictTextFromRisk,
   verdictTextStripe,
   type BadgeTone,
 } from '../badge-design-tokens';
@@ -91,7 +92,31 @@ describe('badge-design-tokens', () => {
     });
   });
 
-  describe('verdictTextStripe', () => {
+  describe('verdictTextFromRisk', () => {
+    it('maps danger → Danger', () => {
+      expect(verdictTextFromRisk('danger')).toBe('Danger');
+    });
+    it('maps high → High Risk', () => {
+      expect(verdictTextFromRisk('high')).toBe('High Risk');
+    });
+    it('maps caution → Caution', () => {
+      expect(verdictTextFromRisk('caution')).toBe('Caution');
+    });
+    it('maps moderate → Moderate', () => {
+      expect(verdictTextFromRisk('moderate')).toBe('Moderate');
+    });
+    it('maps medium → Caution (backward compat)', () => {
+      expect(verdictTextFromRisk('medium')).toBe('Caution');
+    });
+    it('maps low → Low Risk', () => {
+      expect(verdictTextFromRisk('low')).toBe('Low Risk');
+    });
+    it('maps unknown string → Unknown Risk', () => {
+      expect(verdictTextFromRisk('foobar')).toBe('Unknown Risk');
+    });
+  });
+
+  describe('verdictTextStripe (backward compat)', () => {
     it('returns exact stripe-variant strings', () => {
       expect(verdictTextStripe('safe')).toBe('All clear');
       expect(verdictTextStripe('caution')).toBe('Tread carefully');
@@ -99,7 +124,7 @@ describe('badge-design-tokens', () => {
     });
   });
 
-  describe('verdictTextFloating', () => {
+  describe('verdictTextFloating (backward compat)', () => {
     it('returns exact floating-variant strings', () => {
       expect(verdictTextFloating('safe')).toBe('CLEAR');
       expect(verdictTextFloating('caution')).toBe('CAUTION');

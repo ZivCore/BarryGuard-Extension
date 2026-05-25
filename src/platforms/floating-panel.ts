@@ -12,7 +12,7 @@ import {
   BADGE_FONT_MONO,
   toneColors,
   toneOf,
-  verdictTextFloating,
+  verdictTextFromRisk,
   type BadgeTone,
 } from './badge-design-tokens';
 
@@ -24,6 +24,7 @@ export interface FloatingPanelSubscores {
 
 export interface RenderFloatingPanelParams {
   score: number;
+  risk?: string;
   reasons: string[];
   subscores?: FloatingPanelSubscores;
   coverageRisk?: string | null;
@@ -115,10 +116,20 @@ function sendOpenAnalysisMessage(address: string): void {
   }
 }
 
+/** Score-based fallback for `risk` when the backend field is absent. */
+function floatingFallbackRisk(score: number): string {
+  if (score >= 90) return 'low';
+  if (score >= 75) return 'moderate';
+  if (score >= 55) return 'caution';
+  if (score >= 30) return 'high';
+  return 'danger';
+}
+
 function buildHeader(
   tone: BadgeTone,
   score: number,
   dark: boolean,
+  risk?: string,
 ): HTMLDivElement {
   const colors = toneColors(tone, dark);
 
@@ -180,7 +191,7 @@ function buildHeader(
   verdict.style.fontSize = '14px';
   verdict.style.fontWeight = '800';
   verdict.style.letterSpacing = '-0.2px';
-  verdict.textContent = verdictTextFloating(tone);
+  verdict.textContent = risk ? verdictTextFromRisk(risk) : verdictTextFromRisk(floatingFallbackRisk(score));
   labelBlock.appendChild(verdict);
 
   header.appendChild(labelBlock);
@@ -448,7 +459,7 @@ function renderPanelContent(
 
   // Build fresh content (listeners re-attached per render)
   const fragments: Array<HTMLElement> = [];
-  fragments.push(buildHeader(tone, params.score, dark));
+  fragments.push(buildHeader(tone, params.score, dark, params.risk));
 
   const grid = buildSubscoreGrid(params.subscores ?? {}, dark);
   if (grid) fragments.push(grid);
@@ -493,6 +504,11 @@ export function renderFloatingPanel(
   // Persist params on the badge so hover handler can re-read them
   badge.dataset.bgScore = String(params.score);
   badge.dataset.bgReasons = JSON.stringify(params.reasons.slice(0, 3));
+  if (params.risk) {
+    badge.dataset.bgRisk = params.risk;
+  } else {
+    delete badge.dataset.bgRisk;
+  }
   if (params.subscores) {
     badge.dataset.bgSubscores = JSON.stringify(params.subscores);
   } else {
@@ -536,6 +552,7 @@ export function renderFloatingPanel(
       }
       renderPanelContent(panel, {
         score: parseInt(badge.dataset.bgScore ?? '0', 10),
+        risk: badge.dataset.bgRisk,
         reasons: reasonsParsed,
         subscores: subscoresParsed,
         coverageRisk: badge.dataset.bgCoverageRisk ?? null,

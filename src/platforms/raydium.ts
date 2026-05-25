@@ -78,6 +78,7 @@ export class RaydiumPlatform extends GenericSolanaPlatform {
     renderStripeBadge(badge, {
       state: 'scored',
       score: score.score,
+      risk: score.risk,
       dark,
       compact: false,
     });
@@ -90,6 +91,7 @@ export class RaydiumPlatform extends GenericSolanaPlatform {
 
     renderFloatingPanel(badge, {
       score: score.score,
+      risk: score.risk,
       reasons: score.reasons ?? [],
       subscores: score.subscores,
       coverageRisk: score.coverageRisk,

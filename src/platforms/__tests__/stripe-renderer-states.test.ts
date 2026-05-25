@@ -17,31 +17,52 @@ function getScoreSlot(badge: HTMLDivElement): string {
 }
 
 describe('renderStripeBadge — five states', () => {
-  it('renders scored state with safe-tone verdict', () => {
+  it('renders scored state with Low Risk verdict (risk=low)', () => {
     const badge = createBadgeElement('TEST');
-    renderStripeBadge(badge, { state: 'scored', score: 82, dark: false });
-    expect(getVerdict(badge)).toBe('All clear');
-    expect(getScoreSlot(badge)).toBe('82');
+    renderStripeBadge(badge, { state: 'scored', score: 92, risk: 'low', dark: false });
+    expect(getVerdict(badge)).toBe('Low Risk');
+    expect(getScoreSlot(badge)).toBe('92');
     expect(badge.style.width).toBe('220px');
   });
 
-  it('renders scored state with caution-tone verdict', () => {
+  it('renders scored state with Moderate verdict (risk=moderate)', () => {
     const badge = createBadgeElement('TEST');
-    renderStripeBadge(badge, { state: 'scored', score: 55, dark: false });
-    expect(getVerdict(badge)).toBe('Tread carefully');
+    renderStripeBadge(badge, { state: 'scored', score: 82, risk: 'moderate', dark: false });
+    expect(getVerdict(badge)).toBe('Moderate');
+    expect(getScoreSlot(badge)).toBe('82');
+  });
+
+  it('renders scored state with Caution verdict (risk=caution)', () => {
+    const badge = createBadgeElement('TEST');
+    renderStripeBadge(badge, { state: 'scored', score: 55, risk: 'caution', dark: false });
+    expect(getVerdict(badge)).toBe('Caution');
     expect(getScoreSlot(badge)).toBe('55');
   });
 
-  it('renders scored state with danger-tone verdict', () => {
+  it('renders scored state with High Risk verdict (risk=high)', () => {
     const badge = createBadgeElement('TEST');
-    renderStripeBadge(badge, { state: 'scored', score: 15, dark: false });
-    expect(getVerdict(badge)).toBe('Stand down');
+    renderStripeBadge(badge, { state: 'scored', score: 40, risk: 'high', dark: false });
+    expect(getVerdict(badge)).toBe('High Risk');
+    expect(getScoreSlot(badge)).toBe('40');
+  });
+
+  it('renders scored state with Danger verdict (risk=danger)', () => {
+    const badge = createBadgeElement('TEST');
+    renderStripeBadge(badge, { state: 'scored', score: 15, risk: 'danger', dark: false });
+    expect(getVerdict(badge)).toBe('Danger');
     expect(getScoreSlot(badge)).toBe('15');
+  });
+
+  it('falls back to score-based risk when risk field absent (score 82 → Moderate)', () => {
+    const badge = createBadgeElement('TEST');
+    renderStripeBadge(badge, { state: 'scored', score: 82, dark: false });
+    expect(getVerdict(badge)).toBe('Moderate');
+    expect(getScoreSlot(badge)).toBe('82');
   });
 
   it('renders compact width when compact=true', () => {
     const badge = createBadgeElement('TEST');
-    renderStripeBadge(badge, { state: 'scored', score: 82, dark: false, compact: true });
+    renderStripeBadge(badge, { state: 'scored', score: 92, risk: 'low', dark: false, compact: true });
     expect(badge.style.width).toBe('160px');
   });
 

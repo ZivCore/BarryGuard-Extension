@@ -4,6 +4,7 @@ import {
   BADGE_FONT_MONO,
   toneColors,
   toneOf,
+  verdictTextFromRisk,
   verdictTextStripe,
   type BadgeTone,
 } from './badge-design-tokens';
@@ -56,6 +57,7 @@ export type StripeState =
 export interface RenderStripeParams {
   state: StripeState;
   score?: number;
+  risk?: string;
   dark: boolean;
   compact?: boolean;
 }
@@ -189,14 +191,26 @@ interface StateDefinition {
   opacity?: number;
 }
 
+/** Score-based fallback for `risk` when the backend field is absent. */
+function scoreFallbackRisk(score: number): string {
+  if (score >= 90) return 'low';
+  if (score >= 75) return 'moderate';
+  if (score >= 55) return 'caution';
+  if (score >= 30) return 'high';
+  return 'danger';
+}
+
 function resolveStateDefinition(
   params: RenderStripeParams,
 ): StateDefinition {
   switch (params.state) {
     case 'scored': {
       const tone = toneOf(params.score ?? 0);
+      const verdictText = params.risk
+        ? verdictTextFromRisk(params.risk)
+        : verdictTextFromRisk(scoreFallbackRisk(params.score ?? 0));
       return {
-        verdictText: verdictTextStripe(tone),
+        verdictText,
         scoreSlot: String(params.score ?? '?'),
         cursor: 'pointer',
         paletteDark: params.dark,
